@@ -10,9 +10,10 @@ export class OrdersDatasource {
       data: {
         customerId: 1,
         paymentMethod: orderData.paymentMethod,
-        subtotal: 0,
-        deliveryFee: 0,
-        total: 0,
+        subtotal: orderData.subtotal,
+        deliveryFee: orderData.deliveryFee,
+        total: orderData.total,
+        estimatedDeliveryTime: orderData.estimatedDeliveryTime,
       },
       include: {
         items: true,
