@@ -17,7 +17,6 @@ datasource db {
 model Order {
   id                    Int           @id @default(autoincrement())
   customerId            Int
-  totalAmount           Float
   status                OrderStatus   @default(PENDING)
   items                 OrderItem[]
   //deliveryAddress deliveryAddress

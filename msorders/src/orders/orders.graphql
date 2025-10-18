@@ -1,15 +1,28 @@
 type Order {
-  # Example field (placeholder)
-  exampleField: Int
+  id: Int!
+  customerId: Int # TODO: Transformar em obrigatório depois
+  status: OrderStatus!
+  #items: [OrderItem!]!
+  #deliveryAddress: String!
+  subtotal: Float!
+  deliveryFee: Float!
+  total: Float!
+  paymentMethod: PaymentMethod!
+  estimatedDeliveryTime: Int! # em minutos
+  createdAt: String!
+  updatedAt: String!
 }
 
 input CreateOrderInput {
-  # Example field (placeholder)
-  exampleField: Int
+  customerId: Int # TODO: Transformar em obrigatório depois
+  #items: [OrderItemInput!]!
+  #deliveryAddress: DeliveryAddressInput!
+  paymentMethod: PaymentMethod!
 }
 
 input UpdateOrderInput {
   id: Int!
+  status: OrderStatus!
 }
 
 type Query {
@@ -21,4 +34,22 @@ type Mutation {
   createOrder(createOrderInput: CreateOrderInput!): Order!
   updateOrder(updateOrderInput: UpdateOrderInput!): Order!
   removeOrder(id: Int!): Order
+}
+
+
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  OUT_FOR_DELIVERY
+  ARRIVING
+  DELIVERED
+  CANCELLED
+}
+enum PaymentMethod {
+  CREDIT_CARD
+  DEBIT_CARD
+  PIX
+  CASH
 }
