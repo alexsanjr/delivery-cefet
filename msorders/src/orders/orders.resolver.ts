@@ -7,6 +7,7 @@ import {
 } from '@nestjs/graphql';
 import { OrdersService } from './orders.service';
 import { CreateOrderInput } from './dto/create-order.input';
+import type { Order } from 'generated/prisma';
 
 @Resolver('Order')
 export class OrdersResolver {
@@ -31,17 +32,16 @@ export class OrdersResolver {
   async createOrder(
     @Args('createOrderInput') createOrderInput: CreateOrderInput,
   ) {
-    console.log('Creating order with input:', createOrderInput);
     return this.ordersService.create(createOrderInput);
   }
 
   @ResolveField('createdAt')
-  getCreatedAt(@Parent() order: any): string {
+  getCreatedAt(@Parent() order: Order): string {
     return new Date(order.createdAt).toLocaleString('pt-BR');
   }
 
   @ResolveField('updatedAt')
-  getUpdatedAt(@Parent() order: any): string {
+  getUpdatedAt(@Parent() order: Order): string {
     return new Date(order.updatedAt).toLocaleString('pt-BR');
   }
 
