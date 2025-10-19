@@ -1,0 +1,71 @@
+type Customer {
+  id: ID!
+  name: String!
+  email: String!
+  phone: String!
+  addresses: [Address!]!
+  createdAt: String!
+  updatedAt: String!
+}
+
+type Address {
+  id: ID!
+  street: String!        # ← era "rua"
+  number: String!        # ← era "numero"
+  neighborhood: String!  # ← era "bairro"
+  city: String!          # ← era "cidade"
+  state: String!         # ← era "estado"
+  zipCode: String!       # ← era "cep"
+  complement: String     # ← era "complemento"
+  isPrimary: Boolean!    # ← era "principal"
+  createdAt: String!
+}
+
+input CreateCustomerInput {
+  name: String!
+  email: String!
+  phone: String!
+  address: CreateAddressInput
+}
+
+input UpdateCustomerInput {
+  name: String
+  phone: String
+}
+
+input CreateAddressInput {
+  street: String!        # ← era "rua"
+  number: String!        # ← era "numero"
+  neighborhood: String!  # ← era "bairro"
+  city: String!          # ← era "cidade"
+  state: String!         # ← era "estado"
+  zipCode: String!       # ← era "cep"
+  complement: String     # ← era "complemento"
+  isPrimary: Boolean     # ← era "principal"
+}
+
+input UpdateAddressInput {
+  street: String        # ← era "rua"
+  number: String        # ← era "numero"
+  neighborhood: String  # ← era "bairro"
+  city: String          # ← era "cidade"
+  state: String         # ← era "estado"
+  zipCode: String       # ← era "cep"
+  complement: String    # ← era "complemento"
+  isPrimary: Boolean    # ← era "principal"
+}
+
+type Query {
+  customers: [Customer!]!
+  customer(id: ID!): Customer
+  customerByEmail(email: String!): Customer
+}
+
+type Mutation {
+  createCustomer(input: CreateCustomerInput!): Customer!
+  updateCustomer(id: ID!, input: UpdateCustomerInput!): Customer!
+  addAddress(customerId: ID!, input: CreateAddressInput!): Customer!
+  updateAddress(addressId: ID!, input: UpdateAddressInput!): Address!
+  setPrimaryAddress(customerId: ID!, addressId: ID!): Customer!
+  removeAddress(addressId: ID!): Boolean!
+}
