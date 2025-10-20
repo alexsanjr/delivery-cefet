@@ -9,15 +9,22 @@ import {
 import { OrdersService } from './orders.service';
 import { CreateOrderInput } from './dto/create-order.input';
 import type { Order } from 'generated/prisma';
+import { UpdateOrderInput } from './dto/update-order.input';
 
 @Resolver('Order')
 export class OrdersResolver {
   constructor(private readonly ordersService: OrdersService) {}
 
-  // @Query('orders')
-  // async getOrders() {
-  //   return this.ordersService.findAll();
-  // }
+  @Query('orders')
+  async getOrders() {
+    try {
+      return this.ordersService.findAll();
+    } catch (error) {
+      throw new Error(
+        `Ocorreu um erro ao buscar os pedidos: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+      );
+    }
+  }
 
   @Query('order')
   async getOrder(@Args('id') id: number) {
@@ -34,6 +41,20 @@ export class OrdersResolver {
   // async getCustomerOrders(@Args('customerId') customerId: string) {
   //   return this.ordersService.findByCustomer(customerId);
   // }
+
+  @Mutation('updateOrder')
+  async updateOrder(
+    @Args('updateOrderInput') updateOrderInput: UpdateOrderInput,
+  ) {
+    try {
+      console.log(updateOrderInput);
+      return await this.ordersService.updateStatus(updateOrderInput);
+    } catch (error) {
+      throw new Error(
+        `Ocorreu um erro ao atualizar o pedido ${updateOrderInput.id}: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+      );
+    }
+  }
 
   @Mutation('createOrder')
   async createOrder(
