@@ -1,5 +1,5 @@
 type Customer {
-  id: ID!
+  id: Int!
   name: String!
   email: String!
   phone: String!
@@ -9,7 +9,7 @@ type Customer {
 }
 
 type Address {
-  id: ID!
+  id: Int!
   street: String!        # ← era "rua"
   number: String!        # ← era "numero"
   neighborhood: String!  # ← era "bairro"
@@ -57,15 +57,15 @@ input UpdateAddressInput {
 
 type Query {
   customers: [Customer!]!
-  customer(id: ID!): Customer
+  customer(id: Int!): Customer
   customerByEmail(email: String!): Customer
 }
 
 type Mutation {
   createCustomer(input: CreateCustomerInput!): Customer!
-  updateCustomer(id: ID!, input: UpdateCustomerInput!): Customer!
-  addAddress(customerId: ID!, input: CreateAddressInput!): Customer!
-  updateAddress(addressId: ID!, input: UpdateAddressInput!): Address!
-  setPrimaryAddress(customerId: ID!, addressId: ID!): Customer!
-  removeAddress(addressId: ID!): Boolean!
+  updateCustomer(id: Int!, input: UpdateCustomerInput!): Customer!
+  addAddress(customerId: Int!, input: CreateAddressInput!): Customer!
+  updateAddress(addressId: Int!, input: UpdateAddressInput!): Address!
+  setPrimaryAddress(customerId: Int!, addressId: Int!): Customer!
+  removeAddress(addressId: Int!): Boolean!
 }
