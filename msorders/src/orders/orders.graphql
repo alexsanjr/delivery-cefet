@@ -33,7 +33,7 @@ type Query {
 type Mutation {
   createOrder(createOrderInput: CreateOrderInput!): Order!
   updateOrder(updateOrderInput: UpdateOrderInput!): Order!
-  removeOrder(id: Int!): Order
+  cancelOrder(id: Int!): Order
 }
 
 

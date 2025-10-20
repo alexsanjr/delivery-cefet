@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateOrderInput } from './dto/create-order.input';
 import { OrdersDatasource } from './orders.datasource';
+import { UpdateOrderInput } from './dto/update-order.input';
 
 @Injectable()
 export class OrdersService {
@@ -26,9 +27,9 @@ export class OrdersService {
     return this.ordersDatasource.create(orderData);
   }
 
-  // async findAll() {
-  //   return this.ordersRepository.findAll();
-  // }
+  async findAll() {
+    return this.ordersDatasource.findAll();
+  }
 
   async findById(id: number) {
     const order = await this.ordersDatasource.findById(id);
@@ -42,10 +43,16 @@ export class OrdersService {
   //   return this.ordersRepository.findByCustomer(customerId);
   // }
 
-  // async updateStatus(orderId: string, status: string) {
-  //   await this.findById(orderId); // Valida se existe
-  //   return this.ordersRepository.updateStatus(orderId, status);
-  // }
+  async updateStatus(orderData: UpdateOrderInput) {
+    try {
+      await this.findById(orderData.id);
+      return this.ordersDatasource.updateStatus(orderData);
+    } catch (error) {
+      throw new Error(
+        `Ocorreu um erro ao atualizar o status do pedido ${orderData.id}: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+      );
+    }
+  }
 
   // Regras de negócio
   // private calculateSubtotal(items: any[]): number {
