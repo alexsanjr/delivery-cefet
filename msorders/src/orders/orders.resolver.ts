@@ -4,6 +4,7 @@ import {
   Args,
   ResolveField,
   Parent,
+  Query,
 } from '@nestjs/graphql';
 import { OrdersService } from './orders.service';
 import { CreateOrderInput } from './dto/create-order.input';
@@ -18,10 +19,16 @@ export class OrdersResolver {
   //   return this.ordersService.findAll();
   // }
 
-  // @Query('order')
-  // async getOrder(@Args('id') id: string) {
-  //   return this.ordersService.findById(id);
-  // }
+  @Query('order')
+  async getOrder(@Args('id') id: number) {
+    try {
+      return await this.ordersService.findById(id);
+    } catch (error) {
+      throw new Error(
+        `Ocorreu um erro ${id}: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+      );
+    }
+  }
 
   // @Query('customerOrders')
   // async getCustomerOrders(@Args('customerId') customerId: string) {
@@ -32,7 +39,13 @@ export class OrdersResolver {
   async createOrder(
     @Args('createOrderInput') createOrderInput: CreateOrderInput,
   ) {
-    return this.ordersService.create(createOrderInput);
+    try {
+      return await this.ordersService.create(createOrderInput);
+    } catch (error) {
+      throw new Error(
+        `Ocorreu um erro ao criar o pedido: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+      );
+    }
   }
 
   @ResolveField('createdAt')
