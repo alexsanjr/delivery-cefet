@@ -1,9 +1,10 @@
 -- CreateTable
 CREATE TABLE "customers" (
-    "id" TEXT NOT NULL,
+    "id" SERIAL NOT NULL,
     "name" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "phone" TEXT NOT NULL,
+    "isPremium" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -12,8 +13,8 @@ CREATE TABLE "customers" (
 
 -- CreateTable
 CREATE TABLE "addresses" (
-    "id" TEXT NOT NULL,
-    "customerId" TEXT NOT NULL,
+    "id" SERIAL NOT NULL,
+    "customerId" INTEGER NOT NULL,
     "street" TEXT NOT NULL,
     "number" TEXT NOT NULL,
     "neighborhood" TEXT NOT NULL,

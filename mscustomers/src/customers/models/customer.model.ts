@@ -4,7 +4,7 @@ import { Address } from './address.model';
 @ObjectType()
 export class Customer {
   @Field(() => ID)
-  id: string;
+  id: number;
 
   @Field()
   name: string;
@@ -17,6 +17,9 @@ export class Customer {
 
   @Field(() => [Address])
   addresses: Address[];
+
+  @Field()
+  isPremium: boolean;
 
   @Field()
   createdAt: Date;

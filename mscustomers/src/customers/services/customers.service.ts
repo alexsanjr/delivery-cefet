@@ -30,6 +30,7 @@ export class CustomersService {
             isPrimary: true, // Primeiro endereço é sempre primário
           },
         } : undefined,
+        isPremium: createCustomerInput.isPremium
       },
       include: {
         addresses: true,
@@ -47,7 +48,7 @@ export class CustomersService {
     });
   }
 
-  async findById(id: string) {
+  async findById(id: number) {
     const customer = await this.prisma.customer.findUnique({
       where: { id },
       include: {
@@ -81,7 +82,7 @@ export class CustomersService {
     return customer;
   }
 
-  async update(id: string, updateCustomerInput: UpdateCustomerInput) {
+  async update(id: number, updateCustomerInput: UpdateCustomerInput) {
     await this.findById(id); // Verifica se existe
 
     return await this.prisma.customer.update({
@@ -95,7 +96,7 @@ export class CustomersService {
     });
   }
 
-  async addAddress(customerId: string, createAddressInput: CreateAddressInput) {
+  async addAddress(customerId: number, createAddressInput: CreateAddressInput) {
     await this.findById(customerId); // Verifica se customer existe
 
     return await this.prisma.customer.update({
@@ -113,7 +114,7 @@ export class CustomersService {
     });
   }
 
-  async updateAddress(addressId: string, updateAddressInput: UpdateAddressInput) {
+  async updateAddress(addressId: number, updateAddressInput: UpdateAddressInput) {
     const address = await this.prisma.address.findUnique({
       where: { id: addressId },
     });
@@ -128,7 +129,7 @@ export class CustomersService {
     });
   }
 
-  async setPrimaryAddress(customerId: string, addressId: string) {
+  async setPrimaryAddress(customerId: number, addressId: number) {
     // Primeiro, remove primary de todos os endereços do customer
     await this.prisma.address.updateMany({
       where: { customerId },
@@ -144,7 +145,7 @@ export class CustomersService {
     return await this.findById(customerId);
   }
 
-  async removeAddress(addressId: string) {
+  async removeAddress(addressId: number) {
     const address = await this.prisma.address.findUnique({
       where: { id: addressId },
     });
