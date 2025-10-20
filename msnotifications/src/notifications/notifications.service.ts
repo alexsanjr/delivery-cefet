@@ -66,4 +66,28 @@ export class NotificationsService implements INotificationSubject, OnModuleInit 
                 return `Status do pedido #${orderId}: ${status}`;
         }
     }
+
+    async getNotificationsByUserId(userId: string): Promise<NotificationEntity[]> {
+        return await this.notificationsRepository.findByUserId(userId);
+    }
+
+    async getNotificationsByOrderId(orderId: string): Promise<NotificationEntity[]> {
+        return await this.notificationsRepository.findByOrderId(orderId);
+    }
+
+    async markNotificationAsRead(notificationId: string): Promise<void> {
+        await this.notificationsRepository.markAsRead(notificationId);
+    }
+
+    connectClient(userId: string): void {
+        this.terminalNotifier.connectClient(userId);
+    }
+
+    disconnectClient(userId: string): void {
+        this.terminalNotifier.disconnectClient(userId);
+    }
+
+    getConnectedClients(): string[] {
+        return this.terminalNotifier.getConnectedClients();
+    }
 }
