@@ -64,6 +64,17 @@ export class ProductResolver {
     }
   }
 
+  @Mutation('deleteProduct')
+  async deleteProduct(@Args('id') id: number) {
+    try {
+      return await this.productService.delete(id);
+    } catch (error) {
+      throw new Error(
+        `Ocorreu um erro ao deletar o produto ${id}: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+      );
+    }
+  }
+
   @ResolveField('createdAt')
   getCreatedAt(@Parent() product: Product): string {
     return new Date(product.createdAt).toLocaleString('pt-BR');
@@ -73,6 +84,4 @@ export class ProductResolver {
   getUpdatedAt(@Parent() product: Product): string {
     return new Date(product.updatedAt).toLocaleString('pt-BR');
   }
-
-  // TODO: fazer delete product
 }

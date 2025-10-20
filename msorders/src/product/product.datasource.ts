@@ -47,4 +47,10 @@ export class ProductDatasource {
       },
     });
   }
+
+  async delete(id: number) {
+    return await this.prisma.product.delete({
+      where: { id },
+    });
+  }
 }
