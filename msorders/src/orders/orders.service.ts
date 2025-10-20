@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateOrderInput } from './dto/create-order.input';
 import { OrdersDatasource } from './orders.datasource';
 
@@ -30,13 +30,13 @@ export class OrdersService {
   //   return this.ordersRepository.findAll();
   // }
 
-  // async findById(id: string) {
-  //   const order = await this.ordersRepository.findById(id);
-  //   if (!order) {
-  //     throw new NotFoundException(`Order ${id} not found`);
-  //   }
-  //   return order;
-  // }
+  async findById(id: number) {
+    const order = await this.ordersDatasource.findById(id);
+    if (!order) {
+      throw new NotFoundException(`Order ${id} not found`);
+    }
+    return order;
+  }
 
   // async findByCustomer(customerId: string) {
   //   return this.ordersRepository.findByCustomer(customerId);

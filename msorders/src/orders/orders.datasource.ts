@@ -32,14 +32,14 @@ export class OrdersDatasource {
   //   });
   // }
 
-  // async findById(id: string) {
-  //   return this.prisma.order.findUnique({
-  //     where: { id },
-  //     include: {
-  //       items: true,
-  //     },
-  //   });
-  // }
+  async findById(id: number) {
+    return this.prisma.order.findUnique({
+      where: { id },
+      include: {
+        items: true,
+      },
+    });
+  }
 
   // async findByCustomer(customerId: string) {
   //   return this.prisma.order.findMany({
