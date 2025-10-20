@@ -113,9 +113,7 @@ export class ProductService {
       }
 
       const existingProduct = await this.productDatasource.findById(id);
-      console.log(existingProduct);
       if (existingProduct == null) {
-        console.log('oi');
         this.logger.warn(`Produto não encontrado para deleção: ID ${id}`);
         throw new NotFoundException(`Produto ${id} não encontrado`);
       }
