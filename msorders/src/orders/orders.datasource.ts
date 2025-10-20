@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateOrderInput } from './dto/create-order.input';
 import { UpdateOrderInput } from './dto/update-order.input';
-import { IOrderDatasource } from './interfaces/IOrderDatasource.interface';
+import { IOrderDatasource } from './interfaces';
 
 @Injectable()
 export class OrdersDatasource implements IOrderDatasource {
