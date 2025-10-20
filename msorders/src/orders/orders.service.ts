@@ -54,6 +54,13 @@ export class OrdersService {
     }
   }
 
+  async findByCustomer(customerId: number) {
+    if (!customerId) {
+      throw new Error('É necessário fornecer um cliente válido.');
+    }
+    return this.ordersDatasource.findByCustomer(customerId);
+  }
+
   // Regras de negócio
   // private calculateSubtotal(items: any[]): number {
   //   return items.reduce((total, item) => {

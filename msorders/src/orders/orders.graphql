@@ -28,12 +28,12 @@ input UpdateOrderInput {
 type Query {
   orders: [Order]!
   order(id: Int!): Order
+  customerOrders(customerId: Int!): [Order]!
 }
 
 type Mutation {
   createOrder(createOrderInput: CreateOrderInput!): Order!
   updateOrder(updateOrderInput: UpdateOrderInput!): Order!
-  cancelOrder(id: Int!): Order
 }
 
 

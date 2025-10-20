@@ -43,17 +43,17 @@ export class OrdersDatasource {
     });
   }
 
-  // async findByCustomer(customerId: string) {
-  //   return this.prisma.order.findMany({
-  //     where: { customerId },
-  //     include: {
-  //       items: true,
-  //     },
-  //     orderBy: {
-  //       createdAt: 'desc',
-  //     },
-  //   });
-  // }
+  async findByCustomer(customerId: number) {
+    return this.prisma.order.findMany({
+      where: { customerId },
+      include: {
+        items: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
 
   async updateStatus(orderData: UpdateOrderInput) {
     return this.prisma.order.update({
