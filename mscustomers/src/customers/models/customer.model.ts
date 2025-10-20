@@ -4,7 +4,7 @@ import { Address } from './address.model';
 @ObjectType()
 export class Customer {
   @Field(() => ID)
-  id: string;
+  id: number;
 
   @Field()
   name: string;
