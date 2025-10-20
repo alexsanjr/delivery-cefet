@@ -17,7 +17,7 @@ export class CustomersResolver {
   }
 
   @Query(() => Customer)
-  async customer(@Args('id') id: string): Promise<Customer> {
+  async customer(@Args('id') id: number): Promise<Customer> {
     return this.customersService.findById(id);
   }
 
@@ -33,7 +33,7 @@ export class CustomersResolver {
 
   @Mutation(() => Customer)
   async updateCustomer(
-    @Args('id') id: string,
+    @Args('id') id: number,
     @Args('input') input: UpdateCustomerInput,
   ): Promise<Customer> {
     return this.customersService.update(id, input);
@@ -41,7 +41,7 @@ export class CustomersResolver {
 
   @Mutation(() => Customer)
   async addAddress(
-    @Args('customerId') customerId: string,
+    @Args('customerId') customerId: number,
     @Args('input') input: CreateAddressInput,
   ): Promise<Customer> {
     return this.customersService.addAddress(customerId, input);
@@ -49,7 +49,7 @@ export class CustomersResolver {
 
   @Mutation(() => Address)
   async updateAddress(
-    @Args('addressId') addressId: string,
+    @Args('addressId') addressId: number,
     @Args('input') input: UpdateAddressInput,
   ): Promise<Address> {
     return this.customersService.updateAddress(addressId, input);
@@ -57,14 +57,14 @@ export class CustomersResolver {
 
   @Mutation(() => Customer)
   async setPrimaryAddress(
-    @Args('customerId') customerId: string,
-    @Args('addressId') addressId: string,
+    @Args('customerId') customerId: number,
+    @Args('addressId') addressId: number,
   ): Promise<Customer> {
     return this.customersService.setPrimaryAddress(customerId, addressId);
   }
 
   @Mutation(() => Boolean)
-  async removeAddress(@Args('addressId') addressId: string): Promise<boolean> {
+  async removeAddress(@Args('addressId') addressId: number): Promise<boolean> {
     return this.customersService.removeAddress(addressId);
   }
 }
