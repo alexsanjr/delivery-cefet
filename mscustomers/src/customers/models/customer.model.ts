@@ -19,6 +19,9 @@ export class Customer {
   addresses: Address[];
 
   @Field()
+  isPremium: boolean;
+
+  @Field()
   createdAt: Date;
 
   @Field()

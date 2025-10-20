@@ -4,6 +4,7 @@ type Customer {
   email: String!
   phone: String!
   addresses: [Address!]!
+  isPremium: Boolean!
   createdAt: String!
   updatedAt: String!
 }
@@ -26,11 +27,13 @@ input CreateCustomerInput {
   email: String!
   phone: String!
   address: CreateAddressInput
+  isPremium: Boolean!
 }
 
 input UpdateCustomerInput {
   name: String
   phone: String
+  isPremium: Boolean
 }
 
 input CreateAddressInput {

@@ -7,4 +7,7 @@ export class UpdateCustomerInput {
 
   @Field({ nullable: true })
   phone?: string;
+
+  @Field({ nullable: true })
+  isPremium?: boolean;
 }

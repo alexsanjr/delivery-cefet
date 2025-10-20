@@ -30,6 +30,7 @@ export class CustomersService {
             isPrimary: true, // Primeiro endereço é sempre primário
           },
         } : undefined,
+        isPremium: createCustomerInput.isPremium
       },
       include: {
         addresses: true,
