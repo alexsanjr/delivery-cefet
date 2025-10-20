@@ -17,6 +17,18 @@ async function main() {
   await prisma.product.deleteMany({});
   console.log('✅ Products removidos');
 
+  // Resetar contadores de ID para começar do 1
+  console.log('🔄 Resetando contadores de ID...');
+
+  await prisma.$executeRaw`ALTER SEQUENCE products_id_seq RESTART WITH 1`;
+  console.log('✅ Contador de Products resetado');
+
+  await prisma.$executeRaw`ALTER SEQUENCE orders_id_seq RESTART WITH 1`;
+  console.log('✅ Contador de Orders resetado');
+
+  await prisma.$executeRaw`ALTER SEQUENCE order_items_id_seq RESTART WITH 1`;
+  console.log('✅ Contador de OrderItems resetado');
+
   // 🍕 Agora, criar produtos para usar nos pedidos
   console.log('📦 Criando produtos...');
 
