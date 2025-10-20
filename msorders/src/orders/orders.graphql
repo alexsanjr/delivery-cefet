@@ -2,7 +2,7 @@ type Order {
   id: Int!
   customerId: Int # TODO: Transformar em obrigatório depois
   status: OrderStatus!
-  #items: [OrderItem!]!
+  items: [OrderItem!]!
   #deliveryAddress: String!
   subtotal: Float!
   deliveryFee: Float!
@@ -13,11 +13,25 @@ type Order {
   updatedAt: String!
 }
 
+type OrderItem {
+  id: Int!
+  productId: Int
+  name: String!
+  description: String
+  quantity: Int!
+  price: Float!
+}
+
 input CreateOrderInput {
   customerId: Int # TODO: Transformar em obrigatório depois
-  #items: [OrderItemInput!]!
+  items: [OrderItemInput!]!
   #deliveryAddress: DeliveryAddressInput!
   paymentMethod: PaymentMethod!
+}
+
+input OrderItemInput {
+  productId: Int!
+  quantity: Int!
 }
 
 input UpdateOrderInput {

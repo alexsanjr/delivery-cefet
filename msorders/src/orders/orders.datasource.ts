@@ -3,12 +3,22 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateOrderInput } from './dto/create-order.input';
 import { UpdateOrderInput } from './dto/update-order.input';
 import { IOrderDatasource } from './interfaces';
+import { OrderStatus } from 'generated/prisma';
+
+interface CreateOrderData extends CreateOrderInput {
+  subtotal: number;
+  deliveryFee: number;
+  total: number;
+  estimatedDeliveryTime: number;
+  status: OrderStatus;
+  customerId: number; // Torna obrigatório para criação
+}
 
 @Injectable()
 export class OrdersDatasource implements IOrderDatasource {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(orderData: CreateOrderInput) {
+  async create(orderData: CreateOrderData) {
     return this.prisma.order.create({
       data: {
         customerId: orderData.customerId,
@@ -17,6 +27,32 @@ export class OrdersDatasource implements IOrderDatasource {
         deliveryFee: orderData.deliveryFee,
         total: orderData.total,
         estimatedDeliveryTime: orderData.estimatedDeliveryTime,
+        status: orderData.status,
+
+        items: {
+          create: await Promise.all(
+            orderData.items.map(async (item) => {
+              // Busca as informações completas do produto
+              const product = await this.prisma.product.findUnique({
+                where: { id: item.productId },
+              });
+
+              if (!product) {
+                throw new Error(
+                  `Produto com ID ${item.productId} não encontrado`,
+                );
+              }
+
+              return {
+                productId: item.productId,
+                name: product.name,
+                description: product.description,
+                quantity: item.quantity,
+                price: product.price,
+              };
+            }),
+          ),
+        },
       },
       include: {
         items: true,
@@ -63,6 +99,12 @@ export class OrdersDatasource implements IOrderDatasource {
       include: {
         items: true,
       },
+    });
+  }
+
+  async findProductById(productId: number) {
+    return this.prisma.product.findUnique({
+      where: { id: productId },
     });
   }
 }

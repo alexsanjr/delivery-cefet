@@ -8,8 +8,12 @@ import {
 } from '@nestjs/graphql';
 import { OrdersService } from './orders.service';
 import { CreateOrderInput } from './dto/create-order.input';
-import type { Order } from 'generated/prisma';
+import type { Order, OrderItem } from 'generated/prisma';
 import { UpdateOrderInput } from './dto/update-order.input';
+
+type OrderWithItems = Order & {
+  items?: OrderItem[];
+};
 
 @Resolver('Order')
 export class OrdersResolver {
@@ -83,5 +87,10 @@ export class OrdersResolver {
   @ResolveField('updatedAt')
   getUpdatedAt(@Parent() order: Order): string {
     return new Date(order.updatedAt).toLocaleString('pt-BR');
+  }
+
+  @ResolveField('items')
+  getItems(@Parent() order: OrderWithItems) {
+    return order.items || [];
   }
 }
