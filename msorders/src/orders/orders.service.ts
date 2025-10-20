@@ -8,13 +8,22 @@ import { CreateOrderInput } from './dto/create-order.input';
 import { OrdersDatasource } from './orders.datasource';
 import { UpdateOrderInput } from './dto/update-order.input';
 import { OrderStatus, PaymentMethod } from 'generated/prisma';
-import { IOrderValidator } from './interfaces/IOrderValidator.interface';
-import { IPriceCalculator } from './interfaces/IPriceCalculator.interface';
+import {
+  IOrderValidator,
+  PriceStrategy,
+  OrderItem,
+  OrderAddress,
+} from './interfaces';
+import { PriceCalculatorContext } from './strategies/price-calculator.context';
 
 @Injectable()
-export class OrdersService implements IOrderValidator, IPriceCalculator {
+export class OrdersService implements IOrderValidator {
   private readonly logger = new Logger(OrdersService.name);
-  constructor(private readonly ordersDatasource: OrdersDatasource) {}
+
+  constructor(
+    private readonly ordersDatasource: OrdersDatasource,
+    private readonly priceCalculatorContext: PriceCalculatorContext,
+  ) {}
 
   async create(createOrderInput: CreateOrderInput) {
     this.logger.log(
@@ -24,11 +33,24 @@ export class OrdersService implements IOrderValidator, IPriceCalculator {
     try {
       this.validateCreateOrderInput(createOrderInput);
 
-      // Cálculos de negócio
-      const subtotal = this.calculateSubtotal();
-      const deliveryFee = this.calculateDeliveryFee();
+      // Determinar estratégia baseada no tipo de pedido ou cliente
+      const strategy = this.determineStrategy(createOrderInput);
+
+      // Cálculos de negócio usando Strategy Pattern
+      const items = this.mapOrderItems(undefined); // Será implementado quando DTO tiver items
+      const address = this.mapOrderAddress();
+
+      const subtotal = this.priceCalculatorContext.calculateSubtotal(
+        strategy,
+        items,
+      );
+      const deliveryFee = this.priceCalculatorContext.calculateDeliveryFee(
+        strategy,
+        address,
+      );
       const total = subtotal + deliveryFee;
-      const estimatedDeliveryTime = this.calculateDeliveryTime();
+      const estimatedDeliveryTime =
+        this.priceCalculatorContext.calculateDeliveryTime(strategy, address);
 
       // Preparar dados para persistência
       const orderData = {
@@ -251,24 +273,45 @@ export class OrdersService implements IOrderValidator, IPriceCalculator {
     }
   }
 
-  public calculateSubtotal(): number {
-    // items?: any[]
-    // Por enquanto valor fixo, mas aqui viria o cálculo real baseado nos items
-    // TODO: implementar cálculo real quando tiver items
-    return 100.0;
+  // Métodos auxiliares para Strategy Pattern
+  private determineStrategy(createOrderInput: CreateOrderInput): PriceStrategy {
+    // Lógica para determinar qual estratégia usar
+    // Pode ser baseada no tipo de cliente, valor do pedido, urgência, etc.
+
+    // TODO: Implementar essa lógica verificando se cliente é premium
+    const customerIdStr = String(createOrderInput.customerId);
+    if (customerIdStr.includes('premium')) {
+      return PriceStrategy.PREMIUM;
+    }
+
+    // Pedidos urgentes ou express são pagos com cartão de crédito
+    if (createOrderInput.paymentMethod === PaymentMethod.CREDIT_CARD) {
+      return PriceStrategy.EXPRESS;
+    }
+
+    // Estratégia padrão
+    return PriceStrategy.BASIC;
   }
 
-  public calculateDeliveryFee(): number {
-    // address?: any
-    // Lógica de negócio para calcular taxa de entrega
-    // TODO: implementar baseado na distância, valor do pedido, etc.
-    return 5.0;
+  private mapOrderItems(items?: any[]): OrderItem[] | undefined {
+    if (!items || items.length === 0) {
+      return undefined;
+    }
+
+    return items.map((item: any) => ({
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      price: Number(item.price) || 0,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      quantity: Number(item.quantity) || 1,
+    }));
   }
 
-  public calculateDeliveryTime(): number {
-    // address?: any
-    // Tempo estimado em minutos
-    // TODO: implementar baseado na distância, horário, etc.
-    return 30;
+  private mapOrderAddress(): OrderAddress | undefined {
+    // Se houver informações de endereço no input, mapear para OrderAddress
+    // Por enquanto, retornando um endereço com distância padrão
+    // No futuro poderia receber parâmetros de endereço para calcular distância real
+    return {
+      distance: 5, // km - valor padrão
+    };
   }
 }
