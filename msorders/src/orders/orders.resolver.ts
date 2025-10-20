@@ -37,10 +37,16 @@ export class OrdersResolver {
     }
   }
 
-  // @Query('customerOrders')
-  // async getCustomerOrders(@Args('customerId') customerId: string) {
-  //   return this.ordersService.findByCustomer(customerId);
-  // }
+  @Query('customerOrders')
+  async getCustomerOrders(@Args('customerId') customerId: number) {
+    try {
+      return this.ordersService.findByCustomer(customerId);
+    } catch (error) {
+      throw new Error(
+        `Ocorreu um erro ${customerId}: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+      );
+    }
+  }
 
   @Mutation('updateOrder')
   async updateOrder(
@@ -78,9 +84,4 @@ export class OrdersResolver {
   getUpdatedAt(@Parent() order: Order): string {
     return new Date(order.updatedAt).toLocaleString('pt-BR');
   }
-
-  // @Mutation('updateOrderStatus')
-  // async updateOrder(@Args('input') input: UpdateOrderInput) {
-  //   return this.ordersService.updateStatus(input.id, input.status);
-  // }
 }
