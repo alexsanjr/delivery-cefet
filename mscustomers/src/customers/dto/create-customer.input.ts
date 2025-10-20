@@ -14,4 +14,7 @@ export class CreateCustomerInput {
 
   @Field(() => CreateAddressInput, { nullable: true })
   address?: CreateAddressInput | null;
+
+  @Field()
+  isPremium: boolean;
 }
