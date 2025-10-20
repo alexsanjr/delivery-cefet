@@ -102,6 +102,35 @@ export class ProductService {
     }
   }
 
+  async delete(id: number) {
+    this.logger.log(`Deletando produto: ID ${id}`);
+
+    try {
+      if (!id || id <= 0) {
+        throw new BadRequestException(
+          'ID do produto é obrigatório e deve ser maior que zero',
+        );
+      }
+
+      const existingProduct = await this.productDatasource.findById(id);
+      console.log(existingProduct);
+      if (existingProduct == null) {
+        console.log('oi');
+        this.logger.warn(`Produto não encontrado para deleção: ID ${id}`);
+        throw new NotFoundException(`Produto ${id} não encontrado`);
+      }
+
+      const deletedProduct = await this.productDatasource.delete(id);
+      this.logger.log(`Produto ${id} deletado com sucesso!`);
+      return deletedProduct;
+    } catch (error) {
+      this.logger.error(
+        `Erro ao deletar produto ${id}: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+      );
+      throw error;
+    }
+  }
+
   public validateUpdateProductInput(input: UpdateProductInput): void {
     if (!input) {
       throw new BadRequestException('Dados de atualização são obrigatórios');
