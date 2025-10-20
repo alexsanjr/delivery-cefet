@@ -8,30 +8,30 @@ datasource db {
 }
 
 model Customer {
-  id        String   @id @default(uuid())
+  id        Int       @id @default(autoincrement())
   name      String
-  email     String   @unique
+  email     String    @unique
   phone     String
   addresses Address[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@map("customers")
 }
 
 model Address {
-  id            String   @id @default(uuid())
-  customerId    String
-  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  street        String   // ← era "rua"
-  number        String   // ← era "numero"  
-  neighborhood  String  // ← era "bairro"
-  city          String   // ← era "cidade"
-  state         String   // ← era "estado"
-  zipCode       String   // ← era "cep"
-  complement    String?  // ← era "complemento"
-  isPrimary     Boolean  @default(false) // ← era "principal"
-  createdAt     DateTime @default(now())
+  id           Int      @id @default(autoincrement())
+  customerId   Int
+  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  street       String
+  number       String
+  neighborhood String
+  city         String
+  state        String
+  zipCode      String
+  complement   String?
+  isPrimary    Boolean  @default(false)
+  createdAt    DateTime @default(now())
 
   @@map("addresses")
 }
