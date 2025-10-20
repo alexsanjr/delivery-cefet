@@ -8,9 +8,11 @@ import { CreateOrderInput } from './dto/create-order.input';
 import { OrdersDatasource } from './orders.datasource';
 import { UpdateOrderInput } from './dto/update-order.input';
 import { OrderStatus, PaymentMethod } from 'generated/prisma';
+import { IOrderValidator } from './interfaces/IOrderValidator.interface';
+import { IPriceCalculator } from './interfaces/IPriceCalculator.interface';
 
 @Injectable()
-export class OrdersService {
+export class OrdersService implements IOrderValidator, IPriceCalculator {
   private readonly logger = new Logger(OrdersService.name);
   constructor(private readonly ordersDatasource: OrdersDatasource) {}
 
@@ -50,7 +52,7 @@ export class OrdersService {
     }
   }
 
-  private validateCreateOrderInput(input: CreateOrderInput): void {
+  public validateCreateOrderInput(input: CreateOrderInput): void {
     if (!input) {
       throw new BadRequestException('Dados do pedido são obrigatórios');
     }
@@ -148,7 +150,7 @@ export class OrdersService {
     }
   }
 
-  private async validateUpdateOrderInput(
+  public async validateUpdateOrderInput(
     input: UpdateOrderInput,
   ): Promise<void> {
     if (!input) {
@@ -249,19 +251,22 @@ export class OrdersService {
     }
   }
 
-  private calculateSubtotal(): number {
+  public calculateSubtotal(): number {
+    // items?: any[]
     // Por enquanto valor fixo, mas aqui viria o cálculo real baseado nos items
     // TODO: implementar cálculo real quando tiver items
     return 100.0;
   }
 
-  private calculateDeliveryFee(): number {
+  public calculateDeliveryFee(): number {
+    // address?: any
     // Lógica de negócio para calcular taxa de entrega
     // TODO: implementar baseado na distância, valor do pedido, etc.
     return 5.0;
   }
 
-  private calculateDeliveryTime(): number {
+  public calculateDeliveryTime(): number {
+    // address?: any
     // Tempo estimado em minutos
     // TODO: implementar baseado na distância, horário, etc.
     return 30;

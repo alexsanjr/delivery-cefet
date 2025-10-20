@@ -2,15 +2,16 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateOrderInput } from './dto/create-order.input';
 import { UpdateOrderInput } from './dto/update-order.input';
+import { IOrderDatasource } from './interfaces/IOrderDatasource.interface';
 
 @Injectable()
-export class OrdersDatasource {
+export class OrdersDatasource implements IOrderDatasource {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(orderData: CreateOrderInput) {
     return this.prisma.order.create({
       data: {
-        customerId: 1,
+        customerId: orderData.customerId,
         paymentMethod: orderData.paymentMethod,
         subtotal: orderData.subtotal,
         deliveryFee: orderData.deliveryFee,
@@ -64,10 +65,4 @@ export class OrdersDatasource {
       },
     });
   }
-
-  // async delete(id: string) {
-  //   return this.prisma.order.delete({
-  //     where: { id },
-  //   });
-  // }
 }
