@@ -46,16 +46,60 @@ export class GrpcNotificationsService {
 
     @GrpcMethod('NotificationsService', 'SendNotification')
     async sendNotification(data: NotificationRequest): Promise<NotificationResponse> {
-        //todo
+        try {
+            const createDto: CreateNotificationDto = {
+                userId: data.userId,
+                orderId: data.orderId,
+                status: data.status,
+                serviceOrigin: data.serviceOrigin,
+                message: data.message,
+            };
+
+            const notification = await this.notificationsService.createNotification(createDto);
+
+            return {
+                id: notification.id,
+                userId: notification.userId,
+                orderId: notification.orderId,
+                status: notification.status,
+                message: notification.message,
+                serviceOrigin: notification.serviceOrigin,
+                success: true,
+            };
+        } catch (error) {
+            throw new Error(`Falhou em enviar notificação: ${error.message}`);
+        }
     }
 
     @GrpcMethod('NotificationsService', 'ConnectClient')
     async connectClient(data: ConnectClientRequest): Promise<ConnectClientResponse> {
-        //todo
+        try {
+            this.notificationsService.connectClient(data.userId);
+            return {
+                success: true,
+                message: `Cliente ${data.userId} conectado com sucesso`,
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: `Erro ao conectar cliente: ${error.message}`,
+            };
+        }
     }
 
     @GrpcMethod('NotificationsService', 'DisconnectClient')
     async disconnectClient(data: DisconnectClientRequest): Promise<DisconnectClientResponse> {
-        //todo
+        try {
+            this.notificationsService.disconnectClient(data.userId);
+            return {
+                success: true,
+                message: `Cliente ${data.userId} desconectado com sucesso`,
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: `Erro ao desconectar cliente: ${error.message}`,
+            };
+        }
     }
 }
