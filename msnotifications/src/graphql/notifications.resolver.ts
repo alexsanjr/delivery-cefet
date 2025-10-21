@@ -1,4 +1,4 @@
-import { Resolver, Query, Args } from '@nestjs/graphql';
+import { Resolver, Query, Args, Mutation } from '@nestjs/graphql';
 import { NotificationsService } from '../notifications/notifications.service';
 import { Notification } from './notifications.schema';
 
@@ -32,5 +32,20 @@ export class NotificationsResolver {
     })
     async getConnectedClients(): Promise<string[]> {
         return this.notificationsService.getConnectedClients();
+    }
+
+    @Mutation(() => Boolean, {
+        name: 'markNotificationAsRead',
+        description: 'Marca uma notificacao como lida'
+    })
+    async markAsRead(
+        @Args('notificationId') notificationId: string
+    ): Promise<boolean> {
+        try {
+            await this.notificationsService.markNotificationAsRead(notificationId);
+            return true;
+        } catch (error) {
+            return false;
+        }
     }
 }
