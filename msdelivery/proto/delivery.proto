@@ -1,0 +1,98 @@
+syntax = "proto3";
+
+package delivery;
+
+service DeliveryService {
+  
+  rpc FindAvailableDeliveryPersons (FindAvailableRequest) returns (DeliveryPersonsList);
+  
+  rpc AssignDelivery (AssignDeliveryRequest) returns (AssignDeliveryResponse);
+  
+  rpc UpdateDeliveryStatus (UpdateDeliveryStatusRequest) returns (DeliveryResponse);
+  
+  rpc GetDeliveryPersonLocation (GetLocationRequest) returns (LocationResponse);
+  
+  rpc CompleteDelivery (CompleteDeliveryRequest) returns (DeliveryResponse);
+}
+
+message FindAvailableRequest {
+  double latitude = 1;
+  double longitude = 2;
+  double radiusKm = 3;
+  string vehicleType = 4; // opcional
+}
+
+message DeliveryPersonsList {
+  repeated DeliveryPersonInfo deliveryPersons = 1;
+}
+
+message DeliveryPersonInfo {
+  string id = 1;
+  string name = 2;
+  string vehicleType = 3;
+  double currentLatitude = 4;
+  double currentLongitude = 5;
+  double rating = 6;
+  int32 totalDeliveries = 7;
+  double distanceKm = 8;
+  int32 estimatedTimeMinutes = 9;
+}
+
+message AssignDeliveryRequest {
+  string orderId = 1;
+  string deliveryPersonId = 2;
+  double pickupLatitude = 3;
+  double pickupLongitude = 4;
+  double deliveryLatitude = 5;
+  double deliveryLongitude = 6;
+}
+
+message AssignDeliveryResponse {
+  bool success = 1;
+  string deliveryId = 2;
+  string message = 3;
+  DeliveryPersonInfo deliveryPerson = 4;
+  double estimatedDistance = 5;
+  int32 estimatedDuration = 6;
+}
+
+message UpdateDeliveryStatusRequest {
+  string deliveryId = 1;
+  string status = 2; // ASSIGNED, PICKED_UP, IN_TRANSIT, DELIVERED, CANCELLED, FAILED
+}
+
+message DeliveryResponse {
+  bool success = 1;
+  string message = 2;
+  DeliveryInfo delivery = 3;
+}
+
+message DeliveryInfo {
+  string id = 1;
+  string orderId = 2;
+  string deliveryPersonId = 3;
+  string status = 4;
+  string deliveryNumber = 5;
+  double actualDistance = 6;
+  int32 actualDuration = 7;
+}
+
+message GetLocationRequest {
+  string deliveryPersonId = 1;
+}
+
+message LocationResponse {
+  bool success = 1;
+  double latitude = 2;
+  double longitude = 3;
+  string timestamp = 4;
+  double speed = 5;
+  double heading = 6;
+}
+
+message CompleteDeliveryRequest {
+  string deliveryId = 1;
+  string deliveryNumber = 2;
+  double actualDistance = 3;
+  int32 actualDuration = 4;
+}
