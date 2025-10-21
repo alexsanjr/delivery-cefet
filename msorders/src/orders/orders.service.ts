@@ -4,10 +4,14 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
-import { CreateOrderInput } from './dto/create-order.input';
+import {
+  CreateOrderInput,
+  PaymentMethod,
+  OrderItemInput,
+} from './dto/create-order.input';
 import { OrdersDatasource } from './orders.datasource';
 import { UpdateOrderInput } from './dto/update-order.input';
-import { OrderStatus, PaymentMethod } from 'generated/prisma';
+import { OrderStatus } from 'generated/prisma';
 import {
   IOrderValidator,
   PriceStrategy,
@@ -37,7 +41,7 @@ export class OrdersService implements IOrderValidator {
       const strategy = this.determineStrategy(createOrderInput);
 
       // Cálculos de negócio usando Strategy Pattern
-      const items = this.mapOrderItems(undefined); // Será implementado quando DTO tiver items
+      const items = await this.mapOrderItems(createOrderInput.items);
       const address = this.mapOrderAddress();
 
       const subtotal = this.priceCalculatorContext.calculateSubtotal(
@@ -55,11 +59,12 @@ export class OrdersService implements IOrderValidator {
       // Preparar dados para persistência
       const orderData = {
         ...createOrderInput,
+        customerId: createOrderInput.customerId || 1, // Default temporário
         subtotal,
         deliveryFee,
         total,
         estimatedDeliveryTime,
-        status: 'PENDING' as const,
+        status: OrderStatus.PENDING,
       };
 
       const createdOrder = await this.ordersDatasource.create(orderData);
@@ -293,17 +298,29 @@ export class OrdersService implements IOrderValidator {
     return PriceStrategy.BASIC;
   }
 
-  private mapOrderItems(items?: any[]): OrderItem[] | undefined {
+  private async mapOrderItems(
+    items?: OrderItemInput[],
+  ): Promise<OrderItem[] | undefined> {
     if (!items || items.length === 0) {
       return undefined;
     }
 
-    return items.map((item: any) => ({
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      price: Number(item.price) || 0,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      quantity: Number(item.quantity) || 1,
-    }));
+    return Promise.all(
+      items.map(async (item: OrderItemInput) => {
+        // Busca o preço do produto
+        const product = await this.ordersDatasource.findProductById(
+          item.productId,
+        );
+        if (!product) {
+          throw new Error(`Produto com ID ${item.productId} não encontrado`);
+        }
+
+        return {
+          price: Number(product.price) || 0,
+          quantity: Number(item.quantity) || 1,
+        };
+      }),
+    );
   }
 
   private mapOrderAddress(): OrderAddress | undefined {
