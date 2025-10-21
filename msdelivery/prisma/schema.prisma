@@ -47,10 +47,6 @@ model DeliveryPerson {
   isActive      Boolean               @default(true)
   joinedAt      DateTime              @default(now())
   
-  // Relacionamentos
-  deliveries    Delivery[]
-  locations     LocationHistory[]
-  
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
   
@@ -58,87 +54,4 @@ model DeliveryPerson {
   @@index([email])
   @@index([currentLatitude, currentLongitude])
   @@map("delivery_persons")
-}
-
-// Histórico de entregas atribuídas
-model Delivery {
-  id                String              @id @default(uuid())
-  orderId           String              @unique // Referência ao pedido no msorders
-  deliveryPersonId  String
-  
-  // Informações da entrega
-  pickupLatitude    Float
-  pickupLongitude   Float
-  deliveryLatitude  Float
-  deliveryLongitude Float
-  
-  estimatedDistance Float               // Em km
-  estimatedDuration Int                 // Em minutos
-  actualDistance    Float?              // Distância real percorrida
-  actualDuration    Int?                // Tempo real da entrega
-  
-  // Status e timestamps
-  status            DeliveryStatus      @default(ASSIGNED)
-  assignedAt        DateTime            @default(now())
-  pickedUpAt        DateTime?
-  deliveredAt       DateTime?
-  
-  // Número da entrega (registrado ao finalizar)
-  deliveryNumber    String?             @unique
-  
-  // Relacionamento
-  deliveryPerson    DeliveryPerson      @relation(fields: [deliveryPersonId], references: [id])
-  
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  
-  @@index([orderId])
-  @@index([deliveryPersonId])
-  @@index([status])
-  @@map("deliveries")
-}
-
-enum DeliveryStatus {
-  ASSIGNED         // Atribuída ao entregador
-  PICKED_UP        // Pedido coletado
-  IN_TRANSIT       // Em trânsito
-  DELIVERED        // Entregue
-  CANCELLED        // Cancelada
-  FAILED           // Falhou
-}
-
-// Histórico de localização para tracking
-model LocationHistory {
-  id                String         @id @default(uuid())
-  deliveryPersonId  String
-  latitude          Float
-  longitude         Float
-  accuracy          Float?         // Precisão em metros
-  speed             Float?         // Velocidade em km/h
-  heading           Float?         // Direção (0-360 graus)
-  
-  deliveryPerson    DeliveryPerson @relation(fields: [deliveryPersonId], references: [id], onDelete: Cascade)
-  
-  timestamp         DateTime       @default(now())
-  
-  @@index([deliveryPersonId, timestamp])
-  @@map("location_history")
-}
-
-// Configurações de roteamento
-model RoutingConfig {
-  id                String   @id @default(uuid())
-  maxDeliveryRadius Float    @default(10.0)  // Raio máximo em km
-  priorityFactor    Float    @default(1.0)   // Fator de prioridade
-  
-  // Fatores de peso para o algoritmo de roteamento
-  distanceWeight    Float    @default(0.5)
-  timeWeight        Float    @default(0.3)
-  ratingWeight      Float    @default(0.2)
-  
-  isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  @@map("routing_configs")
 }

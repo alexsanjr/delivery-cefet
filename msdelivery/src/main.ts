@@ -23,8 +23,8 @@ async function bootstrap() {
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.GRPC,
     options: {
-      package: 'delivery',
-      protoPath: join(__dirname, '../proto/delivery.proto'),
+      package: 'deliveryperson',
+      protoPath: join(__dirname, '../proto/delivery-person.proto'),
       url: `0.0.0.0:${process.env.GRPC_PORT || 50053}`,
     },
   });

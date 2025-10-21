@@ -5,21 +5,6 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Populando o banco...');
 
-  const routingConfig = await prisma.routingConfig.upsert({
-    where: { id: 'default-config' },
-    update: {},
-    create: {
-      id: 'default-config',
-      maxDeliveryRadius: 10.0,
-      priorityFactor: 1.0,
-      distanceWeight: 0.5,
-      timeWeight: 0.3,
-      ratingWeight: 0.2,
-      isActive: true,
-    },
-  });
-  console.log('Config de roteamento criada:', routingConfig.id);
-
   const deliveryPersons = await Promise.all([
     prisma.deliveryPerson.create({
       data: {
@@ -106,8 +91,8 @@ async function main() {
     }),
   ]);
 
-  console.log(`Criados ${deliveryPersons.length} entregadores na parada`);
-  console.log('Banco populado com sucesso!');
+  console.log(`Criados ${deliveryPersons.length} entregadores`);
+  console.log('Seed completo');
 }
 
 main()
