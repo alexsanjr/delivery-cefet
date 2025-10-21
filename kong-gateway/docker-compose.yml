@@ -14,6 +14,30 @@ services:
       - kong_data:/var/lib/postgresql/data
     networks:
       - kong-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kong -d kong"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # PostgreSQL para Konga - COM HEALTHCHECK
+  konga-database:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: konga
+      POSTGRES_PASSWORD: konga
+      POSTGRES_DB: konga
+    ports:
+      - "5433:5432"
+    volumes:
+      - konga_data:/var/lib/postgresql/data
+    networks:
+      - kong-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U konga -d konga"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   # Migração do Kong
   kong-migration:
@@ -25,7 +49,8 @@ services:
       KONG_PG_USER: kong
       KONG_PG_PASSWORD: kong
     depends_on:
-      - kong-database
+      kong-database:
+        condition: service_healthy
     networks:
       - kong-net
     restart: on-failure
@@ -47,16 +72,17 @@ services:
       KONG_ADMIN_LISTEN: 0.0.0.0:8001, 0.0.0.0:8444 ssl
       KONG_PROXY_LISTEN: 0.0.0.0:8000, 0.0.0.0:8443 ssl
       
-      # Configurações extras
       KONG_LOG_LEVEL: info
     ports:
-      - "8000:8000"   # Proxy port
-      - "8443:8443"   # SSL proxy port
-      - "8001:8001"   # Admin API
-      - "8444:8444"   # SSL Admin API
+      - "8000:8000"
+      - "8443:8443"
+      - "8001:8001"
+      - "8444:8444"
     depends_on:
-      - kong-database
-      - kong-migration
+      kong-database:
+        condition: service_healthy
+      kong-migration:
+        condition: service_completed_successfully
     networks:
       - kong-net
     healthcheck:
@@ -65,29 +91,42 @@ services:
       timeout: 10s
       retries: 10
 
-  # Konga UI (Opcional - Interface Web)
+  # Konga UI - CONFIGURAÇÃO CORRIGIDA COM SCRIPT
   konga:
     image: pantsel/konga:latest
     environment:
       DB_ADAPTER: postgres
-      DB_HOST: kong-database
-      DB_USER: kong
-      DB_PASSWORD: kong
-      DB_DATABASE: kong
+      DB_HOST: konga-database  
+      DB_USER: konga           
+      DB_PASSWORD: konga       
+      DB_DATABASE: konga       
       TOKEN_SECRET: kongasecret
+      NODE_ENV: production
+      # Configurações adicionais para evitar timeout
+      DB_POOL_SIZE: 5
+      DB_CONNECTION_TIMEOUT: 60000
     ports:
       - "1337:1337"
+    volumes:
+      - ./scripts/wait-for-db.sh:/wait-for-db.sh  # CAMINHO CORRIGIDO
     depends_on:
-      - kong-database
-      - kong
+      - konga-database
     networks:
       - kong-net
+    # Comando com espera garantida
+    command: sh -c "sleep 30 && node /app/app.js"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:1337"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
 
   # Seu microsserviço msorders
   msorders:
     build: ../msorders
     ports:
-      - "3001:3000"  # Externa 3001, interna 3000
+      - "3001:3000"
     environment:
       DATABASE_URL: postgresql://user:password@postgres:5432/msorders
     networks:
@@ -101,14 +140,20 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: msorders
     ports:
-      - "5434:5432"  # Porta externa diferente
+      - "5434:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - kong-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d msorders"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
 volumes:
   kong_data:
+  konga_data:
   postgres_data:
 
 networks:
