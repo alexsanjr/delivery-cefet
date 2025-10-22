@@ -91,7 +91,7 @@ services:
       timeout: 10s
       retries: 10
 
-  # Konga UI - CONFIGURAÇÃO CORRIGIDA COM SCRIPT
+  # Konga UI
   konga:
     image: pantsel/konga:latest
     environment:
@@ -108,12 +108,11 @@ services:
     ports:
       - "1337:1337"
     volumes:
-      - ./scripts/wait-for-db.sh:/wait-for-db.sh  # CAMINHO CORRIGIDO
+      - ./scripts/wait-for-db.sh:/wait-for-db.sh
     depends_on:
       - konga-database
     networks:
       - kong-net
-    # Comando com espera garantida
     command: sh -c "sleep 30 && node /app/app.js"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:1337"]
@@ -122,18 +121,18 @@ services:
       retries: 5
       start_period: 90s
 
-  # Seu microsserviço msorders
+  # Microsserviço msorders
   msorders:
     build: ../msorders
     ports:
       - "3001:3000"
     environment:
-      DATABASE_URL: postgresql://user:password@postgres:5432/msorders
+      DATABASE_URL: postgresql://user:password@postgres-orders:5432/msorders
     networks:
       - kong-net
 
   # PostgreSQL do msorders
-  postgres:
+  postgres-orders:
     image: postgres:13
     environment:
       POSTGRES_USER: user
@@ -142,7 +141,7 @@ services:
     ports:
       - "5434:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_orders_data:/var/lib/postgresql/data
     networks:
       - kong-net
     healthcheck:
@@ -151,10 +150,40 @@ services:
       timeout: 5s
       retries: 10
 
+  # Microsserviço mscustomers
+  mscustomers:
+    build: ../mscustomers
+    ports:
+      - "3002:3000"
+    environment:
+      DATABASE_URL: postgresql://user:password@postgres-customers:5432/mscustomers
+    networks:
+      - kong-net
+
+  # PostgreSQL do mscustomers
+  postgres-customers:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mscustomers
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_customers_data:/var/lib/postgresql/data
+    networks:
+      - kong-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d mscustomers"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   kong_data:
   konga_data:
-  postgres_data:
+  postgres_orders_data:
+  postgres_customers_data:
 
 networks:
   kong-net:

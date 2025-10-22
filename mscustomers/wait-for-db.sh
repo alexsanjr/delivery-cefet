@@ -2,7 +2,7 @@
 echo "Waiting for database to be ready..."
 
 # Aguardar o banco estar disponível
-while ! nc -z postgres-orders 5432; do
+while ! nc -z postgres-customers 5432; do
   echo "Database not ready, waiting..."
   sleep 2
 done
