@@ -19,7 +19,7 @@ echo "🔧 Configurando serviço msorders..."
 
 curl -X POST http://localhost:8001/services \
   --data "name=msorders-service" \
-  --data "url=http://msorders:3001"
+  --data "url=http://msorders:3000"
 
 # Configurar rota para o serviço
 curl -X POST http://localhost:8001/services/msorders-service/routes \
@@ -29,7 +29,7 @@ curl -X POST http://localhost:8001/services/msorders-service/routes \
   --data "methods[]=POST" \
   --data "methods[]=PUT" \
   --data "methods[]=DELETE" \
-  --data "strip_path=false"
+  --data "strip_path=true"
 
 # Configurar plugin CORS
 curl -X POST http://localhost:8001/services/msorders-service/plugins \
@@ -55,7 +55,7 @@ echo "🔧 Configurando serviço mscustomers..."
 
 curl -s -X POST http://localhost:8001/services \
   --data "name=mscustomers-service" \
-  --data "url=http://mscustomers:3002"
+  --data "url=http://mscustomers:3000"
 
 # Configurar rota para o serviço
 curl -s -X POST http://localhost:8001/services/mscustomers-service/routes \
@@ -65,7 +65,7 @@ curl -s -X POST http://localhost:8001/services/mscustomers-service/routes \
   --data "methods[]=POST" \
   --data "methods[]=PUT" \
   --data "methods[]=DELETE" \
-  --data "strip_path=false"
+  --data "strip_path=true"
 
 # Configurar plugin CORS
 curl -s -X POST http://localhost:8001/services/mscustomers-service/plugins \

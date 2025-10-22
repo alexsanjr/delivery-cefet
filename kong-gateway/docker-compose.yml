@@ -128,8 +128,17 @@ services:
       - "3001:3000"
     environment:
       DATABASE_URL: postgresql://user:password@postgres-orders:5432/msorders
+      NODE_ENV: production
+    depends_on:
+      postgres-orders:
+        condition: service_healthy
     networks:
       - kong-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   # PostgreSQL do msorders
   postgres-orders:
@@ -157,8 +166,17 @@ services:
       - "3002:3000"
     environment:
       DATABASE_URL: postgresql://user:password@postgres-customers:5432/mscustomers
+      NODE_ENV: production
+    depends_on:
+      postgres-customers:
+        condition: service_healthy
     networks:
       - kong-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   # PostgreSQL do mscustomers
   postgres-customers:

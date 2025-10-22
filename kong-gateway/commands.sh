@@ -128,7 +128,8 @@ case "$1" in
       --data methods[]=GET \
       --data methods[]=POST \
       --data methods[]=PUT \
-      --data methods[]=DELETE
+      --data methods[]=DELETE \
+      --data strip_path=true
     echo -e "\n✅ Serviço $2 adicionado com sucesso!"
     echo "💡 Para tornar permanente, adicione ao scripts/init-kong.sh"
     ;;

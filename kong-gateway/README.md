@@ -58,7 +58,8 @@ curl -X POST http://localhost:8001/services/msnovo-service/routes \
   --data methods[]=GET \
   --data methods[]=POST \
   --data methods[]=PUT \
-  --data methods[]=DELETE
+  --data methods[]=DELETE \
+  --data strip_path=true
 ```
 
 #### 3. Verificar Configuração
@@ -73,6 +74,8 @@ curl http://localhost:8001/routes
 # Testar rota
 curl http://localhost:8000/api/novo/
 ```
+
+> **⚠️ IMPORTANTE**: O parâmetro `strip_path=true` é **crucial** para que os microsserviços funcionem! Ele remove o prefixo da rota (`/api/orders`, `/api/customers`) antes de enviar para o microsserviço, que espera apenas `/graphql`.
 
 ## 🗃️ Bancos de Dados
 
