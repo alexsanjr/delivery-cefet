@@ -48,4 +48,7 @@ export class CreateOrderInput {
   @Field(() => PaymentMethod)
   @IsEnum(PaymentMethod)
   paymentMethod!: PaymentMethod;
+  subtotal!: number;
+  deliveryFee!: number;
+  total!: number;
 }
