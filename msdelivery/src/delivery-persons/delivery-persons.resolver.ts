@@ -5,7 +5,7 @@ import { CreateDeliveryPersonInput } from './dto/create-delivery-person.input';
 import { UpdateDeliveryPersonInput } from './dto/update-delivery-person.input';
 import { UpdateStatusInput } from './dto/update-status.input';
 import { UpdateLocationInput } from './dto/update-location.input';
-import { DeliveryPersonStatus } from '@prisma/client';
+import { DeliveryPersonStatus } from './models/delivery-person-status.enum';
 
 @Resolver(() => DeliveryPerson)
 export class DeliveryPersonsResolver {

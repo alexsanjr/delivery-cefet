@@ -4,7 +4,7 @@ import { CreateDeliveryPersonInput } from './dto/create-delivery-person.input';
 import { UpdateDeliveryPersonInput } from './dto/update-delivery-person.input';
 import { UpdateStatusInput } from './dto/update-status.input';
 import { UpdateLocationInput } from './dto/update-location.input';
-import { DeliveryPersonStatus } from '@prisma/client';
+import { DeliveryPersonStatus } from './models/delivery-person-status.enum';
 
 @Injectable()
 export class DeliveryPersonsService {
@@ -117,17 +117,6 @@ export class DeliveryPersonsService {
         currentLatitude: latitude,
         currentLongitude: longitude,
         lastLocationUpdate: new Date(),
-      },
-    });
-
-    await this.prisma.locationHistory.create({
-      data: {
-        deliveryPersonId,
-        latitude,
-        longitude,
-        accuracy,
-        speed,
-        heading,
       },
     });
 

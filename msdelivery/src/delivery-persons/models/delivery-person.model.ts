@@ -1,13 +1,6 @@
-import { ObjectType, Field, ID, Float, Int, registerEnumType } from '@nestjs/graphql';
-import { DeliveryPersonStatus, VehicleType } from '@prisma/client';
-
-registerEnumType(DeliveryPersonStatus, {
-  name: 'DeliveryPersonStatus',
-});
-
-registerEnumType(VehicleType, {
-  name: 'VehicleType',
-});
+import { ObjectType, Field, ID, Float, Int } from '@nestjs/graphql';
+import { DeliveryPersonStatus } from './delivery-person-status.enum';
+import { VehicleType } from './vehicle-type.enum';
 
 @ObjectType()
 export class DeliveryPerson {

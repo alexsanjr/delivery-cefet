@@ -1,7 +1,7 @@
 import { Controller } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import { DeliveryPersonsService } from './delivery-persons.service';
-import { DeliveryPersonStatus } from '@prisma/client';
+import { DeliveryPersonStatus } from './models/delivery-person-status.enum';
 
 interface GetDeliveryPersonRequest {
   deliveryPersonId: string;
