@@ -21,10 +21,17 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "prisma:seed": "ts-node prisma/seed.ts"
+    "prisma:seed": "ts-node prisma/seed.ts",
+    "docker:dev": "docker-compose -f docker-compose.dev.yml up -d",
+    "docker:dev:down": "docker-compose -f docker-compose.dev.yml down",
+    "docker:prod": "docker-compose up -d --build",
+    "docker:prod:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
   },
   "dependencies": {
     "@apollo/server": "^4.10.0",
+    "@grpc/grpc-js": "^1.9.14",
+    "@grpc/proto-loader": "^0.7.10",
     "@nestjs/apollo": "^12.1.0",
     "@nestjs/common": "^10.3.0",
     "@nestjs/core": "^10.3.0",
@@ -32,15 +39,14 @@
     "@nestjs/microservices": "^10.3.0",
     "@nestjs/platform-express": "^10.3.0",
     "@nestjs/platform-socket.io": "^10.3.0",
+    "@nestjs/swagger": "^11.2.1",
     "@nestjs/websockets": "^10.3.0",
     "@prisma/client": "^5.19.1",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
     "graphql": "^16.8.1",
     "reflect-metadata": "^0.2.1",
-    "rxjs": "^7.8.1",
-    "class-validator": "^0.14.1",
-    "class-transformer": "^0.5.1",
-    "@grpc/grpc-js": "^1.9.14",
-    "@grpc/proto-loader": "^0.7.10"
+    "rxjs": "^7.8.1"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.3.0",

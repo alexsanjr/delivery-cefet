@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  
+  postgres:
+    image: postgres:16-alpine
+    container_name: msdelivery-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: delivery_user
+      POSTGRES_PASSWORD: delivery_pass
+      POSTGRES_DB: msdelivery
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    networks:
+      - delivery-network-dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U delivery_user -d msdelivery"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 
+  adminer:
+    image: adminer:latest
+    container_name: msdelivery-adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    networks:
+      - delivery-network-dev
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_dev_data:
+    driver: local
+
+networks:
+  delivery-network-dev:
+    driver: bridge

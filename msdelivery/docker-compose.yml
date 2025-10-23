@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  
+  postgres:
+    image: postgres:16-alpine
+    container_name: msdelivery-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: delivery_user
+      POSTGRES_PASSWORD: delivery_pass
+      POSTGRES_DB: msdelivery
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - delivery-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U delivery_user -d msdelivery"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  
+  msdelivery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: msdelivery-app
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: "postgresql://delivery_user:delivery_pass@postgres:5432/msdelivery?schema=public"
+      PORT: 3003
+      GRPC_PORT: 50053
+      WS_PORT: 3103
+      API_GATEWAY_URL: "http://localhost:8000"
+      NODE_ENV: production
+    ports:
+      - "3003:3003"   # HTTP/GraphQL
+      - "50053:50053" # gRPC
+      - "3103:3103"   # WebSocket
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - delivery-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3003/graphql', (r) => process.exit(r.statusCode === 400 ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  delivery-network:
+    driver: bridge
