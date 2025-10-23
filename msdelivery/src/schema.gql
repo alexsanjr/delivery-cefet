@@ -1,0 +1,91 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+input CreateDeliveryPersonInput {
+  cpf: String!
+  email: String!
+  licensePlate: String
+  name: String!
+  phone: String!
+  vehicleType: VehicleType!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type DeliveryPerson {
+  cpf: String!
+  createdAt: DateTime!
+  currentLatitude: Float
+  currentLongitude: Float
+  email: String!
+  id: ID!
+  isActive: Boolean!
+  joinedAt: DateTime!
+  lastLocationUpdate: DateTime
+  licensePlate: String
+  name: String!
+  phone: String!
+  rating: Float!
+  status: DeliveryPersonStatus!
+  totalDeliveries: Int!
+  updatedAt: DateTime!
+  vehicleType: VehicleType!
+}
+
+"""Status disponíveis para entregadores"""
+enum DeliveryPersonStatus {
+  AVAILABLE
+  BUSY
+  OFFLINE
+  ON_BREAK
+}
+
+type Mutation {
+  createDeliveryPerson(createDeliveryPersonInput: CreateDeliveryPersonInput!): DeliveryPerson!
+  removeDeliveryPerson(id: ID!): DeliveryPerson!
+  updateDeliveryPerson(id: ID!, updateDeliveryPersonInput: UpdateDeliveryPersonInput!): DeliveryPerson!
+  updateDeliveryPersonLocation(updateLocationInput: UpdateLocationInput!): DeliveryPerson!
+  updateDeliveryPersonStatus(updateStatusInput: UpdateStatusInput!): DeliveryPerson!
+}
+
+type Query {
+  availableDeliveryPersonsNearby(latitude: Float!, longitude: Float!, radiusKm: Float!): [DeliveryPerson!]!
+  deliveryPerson(id: ID!): DeliveryPerson!
+  deliveryPersons(isActive: Boolean, status: String): [DeliveryPerson!]!
+}
+
+input UpdateDeliveryPersonInput {
+  cpf: String
+  email: String
+  licensePlate: String
+  name: String
+  phone: String
+  vehicleType: VehicleType
+}
+
+input UpdateLocationInput {
+  accuracy: Float
+  deliveryPersonId: String!
+  heading: Float
+  latitude: Float!
+  longitude: Float!
+  speed: Float
+}
+
+input UpdateStatusInput {
+  deliveryPersonId: String!
+  status: String!
+}
+
+"""Tipos de veículos disponíveis para entregadores"""
+enum VehicleType {
+  BIKE
+  CAR
+  MOTORCYCLE
+  SCOOTER
+  WALKING
+}
