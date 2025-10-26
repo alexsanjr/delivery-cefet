@@ -8,7 +8,7 @@ import { DeliveryPersonStatus } from './models/delivery-person-status.enum';
 
 @Injectable()
 export class DeliveryPersonsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: any) {}
 
   async create(createDeliveryPersonInput: CreateDeliveryPersonInput) {
     const existingEmail = await this.prisma.deliveryPerson.findUnique({
