@@ -15,13 +15,43 @@ export class DeliveryPersonValidationService {
     }
   }
 
-  async validateCpfUniqueness(cpf: string): Promise<void> {
+  async validateCpfUniqueness(cpf: string, excludeId?: string): Promise<void> {
     const existing = await this.prisma.deliveryPerson.findUnique({
       where: { cpf },
     });
     
-    if (existing) {
+    if (existing && existing.id !== excludeId) {
       throw new ConflictException('CPF já cadastrado');
+    }
+  }
+
+  async validatePhoneUniqueness(phone: string, excludeId?: string): Promise<void> {
+    const existing = await this.prisma.deliveryPerson.findFirst({
+      where: { 
+        phone,
+        isActive: true,
+      },
+    });
+    
+    if (existing && existing.id !== excludeId) {
+      throw new ConflictException('Telefone já cadastrado');
+    }
+  }
+
+  async validateLicensePlateUniqueness(licensePlate: string, excludeId?: string): Promise<void> {
+    if (!licensePlate || licensePlate.trim() === '') {
+      return; // Placa vazia ou null é permitida
+    }
+
+    const existing = await this.prisma.deliveryPerson.findFirst({
+      where: { 
+        licensePlate,
+        isActive: true,
+      },
+    });
+    
+    if (existing && existing.id !== excludeId) {
+      throw new ConflictException('Placa já cadastrada para outro entregador');
     }
   }
 }
