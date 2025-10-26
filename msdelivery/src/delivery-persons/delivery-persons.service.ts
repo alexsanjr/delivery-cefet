@@ -1,5 +1,8 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { DeliveryPerson } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { DeliveryPersonValidationService } from './services/delivery-person-validation.service';
+import { calculateDistance } from './utils/distance.helper';
 import { CreateDeliveryPersonInput } from './dto/create-delivery-person.input';
 import { UpdateDeliveryPersonInput } from './dto/update-delivery-person.input';
 import { UpdateStatusInput } from './dto/update-status.input';
@@ -8,76 +11,46 @@ import { DeliveryPersonStatus } from './models/delivery-person-status.enum';
 
 @Injectable()
 export class DeliveryPersonsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly validationService: DeliveryPersonValidationService,
+  ) {}
 
-  async create(createDeliveryPersonInput: CreateDeliveryPersonInput) {
-    const existingEmail = await this.prisma.deliveryPerson.findUnique({
-      where: { email: createDeliveryPersonInput.email },
-    });
-
-    if (existingEmail) {
-      throw new ConflictException("Email já cadastrado");
-    }
-
-    const existingCpf = await this.prisma.deliveryPerson.findUnique({
-      where: { cpf: createDeliveryPersonInput.cpf },
-    });
-
-    if (existingCpf) {
-      throw new ConflictException("CPF já cadastrado");
-    }
+  async create(createDeliveryPersonInput: CreateDeliveryPersonInput): Promise<DeliveryPerson> {
+    await this.validationService.validateEmailUniqueness(createDeliveryPersonInput.email);
+    await this.validationService.validateCpfUniqueness(createDeliveryPersonInput.cpf);
 
     return this.prisma.deliveryPerson.create({
-      data: {
-        ...createDeliveryPersonInput,
-        status: DeliveryPersonStatus.OFFLINE,
+      data: createDeliveryPersonInput,
+    });
+  }
+
+  async findAll(status?: DeliveryPersonStatus, isActive?: boolean): Promise<DeliveryPerson[]> {
+    return this.prisma.deliveryPerson.findMany({
+      where: {
+        ...(status && { status }),
+        ...(isActive !== undefined && { isActive }),
       },
     });
   }
 
-  async findAll(status?: DeliveryPersonStatus, isActive?: boolean) {
-    const where: any = {};
-
-    if (status) {
-      where.status = status;
-    }
-
-    if (isActive !== undefined) {
-      where.isActive = isActive;
-    }
-
-    return this.prisma.deliveryPerson.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-    });
-  }
-
-  async findOne(id: string) {
+  async findOne(id: string): Promise<DeliveryPerson> {
     const deliveryPerson = await this.prisma.deliveryPerson.findUnique({
       where: { id },
     });
 
     if (!deliveryPerson) {
-      throw new NotFoundException("Entregador não encontrado");
+      throw new NotFoundException('Entregador não encontrado');
     }
 
     return deliveryPerson;
   }
 
-  async update(id: string, updateDeliveryPersonInput: UpdateDeliveryPersonInput) {
+  async update(id: string, updateDeliveryPersonInput: UpdateDeliveryPersonInput): Promise<DeliveryPerson> {
     await this.findOne(id);
 
     if (updateDeliveryPersonInput.email) {
-      const existingEmail = await this.prisma.deliveryPerson.findFirst({
-        where: {
-          email: updateDeliveryPersonInput.email,
-          NOT: { id },
-        },
-      });
-
-      if (existingEmail) {
-        throw new ConflictException("Email já cadastrado");
-      }
+      await this.validationService.validateEmailUniqueness(updateDeliveryPersonInput.email, id);
     }
 
     return this.prisma.deliveryPerson.update({
@@ -86,18 +59,17 @@ export class DeliveryPersonsService {
     });
   }
 
-  async remove(id: string) {
+  async remove(id: string): Promise<DeliveryPerson> {
     await this.findOne(id);
-
+    
     return this.prisma.deliveryPerson.update({
       where: { id },
       data: { isActive: false },
     });
   }
 
-  async updateStatus(updateStatusInput: UpdateStatusInput) {
+  async updateStatus(updateStatusInput: UpdateStatusInput): Promise<DeliveryPerson> {
     const { deliveryPersonId, status } = updateStatusInput;
-
     await this.findOne(deliveryPersonId);
 
     return this.prisma.deliveryPerson.update({
@@ -106,12 +78,11 @@ export class DeliveryPersonsService {
     });
   }
 
-  async updateLocation(updateLocationInput: UpdateLocationInput) {
-    const { deliveryPersonId, latitude, longitude, accuracy, speed, heading } = updateLocationInput;
-
+  async updateLocation(updateLocationInput: UpdateLocationInput): Promise<DeliveryPerson> {
+    const { deliveryPersonId, latitude, longitude } = updateLocationInput;
     await this.findOne(deliveryPersonId);
 
-    const deliveryPerson = await this.prisma.deliveryPerson.update({
+    return this.prisma.deliveryPerson.update({
       where: { id: deliveryPersonId },
       data: {
         currentLatitude: latitude,
@@ -119,51 +90,29 @@ export class DeliveryPersonsService {
         lastLocationUpdate: new Date(),
       },
     });
-
-    return deliveryPerson;
   }
 
-  async findAvailableNearby(latitude: number, longitude: number, radiusKm: number) {
-    const deliveryPersons = await this.prisma.deliveryPerson.findMany({
+  async findAvailableNearby(latitude: number, longitude: number, radiusKm: number): Promise<DeliveryPerson[]> {
+    const availableDeliveryPersons = await this.prisma.deliveryPerson.findMany({
       where: {
         status: DeliveryPersonStatus.AVAILABLE,
         isActive: true,
-        currentLatitude: { not: null },
-        currentLongitude: { not: null },
       },
     });
 
-    return deliveryPersons.filter((dp) => {
-      if (!dp.currentLatitude || !dp.currentLongitude) return false;
+    return availableDeliveryPersons.filter(person => {
+      if (!person.currentLatitude || !person.currentLongitude) {
+        return false;
+      }
 
-      const distance = this.calculateDistance(
+      const distance = calculateDistance(
         latitude,
         longitude,
-        dp.currentLatitude,
-        dp.currentLongitude,
+        person.currentLatitude,
+        person.currentLongitude,
       );
 
       return distance <= radiusKm;
     });
-  }
-
-  private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-    const R = 6371;
-    const dLat = this.toRadians(lat2 - lat1);
-    const dLon = this.toRadians(lon2 - lon1);
-
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(this.toRadians(lat1)) *
-        Math.cos(this.toRadians(lat2)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  }
-
-  private toRadians(degrees: number): number {
-    return degrees * (Math.PI / 180);
   }
 }
