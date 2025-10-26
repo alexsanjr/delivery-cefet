@@ -30,10 +30,10 @@ model DeliveryPerson {
   id            String                @id @default(uuid())
   name          String
   email         String                @unique
-  phone         String
+  phone         String                @unique
   cpf           String                @unique
   vehicleType   VehicleType
-  licensePlate  String?               // Placa do veículo (opcional para bike/walking)
+  licensePlate  String?               @unique // Placa do veículo (opcional para bike/walking)
   status        DeliveryPersonStatus  @default(OFFLINE)
   rating        Float                 @default(5.0)
   totalDeliveries Int                 @default(0)
@@ -52,6 +52,8 @@ model DeliveryPerson {
   
   @@index([status])
   @@index([email])
+  @@index([phone])
+  @@index([licensePlate])
   @@index([currentLatitude, currentLongitude])
   @@map("delivery_persons")
 }

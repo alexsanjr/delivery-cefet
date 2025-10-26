@@ -84,10 +84,30 @@ export class DeliveryPersonsController {
     return this.deliveryPersonsService.update(id, updateDeliveryPersonInput);
   }
 
+  @Patch(':id/deactivate')
+  @ApiOperation({ summary: 'Desativar entregador (soft delete)' })
+  @ApiResponse({ status: 200, description: 'Entregador desativado com sucesso' })
+  @ApiResponse({ status: 404, description: 'Entregador não encontrado' })
+  @ApiResponse({ status: 400, description: 'Entregador já está desativado' })
+  @ApiParam({ name: 'id', description: 'ID do entregador' })
+  deactivate(@Param('id') id: string) {
+    return this.deliveryPersonsService.deactivate(id);
+  }
+
+  @Patch(':id/activate')
+  @ApiOperation({ summary: 'Ativar entregador' })
+  @ApiResponse({ status: 200, description: 'Entregador ativado com sucesso' })
+  @ApiResponse({ status: 404, description: 'Entregador não encontrado' })
+  @ApiResponse({ status: 400, description: 'Entregador já está ativo' })
+  @ApiParam({ name: 'id', description: 'ID do entregador' })
+  activate(@Param('id') id: string) {
+    return this.deliveryPersonsService.activate(id);
+  }
+
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Remover entregador' })
-  @ApiResponse({ status: 204, description: 'Entregador removido' })
+  @ApiOperation({ summary: 'Remover entregador permanentemente (hard delete)' })
+  @ApiResponse({ status: 204, description: 'Entregador removido permanentemente' })
   @ApiResponse({ status: 404, description: 'Entregador não encontrado' })
   @ApiParam({ name: 'id', description: 'ID do entregador' })
   remove(@Param('id') id: string) {

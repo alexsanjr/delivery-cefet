@@ -39,7 +39,17 @@ export class DeliveryPersonsResolver {
     return this.deliveryPersonsService.update(id, updateDeliveryPersonInput);
   }
 
-  @Mutation(() => DeliveryPerson)
+  @Mutation(() => DeliveryPerson, { description: 'Desativar entregador (soft delete)' })
+  async deactivateDeliveryPerson(@Args('id', { type: () => ID }) id: string) {
+    return this.deliveryPersonsService.deactivate(id);
+  }
+
+  @Mutation(() => DeliveryPerson, { description: 'Ativar entregador' })
+  async activateDeliveryPerson(@Args('id', { type: () => ID }) id: string) {
+    return this.deliveryPersonsService.activate(id);
+  }
+
+  @Mutation(() => DeliveryPerson, { description: 'Deletar entregador permanentemente (hard delete)' })
   async removeDeliveryPerson(@Args('id', { type: () => ID }) id: string) {
     return this.deliveryPersonsService.remove(id);
   }
