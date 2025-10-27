@@ -20,9 +20,9 @@ import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin
       typePaths: ['./**/*.graphql'],
     }),
     PrismaModule,
-    CustomersModule
+    CustomersModule,
   ],
   controllers: [],
   providers: [],
 })
-export class AppModule { }
+export class AppModule {}

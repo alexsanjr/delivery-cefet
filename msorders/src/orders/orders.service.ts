@@ -3,6 +3,8 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import {
   CreateOrderInput,
@@ -17,8 +19,10 @@ import {
   PriceStrategy,
   OrderItem,
   OrderAddress,
+  CustomerGrpcResponse,
 } from './interfaces';
 import { PriceCalculatorContext } from './strategies/price-calculator.context';
+import { CustomersClient } from '../grpc/customers.client';
 
 @Injectable()
 export class OrdersService implements IOrderValidator {
@@ -27,6 +31,7 @@ export class OrdersService implements IOrderValidator {
   constructor(
     private readonly ordersDatasource: OrdersDatasource,
     private readonly priceCalculatorContext: PriceCalculatorContext,
+    private readonly customersClient: CustomersClient,
   ) {}
 
   async create(createOrderInput: CreateOrderInput) {
@@ -36,6 +41,15 @@ export class OrdersService implements IOrderValidator {
 
     try {
       this.validateCreateOrderInput(createOrderInput);
+
+      // After validation, customerId is guaranteed to be a number
+      if (!createOrderInput.customerId) {
+        throw new BadRequestException('ID do cliente é obrigatório');
+      }
+
+      const customerData = await this.getCustomerDataViaGrpc(
+        createOrderInput.customerId,
+      );
 
       // Determinar estratégia baseada no tipo de pedido ou cliente
       const strategy = this.determineStrategy(createOrderInput);
@@ -59,7 +73,9 @@ export class OrdersService implements IOrderValidator {
       // Preparar dados para persistência
       const orderData = {
         ...createOrderInput,
-        customerId: createOrderInput.customerId || 1, // Default temporário
+        customerId: createOrderInput.customerId,
+        customerName: customerData.name,
+        customerPhone: customerData.phone,
         subtotal,
         deliveryFee,
         total,
@@ -76,6 +92,44 @@ export class OrdersService implements IOrderValidator {
         `Erro ao criar pedido: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
       );
       throw error;
+    }
+  }
+
+  private async getCustomerDataViaGrpc(
+    customerId: number,
+  ): Promise<{ name: string; phone: string }> {
+    try {
+      this.logger.log(`Buscando dados do cliente via gRPC: ${customerId}`);
+
+      const customer = (await this.customersClient.getCustomer(
+        customerId,
+      )) as CustomerGrpcResponse;
+
+      if (customer.error) {
+        throw new HttpException(
+          `Erro ao buscar dados do cliente: ${customer.error}`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      this.logger.log(`Dados do cliente obtidos via gRPC: ${customer.name}`);
+
+      return {
+        name: customer.name,
+        phone: customer.phone,
+      };
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erro desconhecido';
+      this.logger.error(`Erro na comunicação gRPC: ${errorMessage}`);
+      throw new HttpException(
+        'Erro ao buscar dados do cliente',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
@@ -284,6 +338,7 @@ export class OrdersService implements IOrderValidator {
     // Pode ser baseada no tipo de cliente, valor do pedido, urgência, etc.
 
     // TODO: Implementar essa lógica verificando se cliente é premium
+    // Por enquanto mantemos a lógica existente, mas no futuro podemos buscar isPremium do gRPC
     const customerIdStr = String(createOrderInput.customerId);
     if (customerIdStr.includes('premium')) {
       return PriceStrategy.PREMIUM;
