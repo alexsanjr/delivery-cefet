@@ -8,7 +8,6 @@ COPY tsconfig*.json ./
 RUN npm ci
 
 COPY src ./src
-COPY grpc ./src/grpc
 
 RUN npm run build
 
@@ -19,7 +18,6 @@ WORKDIR /app
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/grpc ./grpc
 
 EXPOSE 3000 50051
 
