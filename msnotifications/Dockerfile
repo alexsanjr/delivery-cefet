@@ -8,7 +8,7 @@ COPY tsconfig*.json ./
 RUN npm ci
 
 COPY src ./src
-COPY grpc ./grpc
+COPY grpc ./src/grpc
 
 RUN npm run build
 

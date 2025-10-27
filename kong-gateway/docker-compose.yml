@@ -5,9 +5,9 @@ services:
   kong-database:
     image: postgres:13
     environment:
-      POSTGRES_USER: kong
-      POSTGRES_PASSWORD: kong
-      POSTGRES_DB: kong
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5432:5432"
     volumes:
@@ -15,7 +15,7 @@ services:
     networks:
       - kong-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U kong -d kong"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -24,8 +24,8 @@ services:
   konga-database:
     image: postgres:13
     environment:
-      POSTGRES_USER: konga
-      POSTGRES_PASSWORD: konga
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: konga
     ports:
       - "5433:5432"
@@ -34,7 +34,7 @@ services:
     networks:
       - kong-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U konga -d konga"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d konga"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -46,8 +46,8 @@ services:
     environment:
       KONG_DATABASE: postgres
       KONG_PG_HOST: kong-database
-      KONG_PG_USER: kong
-      KONG_PG_PASSWORD: kong
+      KONG_PG_USER: ${POSTGRES_USER}
+      KONG_PG_PASSWORD: ${POSTGRES_PASSWORD}
     depends_on:
       kong-database:
         condition: service_healthy
@@ -61,8 +61,8 @@ services:
     environment:
       KONG_DATABASE: postgres
       KONG_PG_HOST: kong-database
-      KONG_PG_USER: kong
-      KONG_PG_PASSWORD: kong
+      KONG_PG_USER: ${POSTGRES_USER}
+      KONG_PG_PASSWORD: ${POSTGRES_PASSWORD}
       
       KONG_PROXY_ACCESS_LOG: /dev/stdout
       KONG_ADMIN_ACCESS_LOG: /dev/stdout
@@ -95,13 +95,13 @@ services:
   konga:
     image: pantsel/konga:latest
     environment:
-      DB_ADAPTER: postgres
-      DB_HOST: konga-database  
-      DB_USER: konga           
-      DB_PASSWORD: konga       
-      DB_DATABASE: konga       
+      DB_ADAPTER: ${DB_ADAPTER}
+      DB_HOST: ${DB_HOST}  
+      DB_USER: ${DB_USER}           
+      DB_PASSWORD: ${DB_PASSWORD}       
+      DB_DATABASE: ${DB_DATABASE}       
       TOKEN_SECRET: kongasecret
-      NODE_ENV: production
+      NODE_ENV: ${NODE_ENV}
       # Configurações adicionais para evitar timeout
       DB_POOL_SIZE: 5
       DB_CONNECTION_TIMEOUT: 60000
@@ -127,8 +127,8 @@ services:
     ports:
       - "3001:3000"
     environment:
-      DATABASE_URL: postgresql://user:password@postgres-orders:5432/msorders
-      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_ORDERS_USER}:${POSTGRES_ORDERS_PASSWORD}@postgres-orders:5432/${POSTGRES_ORDERS_DB}
+      NODE_ENV: ${NODE_ENV}
     depends_on:
       postgres-orders:
         condition: service_healthy
@@ -144,9 +144,9 @@ services:
   postgres-orders:
     image: postgres:13
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: msorders
+      POSTGRES_USER: ${POSTGRES_ORDERS_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_ORDERS_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_ORDERS_DB}
     ports:
       - "5434:5432"
     volumes:
@@ -154,7 +154,7 @@ services:
     networks:
       - kong-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d msorders"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_ORDERS_USER} -d ${POSTGRES_ORDERS_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -165,8 +165,8 @@ services:
     ports:
       - "3002:3000"
     environment:
-      DATABASE_URL: postgresql://user:password@postgres-customers:5432/mscustomers
-      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_CUSTOMERS_USER}:${POSTGRES_CUSTOMERS_PASSWORD}@postgres-customers:5432/${POSTGRES_CUSTOMERS_DB}
+      NODE_ENV: ${NODE_ENV}
     depends_on:
       postgres-customers:
         condition: service_healthy
@@ -182,9 +182,9 @@ services:
   postgres-customers:
     image: postgres:13
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: mscustomers
+      POSTGRES_USER: ${POSTGRES_CUSTOMERS_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_CUSTOMERS_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_CUSTOMERS_DB}
     ports:
       - "5435:5432"
     volumes:
@@ -192,7 +192,7 @@ services:
     networks:
       - kong-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d mscustomers"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_CUSTOMERS_USER} -d ${POSTGRES_CUSTOMERS_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -201,12 +201,12 @@ services:
   msnotifications:
     build: ../msnotifications
     ports:
-      - "3003:3000"
-      - "50051:50051" 
+      - "${MSNOTIFICATIONS_PORT}:3000"
+      - "${MSNOTIFICATIONS_GRPC_PORT}:50051" 
     environment:
-      NODE_ENV: production
-      REDIS_URL: redis://redis:6379
-      GRPC_URL: msnotifications:50051
+      NODE_ENV: ${NODE_ENV}
+      REDIS_URL: ${REDIS_URL}
+      GRPC_URL: msnotifications:${MSNOTIFICATIONS_GRPC_PORT}
     depends_on:
       redis:
         condition: service_healthy
