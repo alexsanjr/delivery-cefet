@@ -1,5 +1,9 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { DeliveryPerson } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { DeliveryPersonValidationService } from './services/delivery-person-validation.service';
+import { DeliveryPersonValidators } from './utils/validators';
+import { calculateDistance } from './utils/distance.helper';
 import { CreateDeliveryPersonInput } from './dto/create-delivery-person.input';
 import { UpdateDeliveryPersonInput } from './dto/update-delivery-person.input';
 import { UpdateStatusInput } from './dto/update-status.input';
@@ -8,23 +12,21 @@ import { DeliveryPersonStatus } from './models/delivery-person-status.enum';
 
 @Injectable()
 export class DeliveryPersonsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly validationService: DeliveryPersonValidationService,
+  ) {}
 
-  async create(createDeliveryPersonInput: CreateDeliveryPersonInput) {
-    const existingEmail = await this.prisma.deliveryPerson.findUnique({
-      where: { email: createDeliveryPersonInput.email },
-    });
+  async create(createDeliveryPersonInput: CreateDeliveryPersonInput): Promise<DeliveryPerson> {
+    // Regra 5: Validar CPF
+    DeliveryPersonValidators.validateCpf(createDeliveryPersonInput.cpf);
 
-    if (existingEmail) {
-      throw new ConflictException("Email já cadastrado");
-    }
-
-    const existingCpf = await this.prisma.deliveryPerson.findUnique({
-      where: { cpf: createDeliveryPersonInput.cpf },
-    });
-
-    if (existingCpf) {
-      throw new ConflictException("CPF já cadastrado");
+    await this.validationService.validateEmailUniqueness(createDeliveryPersonInput.email);
+    await this.validationService.validateCpfUniqueness(createDeliveryPersonInput.cpf);
+    await this.validationService.validatePhoneUniqueness(createDeliveryPersonInput.phone);
+    
+    if (createDeliveryPersonInput.licensePlate) {
+      await this.validationService.validateLicensePlateUniqueness(createDeliveryPersonInput.licensePlate);
     }
 
     return this.prisma.deliveryPerson.create({
@@ -35,49 +37,44 @@ export class DeliveryPersonsService {
     });
   }
 
-  async findAll(status?: DeliveryPersonStatus, isActive?: boolean) {
-    const where: any = {};
-
-    if (status) {
-      where.status = status;
-    }
-
-    if (isActive !== undefined) {
-      where.isActive = isActive;
-    }
-
+  async findAll(status?: DeliveryPersonStatus, isActive?: boolean): Promise<DeliveryPerson[]> {
     return this.prisma.deliveryPerson.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
+      where: {
+        ...(status && { status }),
+        ...(isActive !== undefined && { isActive }),
+      },
     });
   }
 
-  async findOne(id: string) {
+  async findOne(id: string): Promise<DeliveryPerson> {
     const deliveryPerson = await this.prisma.deliveryPerson.findUnique({
       where: { id },
     });
 
     if (!deliveryPerson) {
-      throw new NotFoundException("Entregador não encontrado");
+      throw new NotFoundException('Entregador não encontrado');
     }
 
     return deliveryPerson;
   }
 
-  async update(id: string, updateDeliveryPersonInput: UpdateDeliveryPersonInput) {
+  async update(id: string, updateDeliveryPersonInput: UpdateDeliveryPersonInput): Promise<DeliveryPerson> {
     await this.findOne(id);
 
     if (updateDeliveryPersonInput.email) {
-      const existingEmail = await this.prisma.deliveryPerson.findFirst({
-        where: {
-          email: updateDeliveryPersonInput.email,
-          NOT: { id },
-        },
-      });
+      await this.validationService.validateEmailUniqueness(updateDeliveryPersonInput.email, id);
+    }
 
-      if (existingEmail) {
-        throw new ConflictException("Email já cadastrado");
-      }
+    if (updateDeliveryPersonInput.cpf) {
+      await this.validationService.validateCpfUniqueness(updateDeliveryPersonInput.cpf, id);
+    }
+
+    if (updateDeliveryPersonInput.phone) {
+      await this.validationService.validatePhoneUniqueness(updateDeliveryPersonInput.phone, id);
+    }
+
+    if (updateDeliveryPersonInput.licensePlate) {
+      await this.validationService.validateLicensePlateUniqueness(updateDeliveryPersonInput.licensePlate, id);
     }
 
     return this.prisma.deliveryPerson.update({
@@ -86,32 +83,96 @@ export class DeliveryPersonsService {
     });
   }
 
-  async remove(id: string) {
-    await this.findOne(id);
-
+  async updateActiveStatus(id: string, isActive: boolean): Promise<DeliveryPerson> {
+    const deliveryPerson = await this.findOne(id);
+    
+    // Validar se já está no estado desejado
+    if (deliveryPerson.isActive === isActive) {
+      const statusText = isActive ? 'ativo' : 'desativado';
+      throw new BadRequestException(`Entregador já está ${statusText}`);
+    }
+    
     return this.prisma.deliveryPerson.update({
       where: { id },
-      data: { isActive: false },
+      data: { 
+        isActive,
+        // Se estiver desativando, colocar como OFFLINE
+        ...(isActive === false && { status: DeliveryPersonStatus.OFFLINE }),
+      },
     });
   }
 
-  async updateStatus(updateStatusInput: UpdateStatusInput) {
-    const { deliveryPersonId, status } = updateStatusInput;
+  async remove(id: string): Promise<DeliveryPerson> {
+    await this.findOne(id);
+    
+    return this.prisma.deliveryPerson.delete({
+      where: { id },
+    });
+  }
 
-    await this.findOne(deliveryPersonId);
+  async updateStatus(updateStatusInput: UpdateStatusInput): Promise<DeliveryPerson> {
+    const { deliveryPersonId, status } = updateStatusInput;
+    
+    const deliveryPerson = await this.findOne(deliveryPersonId);
+
+    // Regra 3: Entregador desativado não pode mudar para AVAILABLE ou BUSY
+    if (!deliveryPerson.isActive && 
+        (status === DeliveryPersonStatus.AVAILABLE || status === DeliveryPersonStatus.BUSY)) {
+      throw new BadRequestException(
+        "Entregador desativado não pode ficar disponível ou ocupado. Reative o entregador primeiro."
+      );
+    }
+
+    // Regra 6: Armazenar última localização antes de ficar OFFLINE
+    const updateData: any = { status };
+    
+    if (status === DeliveryPersonStatus.OFFLINE && deliveryPerson.currentLatitude && deliveryPerson.currentLongitude) {
+      // Mantém a última localização conhecida mesmo quando offline
+      updateData.lastLocationUpdate = new Date();
+    }
 
     return this.prisma.deliveryPerson.update({
       where: { id: deliveryPersonId },
-      data: { status },
+      data: updateData,
     });
   }
 
-  async updateLocation(updateLocationInput: UpdateLocationInput) {
-    const { deliveryPersonId, latitude, longitude, accuracy, speed, heading } = updateLocationInput;
+  async updateLocation(updateLocationInput: UpdateLocationInput): Promise<DeliveryPerson> {
+    const { deliveryPersonId, latitude, longitude } = updateLocationInput;
+    
+    const deliveryPerson = await this.findOne(deliveryPersonId);
 
-    await this.findOne(deliveryPersonId);
+    // Regra 4: Validar coordenadas
+    DeliveryPersonValidators.validateCoordinates(latitude, longitude);
 
-    const deliveryPerson = await this.prisma.deliveryPerson.update({
+    // Regra 4: Não permitir atualização de localização se estiver OFFLINE
+    if (deliveryPerson.status === DeliveryPersonStatus.OFFLINE) {
+      throw new BadRequestException(
+        "Não é possível atualizar localização de entregador offline. Mude o status primeiro."
+      );
+    }
+
+    // Regra 6: Validar se a distância entre atualizações é razoável (anti-spoofing)
+    if (deliveryPerson.currentLatitude && 
+        deliveryPerson.currentLongitude && 
+        deliveryPerson.lastLocationUpdate) {
+      
+      const timeDiffMs = new Date().getTime() - new Date(deliveryPerson.lastLocationUpdate).getTime();
+      const timeDiffMinutes = timeDiffMs / (1000 * 60);
+
+      // Apenas validar se a última atualização foi recente (menos de 1 hora)
+      if (timeDiffMinutes < 60) {
+        DeliveryPersonValidators.validateLocationChange(
+          deliveryPerson.currentLatitude,
+          deliveryPerson.currentLongitude,
+          latitude,
+          longitude,
+          timeDiffMinutes,
+        );
+      }
+    }
+
+    return this.prisma.deliveryPerson.update({
       where: { id: deliveryPersonId },
       data: {
         currentLatitude: latitude,
@@ -119,12 +180,14 @@ export class DeliveryPersonsService {
         lastLocationUpdate: new Date(),
       },
     });
-
-    return deliveryPerson;
   }
 
-  async findAvailableNearby(latitude: number, longitude: number, radiusKm: number) {
-    const deliveryPersons = await this.prisma.deliveryPerson.findMany({
+  async findAvailableNearby(latitude: number, longitude: number, radiusKm: number): Promise<DeliveryPerson[]> {
+    // Regra 4: Validar coordenadas de busca
+    DeliveryPersonValidators.validateCoordinates(latitude, longitude);
+
+    // Regra 3: Apenas entregadores AVAILABLE podem ser atribuídos
+    const availableDeliveryPersons = await this.prisma.deliveryPerson.findMany({
       where: {
         status: DeliveryPersonStatus.AVAILABLE,
         isActive: true,
@@ -133,37 +196,19 @@ export class DeliveryPersonsService {
       },
     });
 
-    return deliveryPersons.filter((dp) => {
-      if (!dp.currentLatitude || !dp.currentLongitude) return false;
+    return availableDeliveryPersons.filter(person => {
+      if (!person.currentLatitude || !person.currentLongitude) {
+        return false;
+      }
 
-      const distance = this.calculateDistance(
+      const distance = DeliveryPersonValidators.calculateDistance(
         latitude,
         longitude,
-        dp.currentLatitude,
-        dp.currentLongitude,
+        person.currentLatitude,
+        person.currentLongitude,
       );
 
       return distance <= radiusKm;
     });
-  }
-
-  private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-    const R = 6371;
-    const dLat = this.toRadians(lat2 - lat1);
-    const dLon = this.toRadians(lon2 - lon1);
-
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(this.toRadians(lat1)) *
-        Math.cos(this.toRadians(lat2)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  }
-
-  private toRadians(degrees: number): number {
-    return degrees * (Math.PI / 180);
   }
 }
