@@ -105,12 +105,16 @@ export class OrdersResolver {
 
   @ResolveField('createdAt')
   getCreatedAt(@Parent() order: Order): string {
-    return new Date(order.createdAt).toLocaleString('pt-BR');
+    return new Date(order.createdAt).toLocaleString('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+    });
   }
 
   @ResolveField('updatedAt')
   getUpdatedAt(@Parent() order: Order): string {
-    return new Date(order.updatedAt).toLocaleString('pt-BR');
+    return new Date(order.updatedAt).toLocaleString('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+    });
   }
 
   @ResolveField('items')
