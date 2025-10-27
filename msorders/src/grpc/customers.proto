@@ -15,13 +15,24 @@ message ValidateCustomerRequest {
   int32 id = 1;
 }
 
+message AddressInput {
+  string street = 1;
+  string number = 2;
+  string complement = 3;
+  string neighborhood = 4;
+  string city = 5;
+  string state = 6;
+  string zipCode = 7;
+}
+
 message CustomerResponse {
   int32 id = 1;
   string name = 2;
   string email = 3;
   string phone = 4;
-  bool isPremium = 4;
-  repeated AddressInput addresses = 5;
+  bool isPremium = 5;
+  repeated AddressInput addresses = 6;
+  string error = 7;
 }
 
 message ValidateCustomerResponse {
