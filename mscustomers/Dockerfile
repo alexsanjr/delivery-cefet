@@ -10,6 +10,7 @@ RUN npm ci
 
 COPY . .
 RUN npx prisma generate --schema ./src/prisma/schema.prisma
+RUN npm run build
 
 # Copiar script de inicialização
 COPY wait-for-db.sh /app/wait-for-db.sh

@@ -1,13 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Controller } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import { PrismaService } from 'src/prisma/prisma.service';
 
-@Injectable()
+@Controller()
 export class GrpcCustomersService {
   constructor(private prisma: PrismaService) {}
 
   @GrpcMethod('CustomersService', 'GetCustomer')
   async getCustomer(data: { id: number }) {
+    console.log('[gRPC] GetCustomer called with id:', data.id);
     try {
       const customer = await this.prisma.customer.findUnique({
         where: { id: data.id },
