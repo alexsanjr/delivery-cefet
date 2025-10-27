@@ -12,6 +12,7 @@ import { ProductModule } from './product/product.module';
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       playground: false,
+      introspection: true,
       sortSchema: true,
       plugins: [ApolloServerPluginLandingPageLocalDefault()],
       typePaths: ['./**/*.graphql'],
