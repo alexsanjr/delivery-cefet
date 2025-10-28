@@ -42,7 +42,6 @@ export class OrdersService implements IOrderValidator {
     try {
       this.validateCreateOrderInput(createOrderInput);
 
-      // After validation, customerId is guaranteed to be a number
       if (!createOrderInput.customerId) {
         throw new BadRequestException('ID do cliente é obrigatório');
       }
@@ -54,7 +53,6 @@ export class OrdersService implements IOrderValidator {
       // Determinar estratégia baseada no tipo de pedido ou cliente
       const strategy = this.determineStrategy(createOrderInput, customerData);
 
-      // Log para debug
       this.logger.log(
         `Estratégia selecionada: ${strategy} | Cliente Premium: ${customerData.isPremium} | Pagamento: ${createOrderInput.paymentMethod}`,
       );
@@ -75,7 +73,6 @@ export class OrdersService implements IOrderValidator {
       const estimatedDeliveryTime =
         this.priceCalculatorContext.calculateDeliveryTime(strategy, address);
 
-      // Preparar dados para persistência
       const orderData = {
         ...createOrderInput,
         customerId: createOrderInput.customerId,
@@ -182,7 +179,6 @@ export class OrdersService implements IOrderValidator {
   async findById(id: number) {
     this.logger.log(`Buscando pedido com ID: ${id}`);
 
-    // Validação defensiva
     if (!id || id <= 0) {
       throw new BadRequestException(
         'ID do pedido é obrigatório e deve ser maior que zero',
@@ -340,7 +336,6 @@ export class OrdersService implements IOrderValidator {
     }
   }
 
-  // Métodos auxiliares para Strategy Pattern
   private determineStrategy(
     createOrderInput: CreateOrderInput,
     customerData: { isPremium: boolean },
