@@ -52,7 +52,12 @@ export class OrdersService implements IOrderValidator {
       );
 
       // Determinar estratégia baseada no tipo de pedido ou cliente
-      const strategy = this.determineStrategy(createOrderInput);
+      const strategy = this.determineStrategy(createOrderInput, customerData);
+
+      // Log para debug
+      this.logger.log(
+        `Estratégia selecionada: ${strategy} | Cliente Premium: ${customerData.isPremium} | Pagamento: ${createOrderInput.paymentMethod}`,
+      );
 
       // Cálculos de negócio usando Strategy Pattern
       const items = await this.mapOrderItems(createOrderInput.items);
@@ -97,7 +102,7 @@ export class OrdersService implements IOrderValidator {
 
   private async getCustomerDataViaGrpc(
     customerId: number,
-  ): Promise<{ name: string; phone: string }> {
+  ): Promise<{ name: string; phone: string; isPremium: boolean }> {
     try {
       this.logger.log(`Buscando dados do cliente via gRPC: ${customerId}`);
 
@@ -112,11 +117,14 @@ export class OrdersService implements IOrderValidator {
         );
       }
 
-      this.logger.log(`Dados do cliente obtidos via gRPC: ${customer.name}`);
+      this.logger.log(
+        `Dados do cliente obtidos via gRPC: ${customer.name}, isPremium: ${customer.isPremium}`,
+      );
 
       return {
         name: customer.name,
         phone: customer.phone,
+        isPremium: customer.isPremium,
       };
     } catch (error) {
       if (error instanceof HttpException) {
@@ -333,23 +341,21 @@ export class OrdersService implements IOrderValidator {
   }
 
   // Métodos auxiliares para Strategy Pattern
-  private determineStrategy(createOrderInput: CreateOrderInput): PriceStrategy {
-    // Lógica para determinar qual estratégia usar
-    // Pode ser baseada no tipo de cliente, valor do pedido, urgência, etc.
-
-    // TODO: Implementar essa lógica verificando se cliente é premium
-    // Por enquanto mantemos a lógica existente, mas no futuro podemos buscar isPremium do gRPC
-    const customerIdStr = String(createOrderInput.customerId);
-    if (customerIdStr.includes('premium')) {
+  private determineStrategy(
+    createOrderInput: CreateOrderInput,
+    customerData: { isPremium: boolean },
+  ): PriceStrategy {
+    // Clientes Premium sempre usam estratégia PREMIUM (desconto e frete grátis)
+    if (customerData.isPremium) {
       return PriceStrategy.PREMIUM;
     }
 
-    // Pedidos urgentes ou express são pagos com cartão de crédito
+    // Pedidos com cartão de crédito (não-premium) usam EXPRESS (entrega rápida)
     if (createOrderInput.paymentMethod === PaymentMethod.CREDIT_CARD) {
       return PriceStrategy.EXPRESS;
     }
 
-    // Estratégia padrão
+    // Estratégia padrão para outros casos (PIX, dinheiro, etc)
     return PriceStrategy.BASIC;
   }
 
