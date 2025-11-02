@@ -132,6 +132,7 @@ services:
       CUSTOMERS_GRPC_URL: mscustomers:50051
       NODE_ENV: ${NODE_ENV}
       GRPC_PORT: 50052
+    command: ["node", "dist/main"]  # ← ADICIONE ESTA LINHA
     depends_on:
       postgres-orders:
         condition: service_healthy  
@@ -144,6 +145,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
 
   # PostgreSQL do msorders
   postgres-orders:
@@ -174,6 +176,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_CUSTOMERS_USER}:${POSTGRES_CUSTOMERS_PASSWORD}@postgres-customers:5432/${POSTGRES_CUSTOMERS_DB}
       NODE_ENV: ${NODE_ENV}
       GRPC_PORT: 50051
+    command: ["node", "dist/main"]  # ← ADICIONE ESTA LINHA
     depends_on:
       postgres-customers:
         condition: service_healthy
@@ -184,6 +187,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
 
   # PostgreSQL do mscustomers
   postgres-customers:
@@ -208,12 +212,13 @@ services:
   msnotifications:
     build: ../msnotifications
     ports:
-      - "${MSNOTIFICATIONS_PORT}:3000"
-      - "50053:50051" 
+      - "3003:3000"    # HTTP externo:interno - PORTA FIXA
+      - "50053:50053"  # gRPC mesma porta - CORRIGIDO
     environment:
       NODE_ENV: ${NODE_ENV}
-      REDIS_URL: ${REDIS_URL}
-      GRPC_URL: msnotifications:50051
+      REDIS_URL: redis://redis:6379
+      GRPC_PORT: 50053  # ← CORRIGIDO
+    command: ["node", "dist/main"]  # ← ADICIONADO
     depends_on:
       redis:
         condition: service_healthy
