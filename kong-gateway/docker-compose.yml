@@ -208,19 +208,19 @@ services:
       timeout: 5s
       retries: 10
   
-  # msnotifications
+  # msnotifications - CORRIGIR depends_on e REDIS_URL
   msnotifications:
     build: ../msnotifications
     ports:
-      - "3003:3000"    # HTTP externo:interno - PORTA FIXA
-      - "50053:50053"  # gRPC mesma porta - CORRIGIDO
+      - "3003:3000"
+      - "50053:50053"
     environment:
       NODE_ENV: ${NODE_ENV}
-      REDIS_URL: redis://redis:6379
-      GRPC_PORT: 50053  # ← CORRIGIDO
-    command: ["node", "dist/main"]  # ← ADICIONADO
+      REDIS_URL: redis://redis-notifications:6379  # ← CORRIGIR: redis-notifications
+      GRPC_PORT: 50053
+    command: ["node", "dist/main"]
     depends_on:
-      redis:
+      redis-notifications:    # ← CORRIGIR: mudar "redis" para "redis-notifications"
         condition: service_healthy
     networks:
       - kong-net
@@ -231,10 +231,10 @@ services:
       retries: 3
   
   # redis msnotifications
-  redis:
+  redis-notifications:
     image: redis:7-alpine
     volumes:
-      - redis_data:/data
+      - redis_notifications_data:/data
     ports:
       - "6379:6379"
     networks:
@@ -245,12 +245,76 @@ services:
       timeout: 5s
       retries: 5
 
+  # Microsserviço msrouting
+  msrouting:
+    build: ../msrouting
+    ports:
+      - "3004:3004"    # GraphQL - PORTA FIXA (igual ao main.ts)
+      - "50054:50054"  # gRPC - mesma porta
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_ROUTING_USER}:${POSTGRES_ROUTING_PASSWORD}@postgres-routing:5432/${POSTGRES_ROUTING_DB}
+      NODE_ENV: ${NODE_ENV}
+      GRPC_PORT: 50054
+      REDIS_HOST: redis-routing
+      REDIS_PORT: 6380
+      MAPS_SERVICE: osrm
+    command: ["node", "dist/main"]  # ← MESMO PADRÃO
+    depends_on:
+      postgres-routing:
+        condition: service_healthy
+      redis-routing:
+        condition: service_healthy
+    networks:
+      - kong-net
+    healthcheck:
+      test: ["CMD", "curl", "-X", "POST", "-H", "Content-Type: application/json", "-d", "{\"query\":\"{ __typename }\"}", "http://localhost:3004/graphql"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # PostgreSQL do msrouting
+  postgres-routing:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: ${POSTGRES_ROUTING_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_ROUTING_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_ROUTING_DB}
+    ports:
+      - "5436:5432"    # PORTA DIFERENTE
+    volumes:
+      - postgres_routing_data:/var/lib/postgresql/data
+    networks:
+      - kong-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_ROUTING_USER} -d ${POSTGRES_ROUTING_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis-routing:
+    image: redis:7-alpine
+    command: redis-server --port 6380    # ← OBRIGATÓRIO
+    volumes:
+      - redis_routing_data:/data
+    ports:
+      - "6380:6380"
+    networks:
+      - kong-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6380", "ping"]  # ← ESPECIFICAR PORTA
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   kong_data:
   konga_data:
   postgres_orders_data:
   postgres_customers_data:
-  redis_data:
+  postgres_routing_data:    # ← ADICIONAR ESTE
+  redis_notifications_data:
+  redis_routing_data:       # ← ADICIONAR ESTE
 
 networks:
   kong-net:
