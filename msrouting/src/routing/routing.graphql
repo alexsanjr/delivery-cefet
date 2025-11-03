@@ -1,0 +1,94 @@
+# src/routing/routing.graphql
+type Point {
+  latitude: Float!
+  longitude: Float!
+}
+
+type RouteStep {
+  instruction: String!
+  distance: Int!
+  duration: Int!
+  start_location: Point!
+  end_location: Point!
+}
+
+type RouteResponse {
+  path: [Point!]!
+  total_distance: Int!
+  total_duration: Int!
+  polyline: String!
+  steps: [RouteStep!]!
+  cost_estimate: Float!
+}
+
+type ETAResponse {
+  eta_minutes: Int!
+  distance_meters: Int!
+  traffic_condition: String!
+}
+
+type DeliveryPoint {
+  delivery_id: String!
+  location: Point!
+  estimated_service_time: Int!
+}
+
+type Vehicle {
+  id: String!
+  type: String!
+  capacity: Float!
+  speed: Float!
+}
+
+type VehicleRoute {
+  vehicle: Vehicle!
+  deliveries: [DeliveryPoint!]!
+  route: RouteResponse!
+}
+
+type OptimizedRouteResponse {
+  vehicle_routes: [VehicleRoute!]!
+  total_cost: Float!
+  total_distance: Float!
+  total_duration: Float!
+}
+
+input PointInput {
+  latitude: Float!
+  longitude: Float!
+}
+
+input DeliveryPointInput {
+  delivery_id: String!
+  location: PointInput!
+  estimated_service_time: Int!
+}
+
+input VehicleInput {
+  id: String!
+  type: String!
+  capacity: Float!
+  speed: Float!
+}
+
+type Query {
+  calculateRoute(
+    origin: PointInput!
+    destination: PointInput!
+    strategy: String
+  ): RouteResponse!
+  
+  calculateETA(
+    origin: PointInput!
+    destination: PointInput!
+    strategy: String
+  ): ETAResponse!
+}
+
+type Mutation {
+  optimizeDeliveryRoute(
+    depot: PointInput!
+    deliveries: [DeliveryPointInput!]!
+    vehicles: [VehicleInput!]
+  ): OptimizedRouteResponse!
+}
