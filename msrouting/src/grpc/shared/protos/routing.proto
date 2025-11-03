@@ -1,0 +1,91 @@
+// src/shared/protos/routing.proto
+syntax = "proto3";
+
+package routing;
+
+service RoutingService {
+  rpc CalculateRoute (RouteRequest) returns (RouteResponse);
+  rpc CalculateOptimalRoute (OptimalRouteRequest) returns (RouteResponse);
+  rpc CalculateETA (ETARequest) returns (ETAResponse);
+  rpc OptimizeDeliveryRoute (DeliveryOptimizationRequest) returns (OptimizedRouteResponse);
+}
+
+message RouteRequest {
+  Point origin = 1;
+  Point destination = 2;
+  string strategy = 3;
+  repeated Point waypoints = 4;
+}
+
+message OptimalRouteRequest {
+  Point origin = 1;
+  repeated DeliveryPoint deliveries = 2;
+  string strategy = 3;
+}
+
+message ETARequest {
+  Point origin = 1;
+  Point destination = 2;
+  string strategy = 3;
+  int32 traffic_level = 4;
+}
+
+message DeliveryOptimizationRequest {
+  Point depot = 1;
+  repeated DeliveryPoint deliveries = 2;
+  repeated Vehicle vehicles = 3;
+}
+
+message Point {
+  double latitude = 1;
+  double longitude = 2;
+}
+
+message DeliveryPoint {
+  string delivery_id = 1;
+  Point location = 2;
+  int32 estimated_service_time = 3;
+}
+
+message Vehicle {
+  string id = 1;
+  string type = 2;
+  double capacity = 3;
+  double speed = 4;
+}
+
+message RouteResponse {
+  repeated Point path = 1;
+  int32 total_distance = 2;
+  int32 total_duration = 3;
+  string polyline = 4;
+  repeated RouteStep steps = 5;
+  double cost_estimate = 6;
+}
+
+message OptimizedRouteResponse {
+  repeated VehicleRoute vehicle_routes = 1;
+  double total_cost = 2;
+  double total_distance = 3;
+  double total_duration = 4;
+}
+
+message VehicleRoute {
+  Vehicle vehicle = 1;
+  repeated DeliveryPoint deliveries = 2;
+  RouteResponse route = 3;
+}
+
+message RouteStep {
+  string instruction = 1;
+  int32 distance = 2;
+  int32 duration = 3;
+  Point start_location = 4;
+  Point end_location = 5;
+}
+
+message ETAResponse {
+  int32 eta_minutes = 1;
+  int32 distance_meters = 2;
+  string traffic_condition = 3;
+}
