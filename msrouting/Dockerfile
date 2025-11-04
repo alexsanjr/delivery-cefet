@@ -1,7 +1,4 @@
-FROM node:18-alpine
-
-# Instalar curl para healthcheck
-RUN apk add --no-cache curl
+FROM node:18-alpine AS builder
 
 WORKDIR /app
 
@@ -12,9 +9,18 @@ COPY . .
 RUN npx prisma generate --schema ./src/prisma/schema.prisma
 RUN npm run build
 
-# CORRIGIR PORTAS - usar as mesmas do seu código
+FROM node:18-alpine
+
+RUN apk add --no-cache curl
+
+WORKDIR /app
+
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/src/grpc/shared/protos ./dist/shared/protos
+
 EXPOSE 3004
 EXPOSE 50054
 
-# CORRIGIR COMANDO - usar start:prod para produção
-CMD ["npm", "run", "start:prod"]
+CMD ["node", "dist/main"]
