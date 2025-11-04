@@ -17,8 +17,7 @@ services:
         . .env
         sed -e "s|__KONG_JWT_SECRET_WEB_APP__|$${KONG_JWT_SECRET_WEB_APP}|g" \
             -e "s|__KONG_JWT_SECRET_ADMIN_PANEL__|$${KONG_JWT_SECRET_ADMIN_PANEL}|g" \
-            kong/declarative/kong.yml > /tmp/kong.yml
-        cp /tmp/kong.yml kong/declarative/kong.yml
+            kong/declarative/kong.yml > /workspace/kong.generated.yml
         echo "Config generated"
     networks:
       - kong-net
@@ -27,7 +26,7 @@ services:
     image: kong:3.4
     environment:
       KONG_DATABASE: "off"
-      KONG_DECLARATIVE_CONFIG: /kong/declarative/kong.yml
+      KONG_DECLARATIVE_CONFIG: /workspace/kong.generated.yml
       
       KONG_PROXY_ACCESS_LOG: /dev/stdout
       KONG_ADMIN_ACCESS_LOG: /dev/stdout
@@ -47,7 +46,7 @@ services:
       - "8001:8001"
       - "8002:8002"
     volumes:
-      - ./kong/declarative:/kong/declarative:ro
+      - ./:/workspace:ro
     depends_on:
       kong-config-generator:
         condition: service_completed_successfully
