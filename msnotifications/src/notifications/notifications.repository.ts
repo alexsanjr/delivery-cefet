@@ -2,7 +2,7 @@ import Redis from 'ioredis';
 import { v4 as uuidv4 } from 'uuid';
 import { Injectable } from "@nestjs/common";
 import { InjectRedis } from "@nestjs-modules/ioredis";
-import { NotificationEntity } from "src/database/entities/notifications.entity";
+import { NotificationEntity } from "../database/entities/notifications.entity";
 import { CreateNotificationDto } from "./dto/notifications-create.dto";
 
 @Injectable()

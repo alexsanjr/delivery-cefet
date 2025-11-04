@@ -43,3 +43,21 @@ export enum PriceStrategy {
   PREMIUM = 'premium',
   EXPRESS = 'express',
 }
+
+export interface CustomerGrpcResponse {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  isPremium: boolean;
+  addresses?: Array<{
+    street: string;
+    number: string;
+    complement?: string;
+    neighborhood: string;
+    city: string;
+    state: string;
+    zipCode: string;
+  }>;
+  error?: string;
+}

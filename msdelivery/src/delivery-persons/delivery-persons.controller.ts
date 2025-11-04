@@ -10,12 +10,14 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam, ApiBody } from '@nestjs/swagger';
 import { DeliveryPersonsService } from './delivery-persons.service';
 import { CreateDeliveryPersonInput } from './dto/create-delivery-person.input';
 import { UpdateDeliveryPersonInput } from './dto/update-delivery-person.input';
 import { UpdateStatusInput } from './dto/update-status.input';
+import { UpdateStatusBodyDto } from './dto/update-status-body.dto';
 import { UpdateLocationInput } from './dto/update-location.input';
+import { UpdateLocationBodyDto } from './dto/update-location-body.dto';
 import { DeliveryPersonStatus } from './models/delivery-person-status.enum';
 
 @ApiTags('delivery-persons')
@@ -84,30 +86,32 @@ export class DeliveryPersonsController {
     return this.deliveryPersonsService.update(id, updateDeliveryPersonInput);
   }
 
-  @Patch(':id/deactivate')
-  @ApiOperation({ summary: 'Desativar entregador (soft delete)' })
-  @ApiResponse({ status: 200, description: 'Entregador desativado com sucesso' })
+  @Patch(':id/active')
+  @ApiOperation({ summary: 'Ativar ou desativar entregador' })
+  @ApiResponse({ status: 200, description: 'Status de ativação atualizado com sucesso' })
   @ApiResponse({ status: 404, description: 'Entregador não encontrado' })
-  @ApiResponse({ status: 400, description: 'Entregador já está desativado' })
   @ApiParam({ name: 'id', description: 'ID do entregador' })
-  deactivate(@Param('id') id: string) {
-    return this.deliveryPersonsService.deactivate(id);
-  }
-
-  @Patch(':id/activate')
-  @ApiOperation({ summary: 'Ativar entregador' })
-  @ApiResponse({ status: 200, description: 'Entregador ativado com sucesso' })
-  @ApiResponse({ status: 404, description: 'Entregador não encontrado' })
-  @ApiResponse({ status: 400, description: 'Entregador já está ativo' })
-  @ApiParam({ name: 'id', description: 'ID do entregador' })
-  activate(@Param('id') id: string) {
-    return this.deliveryPersonsService.activate(id);
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        isActive: {
+          type: 'boolean',
+          description: 'true para ativar, false para desativar',
+          example: true,
+        },
+      },
+      required: ['isActive'],
+    },
+  })
+  updateActiveStatus(@Param('id') id: string, @Body() body: { isActive: boolean }) {
+    return this.deliveryPersonsService.updateActiveStatus(id, body.isActive);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Remover entregador permanentemente (hard delete)' })
-  @ApiResponse({ status: 204, description: 'Entregador removido permanentemente' })
+  @ApiOperation({ summary: 'Remover entregador' })
+  @ApiResponse({ status: 204, description: 'Entregador removido' })
   @ApiResponse({ status: 404, description: 'Entregador não encontrado' })
   @ApiParam({ name: 'id', description: 'ID do entregador' })
   remove(@Param('id') id: string) {
@@ -119,7 +123,29 @@ export class DeliveryPersonsController {
   @ApiResponse({ status: 200, description: 'Status atualizado' })
   @ApiResponse({ status: 404, description: 'Entregador não encontrado' })
   @ApiParam({ name: 'id', description: 'ID do entregador' })
-  updateStatus(@Param('id') id: string, @Body() body: { status: DeliveryPersonStatus }) {
+  @ApiBody({ 
+    type: UpdateStatusBodyDto,
+    description: 'Novo status do entregador',
+    examples: {
+      available: {
+        summary: 'Marcar como disponível',
+        value: { status: 'AVAILABLE' }
+      },
+      busy: {
+        summary: 'Marcar como ocupado',
+        value: { status: 'BUSY' }
+      },
+      offline: {
+        summary: 'Marcar como offline',
+        value: { status: 'OFFLINE' }
+      },
+      onBreak: {
+        summary: 'Marcar em pausa',
+        value: { status: 'ON_BREAK' }
+      }
+    }
+  })
+  updateStatus(@Param('id') id: string, @Body() body: UpdateStatusBodyDto) {
     return this.deliveryPersonsService.updateStatus({
       deliveryPersonId: id,
       status: body.status,
@@ -131,7 +157,30 @@ export class DeliveryPersonsController {
   @ApiResponse({ status: 200, description: 'Localização atualizada' })
   @ApiResponse({ status: 404, description: 'Entregador não encontrado' })
   @ApiParam({ name: 'id', description: 'ID do entregador' })
-  updateLocation(@Param('id') id: string, @Body() updateLocationInput: Omit<UpdateLocationInput, 'deliveryPersonId'>) {
+  @ApiBody({ 
+    type: UpdateLocationBodyDto,
+    description: 'Dados de localização do entregador',
+    examples: {
+      basic: {
+        summary: 'Apenas coordenadas',
+        value: {
+          latitude: -19.9191,
+          longitude: -43.9386
+        }
+      },
+      complete: {
+        summary: 'Com dados adicionais',
+        value: {
+          latitude: -19.9191,
+          longitude: -43.9386,
+          accuracy: 10.5,
+          speed: 5.5,
+          heading: 180
+        }
+      }
+    }
+  })
+  updateLocation(@Param('id') id: string, @Body() updateLocationInput: UpdateLocationBodyDto) {
     return this.deliveryPersonsService.updateLocation({
       deliveryPersonId: id,
       ...updateLocationInput,

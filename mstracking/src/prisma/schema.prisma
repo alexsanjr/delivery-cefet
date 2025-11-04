@@ -1,0 +1,39 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model TrackingPosition {
+  id                  String   @id @default(uuid())
+  delivery_id         String
+  order_id            String
+  latitude            Float
+  longitude           Float
+  delivery_person_id  String
+  timestamp           DateTime @default(now())
+  status              String   @default("active")
+
+  @@map("tracking_positions")
+  @@index([delivery_id])
+  @@index([timestamp])
+}
+
+model DeliveryTracking {
+  id                  String   @id @default(uuid())
+  delivery_id         String   @unique
+  order_id            String
+  started_at          DateTime @default(now())
+  completed_at        DateTime?
+  status              String   @default("pending")
+  destination_lat     Float
+  destination_lng     Float
+
+  @@map("delivery_tracking")
+  @@index([delivery_id])
+  @@index([status])
+}

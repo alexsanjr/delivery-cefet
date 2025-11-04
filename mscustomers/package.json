@@ -17,7 +17,12 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "prisma:generate": "prisma generate --schema ./src/prisma/schema.prisma",
+    "prisma:migrate": "prisma migrate dev --schema ./src/prisma/schema.prisma",
+    "prisma:reset": "prisma migrate reset --force --schema ./src/prisma/schema.prisma",
+    "prisma:seed": "prisma db seed --schema ./src/prisma/schema.prisma",
+    "prisma:studio": "prisma studio --schema ./src/prisma/schema.prisma"
   },
   "prisma": {
     "seed": "ts-node src/prisma/seed.ts"
@@ -25,11 +30,14 @@
   "dependencies": {
     "@apollo/server": "^5.0.0",
     "@as-integrations/express5": "^1.1.2",
+    "@grpc/grpc-js": "^1.14.0",
+    "@grpc/proto-loader": "^0.8.0",
     "@nestjs/apollo": "^13.2.1",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
     "@nestjs/graphql": "^13.2.0",
+    "@nestjs/microservices": "^11.1.8",
     "@nestjs/platform-express": "^11.0.1",
     "@prisma/client": "^6.17.1",
     "dotenv": "^17.2.3",

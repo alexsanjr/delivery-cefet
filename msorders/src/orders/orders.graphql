@@ -1,6 +1,11 @@
 type Order {
   id: Int!
   customerId: Int # TODO: Transformar em obrigatório depois
+  customerName: String
+  customerEmail: String
+  customerPhone: String
+  customerIsPremium: Boolean
+  customerAddresses: [CustomerAddress!]
   status: OrderStatus!
   items: [OrderItem!]!
   #deliveryAddress: String!
@@ -11,6 +16,18 @@ type Order {
   estimatedDeliveryTime: Int! # em minutos
   createdAt: String!
   updatedAt: String!
+}
+
+type CustomerAddress {
+  id: Int!
+  street: String!
+  number: String!
+  complement: String
+  neighborhood: String!
+  city: String!
+  state: String!
+  zipCode: String!
+  isDefault: Boolean!
 }
 
 type OrderItem {

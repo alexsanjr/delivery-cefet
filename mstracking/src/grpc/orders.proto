@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package orders;
+
+service OrdersService {
+  rpc GetOrder (GetOrderRequest) returns (OrderResponse);
+  rpc UpdateOrderStatus (UpdateOrderStatusRequest) returns (OrderResponse);
+}
+
+message GetOrderRequest {
+  string order_id = 1;
+}
+
+message UpdateOrderStatusRequest {
+  string order_id = 1;
+  string status = 2;
+}
+
+message OrderResponse {
+  string id = 1;
+  string customer_id = 2;
+  string status = 3;
+  repeated OrderItem items = 4;
+  string delivery_address = 5;
+  string created_at = 6;
+}
+
+message OrderItem {
+  string product_id = 1;
+  string name = 2;
+  int32 quantity = 3;
+  double price = 4;
+}
