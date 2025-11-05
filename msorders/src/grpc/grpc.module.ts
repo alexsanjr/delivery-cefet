@@ -2,7 +2,9 @@ import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { join } from 'path';
 import { CustomersClient } from './customers.client';
+import { RoutingClient } from './routing.client';
 import { NotificationsClient } from './notifications.client';
+import { TrackingClient } from './tracking.client';
 
 @Module({
   imports: [
@@ -17,6 +19,15 @@ import { NotificationsClient } from './notifications.client';
         },
       },
       {
+        name: 'ROUTING_PACKAGE',
+        transport: Transport.GRPC,
+        options: {
+          package: 'routing',
+          protoPath: join(__dirname, 'routing.proto'),
+          url: process.env.ROUTING_GRPC_URL || 'localhost:50054',
+        },
+      },
+      {
         name: 'NOTIFICATIONS_PACKAGE',
         transport: Transport.GRPC,
         options: {
@@ -25,9 +36,18 @@ import { NotificationsClient } from './notifications.client';
           url: process.env.NOTIFICATIONS_GRPC_URL || 'localhost:50053',
         },
       },
+      {
+        name: 'TRACKING_PACKAGE',
+        transport: Transport.GRPC,
+        options: {
+          package: 'tracking',
+          protoPath: join(__dirname, 'tracking.proto'),
+          url: process.env.TRACKING_GRPC_URL || 'localhost:50055',
+        },
+      },
     ]),
   ],
-  providers: [CustomersClient, NotificationsClient],
-  exports: [CustomersClient, NotificationsClient],
+  providers: [CustomersClient, RoutingClient, NotificationsClient, TrackingClient],
+  exports: [CustomersClient, RoutingClient, NotificationsClient, TrackingClient],
 })
 export class GrpcModule {}
