@@ -9,12 +9,11 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
-RUN npx prisma generate --schema ./src/prisma/schema.prisma
+# MSRouting não usa Prisma, então removemos esta linha
 RUN npm run build
 
-# CORRIGIR PORTAS - usar as mesmas do seu código
-EXPOSE 3004
-EXPOSE 50054
+# Usar portas corretas para msrouting
+EXPOSE 50055
 
-# CORRIGIR COMANDO - usar start:prod para produção
+# Comando de produção
 CMD ["npm", "run", "start:prod"]
