@@ -6,6 +6,7 @@ import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
 import { ProductModule } from './product/product.module';
+import { GrpcOrdersModule } from './grpc/grpc-orders.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { ProductModule } from './product/product.module';
     }),
     OrdersModule,
     ProductModule,
+    GrpcOrdersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

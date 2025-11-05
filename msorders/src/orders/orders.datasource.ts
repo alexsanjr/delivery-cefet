@@ -107,4 +107,23 @@ export class OrdersDatasource implements IOrderDatasource {
       where: { id: productId },
     });
   }
+
+  // Métodos para gRPC Service
+  async findOne(id: number) {
+    return this.prisma.order.findUnique({
+      where: { id },
+      include: {
+        items: true,
+      },
+    });
+  }
+
+  async findOrderItems(orderId: number) {
+    return this.prisma.orderItem.findMany({
+      where: { orderId },
+      orderBy: {
+        id: 'asc',
+      },
+    });
+  }
 }
