@@ -1,5 +1,5 @@
 import { Injectable, Inject, OnModuleInit, Logger } from '@nestjs/common';
-import { ClientGrpc } from '@nestjs/microservices';
+import type { ClientGrpc } from '@nestjs/microservices';
 import { Observable, firstValueFrom } from 'rxjs';
 
 interface StartTrackingRequest {
