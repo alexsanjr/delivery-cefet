@@ -21,5 +21,6 @@ import { GrpcModule } from 'src/grpc/grpc.module';
     ExpressPriceCalculator,
     PriceCalculatorContext,
   ],
+  exports: [OrdersService, OrdersDatasource],
 })
 export class OrdersModule {}

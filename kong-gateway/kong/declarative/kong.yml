@@ -3,20 +3,21 @@ _format_version: "3.0"
 _transform: true
 
 services:
-  - name: msorders-service
-    url: http://msorders:3001
+  - name: msorders
+    url: http://msorders:3000
+    tags:
+      - orders
+      - graphql
     routes:
-      - name: msorders-route
+      - name: msorders-graphql
         paths:
-          - /api/orders
+          - /orders/graphql
         methods:
           - GET
           - POST
-          - PUT
-          - DELETE
-        strip_path: false
-        preserve_host: true
-
+          - OPTIONS
+        strip_path: true
+        preserve_host: false
     plugins:
       - name: cors
         config:
@@ -25,43 +26,34 @@ services:
           methods:
             - GET
             - POST
-            - PUT
-            - DELETE
             - OPTIONS
           headers:
             - Accept
-            - Accept-Version
-            - Content-Length
-            - Content-MD5
             - Content-Type
-            - Date
             - Authorization
           credentials: true
           max_age: 3600
-
-      - name: request-transformer
+      - name: rate-limiting
         config:
-          add:
-            headers:
-              - X-Forwarded-By: Kong-Gateway
-          append:
-            headers:
-              - X-API-Version: 1.0
+          minute: 100
+          hour: 1000
+          policy: local
 
-  - name: mscustomers-service
-    url: http://mscustomers:3002
+  - name: mscustomers
+    url: http://mscustomers:3000
+    tags:
+      - customers
+      - graphql
     routes:
-      - name: mscustomers-route
+      - name: mscustomers-graphql
         paths:
-          - /api/customers
+          - /customers/graphql
         methods:
           - GET
           - POST
-          - PUT
-          - DELETE
-        strip_path: false
-        preserve_host: true
-
+          - OPTIONS
+        strip_path: true
+        preserve_host: false
     plugins:
       - name: cors
         config:
@@ -70,45 +62,70 @@ services:
           methods:
             - GET
             - POST
-            - PUT
-            - DELETE
             - OPTIONS
           headers:
             - Accept
-            - Accept-Version
-            - Content-Length
-            - Content-MD5
             - Content-Type
-            - Date
             - Authorization
           credentials: true
           max_age: 3600
-
-      - name: request-transformer
+      - name: rate-limiting
         config:
-          add:
-            headers:
-              - X-Forwarded-By: Kong-Gateway
-          append:
-            headers:
-              - X-API-Version: 1.0
+          minute: 100
+          hour: 1000
+          policy: local
 
-# ← ADICIONAR MSROUTING SERVICE
-  - name: msrouting-service
+  - name: msnotifications
+    url: http://msnotifications:3000
+    tags:
+      - notifications
+      - graphql
+    routes:
+      - name: msnotifications-graphql
+        paths:
+          - /notifications/graphql
+        methods:
+          - GET
+          - POST
+          - OPTIONS
+        strip_path: true
+        preserve_host: false
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - OPTIONS
+          headers:
+            - Accept
+            - Content-Type
+            - Authorization
+          credentials: true
+          max_age: 3600
+      - name: rate-limiting
+        config:
+          minute: 200
+          hour: 2000
+          policy: local
+
+  - name: msrouting
     url: http://msrouting:3004
+    tags:
+      - routing
+      - graphql
     routes:
-      - name: msrouting-route
+      - name: msrouting-graphql
         paths:
-          - /api/routing
+          - /routing/graphql
         methods:
-            - GET
-            - POST
-            - PUT
-            - DELETE
-            - OPTIONS
-        strip_path: false
-        preserve_host: true
-
+          - GET
+          - POST
+          - OPTIONS
+        strip_path: true
+        preserve_host: false
     plugins:
       - name: cors
         config:
@@ -120,42 +137,85 @@ services:
             - OPTIONS
           headers:
             - Accept
-            - Accept-Version
-            - Content-Length
-            - Content-MD5
             - Content-Type
-            - Date
             - Authorization
           credentials: true
           max_age: 3600
-
-      - name: request-transformer
+      - name: rate-limiting
         config:
-          add:
-            headers:
-              - X-Forwarded-By: Kong-Gateway
-          append:
-            headers:
-              - X-API-Version: 1.0
+          minute: 150
+          hour: 1500
+          policy: local
 
-# Health check endpoint
-  - name: health-service
-    url: http://kong:8000
+  - name: msdelivery
+    url: http://msdelivery:3003
+    tags:
+      - delivery
+      - rest
+      - graphql
     routes:
-      - name: health-route
+      - name: msdelivery-api
         paths:
-          - /health
+          - /delivery
         methods:
           - GET
+          - POST
+          - PUT
+          - DELETE
+          - PATCH
+          - OPTIONS
+        strip_path: true
+        preserve_host: false
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - PATCH
+            - OPTIONS
+          headers:
+            - Accept
+            - Content-Type
+            - Authorization
+          credentials: true
+          max_age: 3600
+      - name: rate-limiting
+        config:
+          minute: 150
+          hour: 1500
+          policy: local
 
-# Plugin global para rate limiting (opcional)
 plugins:
-  - name: rate-limiting
+  - name: jwt
     config:
-      minute: 60
-      hour: 1000
-      policy: local
-  - name: key-auth
-    config:
-      hide_credentials: false
-    enabled: false  # Pode habilitar depois conforme necessário
+      uri_param_names:
+        - jwt
+      cookie_names: []
+      header_names:
+        - Authorization
+      claims_to_verify:
+        - exp
+      run_on_preflight: false
+
+consumers:
+  - username: web-app
+    tags:
+      - frontend
+      - web
+    jwt_secrets:
+      - key: web-app-issuer
+        algorithm: HS256
+        secret: __KONG_JWT_SECRET_WEB_APP__
+  - username: admin-panel
+    tags:
+      - admin
+      - internal
+    jwt_secrets:
+      - key: admin-panel-issuer
+        algorithm: HS256
+        secret: __KONG_JWT_SECRET_ADMIN_PANEL__
