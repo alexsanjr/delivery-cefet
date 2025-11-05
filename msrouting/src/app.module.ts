@@ -1,11 +1,8 @@
-// src/app.module.ts - ADICIONE ESTAS 2 LINHAS
+// src/app.module.ts
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { GraphQLModule } from '@nestjs/graphql';
-import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
-import { CacheModule } from '@nestjs/cache-manager'; // ← LINHA 1: IMPORTAR
+import { CacheModule } from '@nestjs/cache-manager';
 import { RoutingModule } from './routing/routing.module';
-import { PrismaService } from './prisma/prisma.service';
 
 @Module({
   imports: [
@@ -13,14 +10,9 @@ import { PrismaService } from './prisma/prisma.service';
       isGlobal: true,
       envFilePath: '.env',
     }),
-    GraphQLModule.forRoot<ApolloDriverConfig>({
-      driver: ApolloDriver,
-      autoSchemaFile: true,
-      playground: true,
-    }),
-    CacheModule.register(), // ← LINHA 2: ADICIONAR
+    CacheModule.register(),
     RoutingModule,
   ],
-  providers: [PrismaService],
+  providers: [],
 })
 export class AppModule {}
