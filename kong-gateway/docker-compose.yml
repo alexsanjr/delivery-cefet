@@ -238,11 +238,52 @@ services:
       timeout: 5s
       retries: 5
 
+  msdelivery:
+    build: ../msdelivery
+    ports:
+      - "3005:3003"
+      - "50055:50053"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_DELIVERY_USER}:${POSTGRES_DELIVERY_PASSWORD}@postgres-delivery:5432/${POSTGRES_DELIVERY_DB}
+      NODE_ENV: ${NODE_ENV}
+      PORT: 3003
+      GRPC_PORT: 50053
+    depends_on:
+      postgres-delivery:
+        condition: service_healthy
+    networks:
+      - kong-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/graphql", "-H", "Content-Type: application/json", "-d", "{\"query\":\"{ __typename }\"}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  postgres-delivery:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: ${POSTGRES_DELIVERY_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_DELIVERY_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DELIVERY_DB}
+    ports:
+      - "5437:5432"
+    volumes:
+      - postgres_delivery_data:/var/lib/postgresql/data
+    networks:
+      - kong-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_DELIVERY_USER} -d ${POSTGRES_DELIVERY_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   kong-config:
   postgres_orders_data:
   postgres_customers_data:
   postgres_routing_data:
+  postgres_delivery_data:
   redis_notifications_data:
   redis_routing_data:
 
