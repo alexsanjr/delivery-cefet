@@ -1,119 +1,71 @@
-// src/routing/dto/routing.objects.ts
-import { Field, ObjectType, Float, Int, InputType } from '@nestjs/graphql';
+// === Enums (sincronizados com .proto) ===
+export enum RouteStrategy {
+  STRATEGY_UNSPECIFIED = 0,
+  FASTEST = 1,
+  SHORTEST = 2,
+  ECONOMICAL = 3,
+  ECO_FRIENDLY = 4,
+}
 
-@ObjectType()
-@InputType('PointInput')
+export enum TrafficLevel {
+  TRAFFIC_UNSPECIFIED = 0,
+  LIGHT = 1,
+  MODERATE = 2,
+  HEAVY = 3,
+  EXTREME = 4,
+}
+
+// === DTOs ===
 export class Point {
-  @Field(() => Float)
   latitude: number;
-
-  @Field(() => Float)
   longitude: number;
 }
 
-@ObjectType()
 export class RouteStep {
-  @Field()
   instruction: string;
-
-  @Field(() => Int)
-  distance: number;
-
-  @Field(() => Int)
-  duration: number;
-
-  @Field(() => Point)
+  distance_meters: number;
+  duration_seconds: number;
   start_location: Point;
-
-  @Field(() => Point)
   end_location: Point;
 }
 
-@ObjectType()
 export class RouteResponse {
-  @Field(() => [Point])
   path: Point[];
-
-  @Field(() => Int)
-  total_distance: number;
-
-  @Field(() => Int)
-  total_duration: number;
-
-  @Field()
-  polyline: string;
-
-  @Field(() => [RouteStep])
-  steps: RouteStep[];
-
-  @Field(() => Float)
-  cost_estimate: number;
-}
-
-@ObjectType()
-export class ETAResponse {
-  @Field(() => Int)
-  eta_minutes: number;
-
-  @Field(() => Int)
   distance_meters: number;
-
-  @Field()
-  traffic_condition: string;
+  duration_seconds: number;
+  encoded_polyline: string;
+  steps: RouteStep[];
+  estimated_cost: number;
 }
 
-@ObjectType()
-@InputType('DeliveryPointInput')
+export class ETAResponse {
+  eta_minutes: number;
+  distance_meters: number;
+  current_traffic: TrafficLevel;
+}
+
 export class DeliveryPoint {
-  @Field()
   delivery_id: string;
-
-  @Field(() => Point)
   location: Point;
-
-  @Field(() => Int)
-  estimated_service_time: number;
+  service_time_seconds: number;
 }
 
-@ObjectType()
-@InputType('VehicleInput')
 export class Vehicle {
-  @Field()
-  id: string;
-
-  @Field()
+  vehicle_id: string;
   type: string;
-
-  @Field(() => Float)
-  capacity: number;
-
-  @Field(() => Float)
-  speed: number;
+  capacity_kg: number;
+  max_speed_kph: number;
 }
 
-@ObjectType()
 export class VehicleRoute {
-  @Field(() => Vehicle)
   vehicle: Vehicle;
-
-  @Field(() => [DeliveryPoint])
-  deliveries: DeliveryPoint[];
-
-  @Field(() => RouteResponse)
+  assigned_deliveries: DeliveryPoint[];
   route: RouteResponse;
 }
 
-@ObjectType()
 export class OptimizedRouteResponse {
-  @Field(() => [VehicleRoute])
   vehicle_routes: VehicleRoute[];
-
-  @Field(() => Float)
   total_cost: number;
-
-  @Field(() => Float)
-  total_duration: number;
-
-  @Field(() => Float)
-  total_distance: number;
+  total_distance_meters: number;
+  total_duration_seconds: number;
 }
