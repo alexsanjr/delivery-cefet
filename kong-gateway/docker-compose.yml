@@ -68,8 +68,15 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_ORDERS_USER}:${POSTGRES_ORDERS_PASSWORD}@postgres-orders:5432/${POSTGRES_ORDERS_DB}
       CUSTOMERS_GRPC_URL: mscustomers:50051
+      NOTIFICATIONS_GRPC_URL: msnotifications:50053
+      ROUTING_GRPC_URL: msrouting:50054
+      TRACKING_GRPC_URL: mstracking:50055
       NODE_ENV: ${NODE_ENV}
       GRPC_PORT: 50052
+    volumes:
+      - ../msnotifications/src/grpc/notifications.proto:/app/dist/grpc/notifications.proto:ro
+      - ../msrouting/src/grpc/shared/protos/routing.proto:/app/dist/grpc/routing.proto:ro
+      - ../mstracking/src/grpc/tracking.proto:/app/dist/grpc/tracking.proto:ro
     command: ["node", "dist/main"]
     depends_on:
       postgres-orders:
@@ -238,11 +245,62 @@ services:
       timeout: 5s
       retries: 5
 
+  mstracking:
+    build: ../mstracking
+    ports:
+      - "3005:3005"
+      - "50055:50055"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_TRACKING_USER}:${POSTGRES_TRACKING_PASSWORD}@postgres-tracking:5432/${POSTGRES_TRACKING_DB}
+      NOTIFICATIONS_GRPC_URL: msnotifications:50053
+      ORDERS_GRPC_URL: msorders:50052
+      NODE_ENV: ${NODE_ENV}
+      GRPC_PORT: 50055
+      PORT: 3005
+    volumes:
+      - ../msnotifications/src/grpc/notifications.proto:/app/dist/grpc/notifications.proto:ro
+      - ../msorders/src/grpc/orders.proto:/app/dist/grpc/orders.proto:ro
+    command: ["node", "dist/main"]
+    depends_on:
+      postgres-tracking:
+        condition: service_healthy
+      msnotifications:
+        condition: service_healthy
+      msorders:
+        condition: service_healthy
+    networks:
+      - kong-net
+    healthcheck:
+      test: ["CMD", "curl", "-X", "POST", "-H", "Content-Type: application/json", "-d", "{\"query\":\"{ __typename }\"}", "http://localhost:3005/graphql"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  postgres-tracking:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: ${POSTGRES_TRACKING_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_TRACKING_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_TRACKING_DB}
+    ports:
+      - "5437:5432"
+    volumes:
+      - postgres_tracking_data:/var/lib/postgresql/data
+    networks:
+      - kong-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_TRACKING_USER} -d ${POSTGRES_TRACKING_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   kong-config:
   postgres_orders_data:
   postgres_customers_data:
   postgres_routing_data:
+  postgres_tracking_data:
   redis_notifications_data:
   redis_routing_data:
 
