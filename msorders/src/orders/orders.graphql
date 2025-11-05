@@ -60,6 +60,8 @@ type Query {
   orders: [Order]!
   order(id: Int!): Order
   customerOrders(customerId: Int!): [Order]!
+  testGrpcRouting(originLat: Float!, originLng: Float!, destLat: Float!, destLng: Float!): String!
+  testGrpcNotifications(userId: String!, orderId: String!, status: String!): String!
 }
 
 type Mutation {

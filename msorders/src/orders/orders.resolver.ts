@@ -5,12 +5,16 @@ import {
   ResolveField,
   Parent,
   Query,
+  Float,
 } from '@nestjs/graphql';
 import { OrdersService } from './orders.service';
 import { CreateOrderInput } from './dto/create-order.input';
 import type { Order, OrderItem } from 'generated/prisma';
 import { UpdateOrderInput } from './dto/update-order.input';
 import { CustomersClient } from '../grpc/customers.client';
+import { RoutingClient } from '../grpc/routing.client';
+import { NotificationsClient } from '../grpc/notifications.client';
+import { firstValueFrom } from 'rxjs';
 
 type OrderWithItems = Order & {
   items?: OrderItem[];
@@ -41,6 +45,8 @@ export class OrdersResolver {
   constructor(
     private readonly ordersService: OrdersService,
     private readonly customersClient: CustomersClient,
+    private readonly routingClient: RoutingClient,
+    private readonly notificationsClient: NotificationsClient,
   ) {}
 
   @Query('orders')
@@ -73,6 +79,48 @@ export class OrdersResolver {
       throw new Error(
         `Ocorreu um erro ${customerId}: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
       );
+    }
+  }
+
+  @Query('testGrpcRouting')
+  async testGrpcRouting(
+    @Args('originLat', { type: () => Float }) originLat: number,
+    @Args('originLng', { type: () => Float }) originLng: number,
+    @Args('destLat', { type: () => Float }) destLat: number,
+    @Args('destLng', { type: () => Float }) destLng: number,
+  ): Promise<string> {
+    try {
+      const result = await firstValueFrom(
+        this.routingClient.calculateRoute(
+          { latitude: originLat, longitude: originLng },
+          { latitude: destLat, longitude: destLng },
+          'fastest',
+        ),
+      );
+      return JSON.stringify(result);
+    } catch (error) {
+      return `Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
+    }
+  }
+
+  @Query('testGrpcNotifications')
+  async testGrpcNotifications(
+    @Args('userId') userId: string,
+    @Args('orderId') orderId: string,
+    @Args('status') status: string,
+  ): Promise<string> {
+    try {
+      const result = await firstValueFrom(
+        this.notificationsClient.sendNotification(
+          userId,
+          orderId,
+          status,
+          `Test notification for order ${orderId}`,
+        ),
+      );
+      return JSON.stringify(result);
+    } catch (error) {
+      return `Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
     }
   }
 
