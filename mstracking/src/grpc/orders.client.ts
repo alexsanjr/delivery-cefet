@@ -1,36 +1,66 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
-import { Client, ClientGrpc } from '@nestjs/microservices';
-import { join } from 'path';
-import { Observable } from 'rxjs';
+import { Injectable, Inject, OnModuleInit, Logger } from '@nestjs/common';
+import { ClientGrpc } from '@nestjs/microservices';
+import { Observable, firstValueFrom } from 'rxjs';
 
-interface OrdersGrpcService {
-  GetOrder(request: { order_id: string }): Observable<any>;
-  UpdateOrderStatus(request: { order_id: string; status: string }): Observable<any>;
+interface UpdateOrderStatusRequest {
+    orderId: number;
+    status: string;
+    notes?: string;
+}
+
+interface UpdateOrderStatusResponse {
+    success: boolean;
+    message: string;
+    order: any;
+}
+
+interface IOrdersService {
+    UpdateOrderStatus(data: UpdateOrderStatusRequest): Observable<UpdateOrderStatusResponse>;
 }
 
 @Injectable()
-export class OrdersGrpcClient implements OnModuleInit {
-  @Client({
-    transport: Transport.GRPC,
-    options: {
-      package: 'orders',
-      protoPath: join(__dirname, '../../shared/protos/orders.proto'),
-      url: 'localhost:50051',
-    },
-  })
-  private client: ClientGrpc;
+export class OrdersClient implements OnModuleInit {
+    private readonly logger = new Logger(OrdersClient.name);
+    private ordersService: IOrdersService;
 
-  private ordersService: OrdersGrpcService;
+    constructor(
+        @Inject('ORDERS_PACKAGE') private readonly client: ClientGrpc,
+    ) { }
 
-  onModuleInit() {
-    this.ordersService = this.client.getService<OrdersGrpcService>('OrdersService');
-  }
+    onModuleInit() {
+        this.ordersService = this.client.getService<IOrdersService>('OrdersService');
+        this.logger.log('OrdersClient initialized');
+    }
 
-  async getOrder(orderId: string): Promise<any> {
-    return this.ordersService.GetOrder({ order_id: orderId }).toPromise();
-  }
+    async updateOrderStatus(
+        orderId: number,
+        status: string,
+        notes?: string,
+    ): Promise<UpdateOrderStatusResponse> {
+        try {
+            const response = await firstValueFrom(
+                this.ordersService.UpdateOrderStatus({
+                    orderId,
+                    status,
+                    notes,
+                }),
+            );
 
-  async updateOrderStatus(orderId: string, status: string): Promise<any> {
-    return this.ordersService.UpdateOrderStatus({ order_id: orderId, status }).toPromise();
-  }
+            this.logger.log(
+                `Order status updated: orderId=${orderId}, status=${status}`,
+            );
+
+            return response;
+        } catch (error) {
+            this.logger.error(
+                `Failed to update order status: ${error.message}`,
+                error.stack,
+            );
+            throw error;
+        }
+    }
+
+    async markAsDelivered(orderId: number): Promise<UpdateOrderStatusResponse> {
+        return this.updateOrderStatus(orderId, 'DELIVERED', 'Pedido entregue com sucesso');
+    }
 }
