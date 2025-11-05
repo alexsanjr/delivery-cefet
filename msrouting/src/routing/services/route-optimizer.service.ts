@@ -1,20 +1,5 @@
-// src/routing/services/route-optimizer.service.ts
 import { Injectable } from '@nestjs/common';
-import { Point } from '../strategies/route.strategy';
-
-interface DeliveryPoint {
-  delivery_id: string;
-  location: Point;
-  estimated_service_time: number;
-  priority?: number;
-}
-
-interface Vehicle {
-  id: string;
-  type: string;
-  capacity: number;
-  speed: number;
-}
+import { Point, DeliveryPoint, Vehicle } from '../dto/routing.objects';
 
 interface OptimizedRoute {
   vehicle: Vehicle;
@@ -26,25 +11,25 @@ interface OptimizedRoute {
 
 @Injectable()
 export class RouteOptimizerService {
-  
   async solveVRP(
     depot: Point,
     deliveries: DeliveryPoint[],
     vehicles: Vehicle[],
   ): Promise<OptimizedRoute[]> {
-    const distanceMatrix = await this.calculateDistanceMatrix([depot, ...deliveries.map(d => d.location)]);
+    const points = [depot, ...deliveries.map(d => d.location)];
+    const distanceMatrix = await this.calculateDistanceMatrix(points);
     const clusters = this.clusterDeliveries(deliveries, vehicles, distanceMatrix);
-    
+
     const optimizedRoutes: OptimizedRoute[] = [];
-    
+
     for (let i = 0; i < clusters.length; i++) {
       if (clusters[i].length > 0) {
-        const vehicle = vehicles[i];
+        const vehicle = vehicles[i] || vehicles[0];
         const route = await this.solveTSPForCluster(depot, clusters[i], distanceMatrix, vehicle);
         optimizedRoutes.push(route);
       }
     }
-    
+
     return optimizedRoutes;
   }
 
@@ -72,13 +57,12 @@ export class RouteOptimizerService {
   ): DeliveryPoint[][] {
     const clusters: DeliveryPoint[][] = Array(vehicles.length).fill(null).map(() => []);
     const sortedDeliveries = [...deliveries].sort((a, b) => {
-      if (a.priority !== b.priority) {
-        return (b.priority || 0) - (a.priority || 0);
-      }
-      return distanceMatrix[0][deliveries.indexOf(a) + 1] - distanceMatrix[0][deliveries.indexOf(b) + 1];
+      const aIndex = deliveries.indexOf(a) + 1;
+      const bIndex = deliveries.indexOf(b) + 1;
+      return distanceMatrix[0][aIndex] - distanceMatrix[0][bIndex];
     });
     
-    const vehicleCapacities = vehicles.map(v => v.capacity);
+    const vehicleCapacities = vehicles.map(v => v.capacity_kg);
     const vehicleWorkloads = Array(vehicles.length).fill(0);
     
     for (const delivery of sortedDeliveries) {
@@ -156,14 +140,14 @@ export class RouteOptimizerService {
     totalDistance += distanceMatrix[currentIndex][0];
     sequence.push(0);
     
-    const totalDuration = this.calculateRouteDuration(totalDistance, deliveries, sequence, vehicle.speed);
+    const totalDuration = this.calculateRouteDuration(totalDistance, deliveries, sequence, vehicle.max_speed_kph);
     
     return {
       vehicle,
       deliveries,
       sequence,
-      total_distance: totalDistance,
-      total_duration: totalDuration,
+      total_distance: Math.round(totalDistance),
+      total_duration: Math.round(totalDuration),
     };
   }
 
@@ -174,7 +158,7 @@ export class RouteOptimizerService {
     speed: number
   ): number {
     const travelTime = (distance / 1000) / speed * 3600;
-    const serviceTime = deliveries.reduce((sum, delivery) => sum + delivery.estimated_service_time * 60, 0);
+    const serviceTime = deliveries.reduce((sum, delivery) => sum + delivery.service_time_seconds, 0);
     
     return travelTime + serviceTime;
   }
