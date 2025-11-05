@@ -1,157 +1,102 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { RouteStrategy, Point, RouteResponse } from '../strategies/route.strategy';
+import { 
+  RouteStrategy, 
+  Point, 
+  RouteResponse, 
+  TrafficLevel, 
+  ETAResponse, 
+  DeliveryPoint, 
+  Vehicle, 
+  OptimizedRouteResponse 
+} from '../dto/routing.objects';
 import { FastestRouteStrategy } from '../strategies/fastest-route.strategy';
 import { EconomicalRouteStrategy } from '../strategies/economical-route.strategy';
 import { EcoFriendlyRouteStrategy } from '../strategies/eco-friendly.strategy';
+import { ShortestRouteStrategy } from '../strategies/shortest-route.strategy';
 import { RouteOptimizerService } from './route-optimizer.service';
-import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class RoutingService {
-  private strategies: Map<string, RouteStrategy> = new Map();
+  private strategies: Map<RouteStrategy, any> = new Map();
 
   constructor(
     @Inject(FastestRouteStrategy) private fastestStrategy: FastestRouteStrategy,
     @Inject(EconomicalRouteStrategy) private economicalStrategy: EconomicalRouteStrategy,
     @Inject(EcoFriendlyRouteStrategy) private ecoFriendlyStrategy: EcoFriendlyRouteStrategy,
+    @Inject(ShortestRouteStrategy) private shortestStrategy: ShortestRouteStrategy,
     private routeOptimizer: RouteOptimizerService,
-    private prisma: PrismaService,
   ) {
-    this.strategies.set('fastest', this.fastestStrategy);
-    this.strategies.set('economical', this.economicalStrategy);
-    this.strategies.set('eco_friendly', this.ecoFriendlyStrategy);
+    this.strategies.set(RouteStrategy.FASTEST, this.fastestStrategy);
+    this.strategies.set(RouteStrategy.SHORTEST, this.shortestStrategy);
+    this.strategies.set(RouteStrategy.ECONOMICAL, this.economicalStrategy);
+    this.strategies.set(RouteStrategy.ECO_FRIENDLY, this.ecoFriendlyStrategy);
   }
 
   async calculateRoute(
     origin: Point, 
     destination: Point, 
-    strategy: string = 'fastest',
+    strategy: RouteStrategy = RouteStrategy.FASTEST,
     waypoints: Point[] = []
   ): Promise<RouteResponse> {
-    // Verificar cache primeiro
-    const cached = await this.getCachedRoute(origin, destination, strategy);
-    if (cached) {
-      return cached;
-    }
-
     const selectedStrategy = this.strategies.get(strategy) || this.fastestStrategy;
-    const route = await selectedStrategy.calculateRoute(origin, destination, waypoints);
-    
-    await this.cacheRoute(origin, destination, strategy, route);
-    
-    return route;
+    return await selectedStrategy.calculateRoute(origin, destination, waypoints);
   }
 
   async calculateETA(
     origin: Point,
     destination: Point,
-    strategy: string = 'fastest',
-    trafficLevel: number = 1
-  ): Promise<number> {
+    strategy: RouteStrategy = RouteStrategy.FASTEST,
+    trafficLevel: TrafficLevel = TrafficLevel.MODERATE
+  ): Promise<ETAResponse> {
     const selectedStrategy = this.strategies.get(strategy) || this.fastestStrategy;
-    return selectedStrategy.calculateETA(origin, destination, trafficLevel);
+    const route = await selectedStrategy.calculateRoute(origin, destination);
+    
+    return {
+      eta_minutes: Math.floor(route.duration_seconds / 60),
+      distance_meters: route.distance_meters,
+      current_traffic: trafficLevel,
+    };
   }
 
   async optimizeDeliveryRoute(
     depot: Point,
-    deliveries: any[],
-    vehicles: any[] = [{
-      id: 'default',
+    deliveries: DeliveryPoint[],
+    vehicles: Vehicle[] = [{
+      vehicle_id: 'default',
       type: 'car',
-      capacity: 10,
-      speed: 40,
+      capacity_kg: 10,
+      max_speed_kph: 40,
     }]
-  ): Promise<any> {
+  ): Promise<OptimizedRouteResponse> {
     const optimizedRoutes = await this.routeOptimizer.solveVRP(depot, deliveries, vehicles);
     
+    // Mapear os dados do RouteOptimizer para o formato esperado pelo GraphQL
+    const vehicleRoutes = await Promise.all(optimizedRoutes.map(async (optimizedRoute) => {
+      // Criar uma rota usando a estratégia fastest para cada veículo
+      const routePoints = [depot, ...optimizedRoute.deliveries.map(d => d.location), depot];
+      const fullRoute = await this.calculateRoute(routePoints[0], routePoints[routePoints.length - 1], RouteStrategy.FASTEST, routePoints.slice(1, -1));
+      
+      return {
+        vehicle: optimizedRoute.vehicle,
+        assigned_deliveries: optimizedRoute.deliveries,
+        route: {
+          ...fullRoute,
+          distance_meters: optimizedRoute.total_distance,
+          duration_seconds: optimizedRoute.total_duration,
+        },
+      };
+    }));
+    
     return {
-      vehicle_routes: optimizedRoutes,
+      vehicle_routes: vehicleRoutes,
       total_cost: optimizedRoutes.reduce((sum, route) => sum + this.calculateRouteCost(route), 0),
-      total_distance: optimizedRoutes.reduce((sum, route) => sum + route.total_distance, 0),
-      total_duration: optimizedRoutes.reduce((sum, route) => sum + route.total_duration, 0),
+      total_distance_meters: optimizedRoutes.reduce((sum, route) => sum + route.total_distance, 0),
+      total_duration_seconds: optimizedRoutes.reduce((sum, route) => sum + route.total_duration, 0),
     };
   }
 
   private calculateRouteCost(route: any): number {
     const distanceKm = route.total_distance / 1000;
-    return distanceKm * 0.5; // Custo simplificado
-  }
-
-  private async getCachedRoute(
-    origin: Point, 
-    destination: Point, 
-    strategy: string
-  ): Promise<RouteResponse | null> {
-    try {
-      const cached = await this.prisma.routeCache.findUnique({
-        where: {
-          origin_lat_origin_lng_dest_lat_dest_lng_strategy: {
-            origin_lat: origin.latitude,
-            origin_lng: origin.longitude,
-            dest_lat: destination.latitude,
-            dest_lng: destination.longitude,
-            strategy,
-          }
-        }
-      });
-
-      if (cached && cached.expires_at > new Date()) {
-        return {
-          path: JSON.parse(cached.polyline),
-          total_distance: cached.distance,
-          total_duration: cached.duration,
-          polyline: cached.polyline,
-          steps: [],
-          cost_estimate: cached.cost_estimate,
-        };
-      }
-    } catch (error) {
-      // Se houver erro no cache, continuar sem cache
-    }
-    
-    return null;
-  }
-
-  private async cacheRoute(
-    origin: Point, 
-    destination: Point, 
-    strategy: string, 
-    route: RouteResponse
-  ): Promise<void> {
-    try {
-      await this.prisma.routeCache.upsert({
-        where: {
-          origin_lat_origin_lng_dest_lat_dest_lng_strategy: {
-            origin_lat: origin.latitude,
-            origin_lng: origin.longitude,
-            dest_lat: destination.latitude,
-            dest_lng: destination.longitude,
-            strategy,
-          }
-        },
-        update: {
-          polyline: JSON.stringify(route.path),
-          distance: route.total_distance,
-          duration: route.total_duration,
-          cost_estimate: route.cost_estimate,
-          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        },
-        create: {
-          origin_lat: origin.latitude,
-          origin_lng: origin.longitude,
-          dest_lat: destination.latitude,
-          dest_lng: destination.longitude,
-          strategy,
-          polyline: JSON.stringify(route.path),
-          distance: route.total_distance,
-          duration: route.total_duration,
-          cost_estimate: route.cost_estimate,
-          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        },
-      });
-    } catch (error) {
-      // Ignorar erros de cache
-      console.warn('Failed to cache route:', error.message);
-    }
+    return distanceKm * 0.5;
   }
 }
