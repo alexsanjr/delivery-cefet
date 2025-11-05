@@ -1,3 +1,4 @@
+// src/redis/redis.module.ts
 import { Module } from '@nestjs/common';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -9,19 +10,18 @@ import { RedisService } from './redis.service';
     CacheModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => {
-        const store = await redisStore({
+      useFactory: async (configService: ConfigService) => ({
+        store: await redisStore({
           socket: {
             host: configService.get('REDIS_HOST', 'localhost'),
-            port: configService.get('REDIS_PORT', 6380),
+            port: configService.get<number>('REDIS_PORT', 6380),
           },
-          ttl: configService.get('REDIS_TTL', 3600),
-        });
-        return { store: () => store };
-      },
+          ttl: configService.get<number>('REDIS_TTL', 3600),
+        }),
+      }),
     }),
   ],
   providers: [RedisService],
-  exports: [RedisService],
+  exports: [CacheModule, RedisService],
 })
 export class RedisModule {}
