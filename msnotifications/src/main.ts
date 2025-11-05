@@ -11,7 +11,7 @@ async function bootstrap() {
         options: {
             package: 'notifications',
             protoPath: join(__dirname, './grpc/notifications.proto'),
-            url: process.env.GRPC_URL || '0.0.0.0:50051',
+            url: `0.0.0.0:${process.env.GRPC_PORT || 50053}`,
         },
     });
 
@@ -19,6 +19,6 @@ async function bootstrap() {
     await app.listen(process.env.PORT ?? 3000);
     
     console.log(`HTTP Server running on port ${process.env.PORT ?? 3000}`);
-    console.log(`GRPC Server running on ${process.env.GRPC_URL || '0.0.0.0:50051'}`);
+    console.log(`GRPC Server running on port ${process.env.GRPC_PORT || 50053}`);
 }
 bootstrap();

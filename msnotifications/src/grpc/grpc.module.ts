@@ -4,7 +4,6 @@ import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
     imports: [NotificationsModule],
-    providers: [GrpcNotificationsService],
-    exports: [GrpcNotificationsService],
+    controllers: [GrpcNotificationsService],
 })
 export class GrpcModule {}

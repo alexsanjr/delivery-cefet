@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Controller } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateNotificationDto } from '../notifications/dto/notifications-create.dto';
@@ -40,7 +40,7 @@ interface DisconnectClientResponse {
     message: string;
 }
 
-@Injectable()
+@Controller()
 export class GrpcNotificationsService {
     constructor(private readonly notificationsService: NotificationsService) {}
 
