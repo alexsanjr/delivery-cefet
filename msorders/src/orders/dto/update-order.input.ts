@@ -1,8 +1,10 @@
-import { CreateOrderInput } from './create-order.input';
-import { PartialType } from '@nestjs/mapped-types';
 import { OrderStatus } from 'generated/prisma';
+import { IsInt, IsEnum } from 'class-validator';
 
-export class UpdateOrderInput extends PartialType(CreateOrderInput) {
+export class UpdateOrderInput {
+  @IsInt()
   id: number;
-  status?: OrderStatus;
+
+  @IsEnum(OrderStatus)
+  status: OrderStatus;
 }
