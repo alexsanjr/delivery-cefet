@@ -9,7 +9,7 @@ import {
 } from '@nestjs/graphql';
 import { OrdersService } from './orders.service';
 import { CreateOrderInput } from './dto/create-order.input';
-import type { Order, OrderItem } from 'generated/prisma';
+import type { Order, OrderItem } from '../../generated/prisma';
 import { UpdateOrderInput } from './dto/update-order.input';
 import { CustomersClient } from '../grpc/customers.client';
 import { RoutingClient } from '../grpc/routing.client';

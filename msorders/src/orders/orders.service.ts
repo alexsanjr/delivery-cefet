@@ -13,7 +13,7 @@ import {
 } from './dto/create-order.input';
 import { OrdersDatasource } from './orders.datasource';
 import { UpdateOrderInput } from './dto/update-order.input';
-import { OrderStatus } from 'generated/prisma';
+import { OrderStatus } from '../../generated/prisma';
 import {
   IOrderValidator,
   PriceStrategy,

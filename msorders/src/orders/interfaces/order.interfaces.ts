@@ -1,4 +1,4 @@
-import { Order } from 'generated/prisma';
+import { Order } from '../../../generated/prisma';
 import { CreateOrderInput } from '../dto/create-order.input';
 import { UpdateOrderInput } from '../dto/update-order.input';
 

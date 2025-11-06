@@ -1,4 +1,3 @@
-// src/tracking/tracking.resolver.ts
 import { Resolver, Query, Mutation, Args, Subscription } from '@nestjs/graphql';
 import { TrackingService } from './services/tracking.service';
 import { CreateTrackingInput } from './dto/create-tracking.input';
@@ -6,11 +5,13 @@ import { UpdatePositionInput } from './dto/update-position.input';
 import { TrackingObject, PositionObject } from './dto/tracking.object';
 import { PubSub } from 'graphql-subscriptions';
 
-const pubSub = new PubSub();
-
 @Resolver(() => TrackingObject)
 export class TrackingResolver {
-  constructor(private readonly trackingService: TrackingService) {}
+  private pubSub: PubSub;
+
+  constructor(private readonly trackingService: TrackingService) {
+    this.pubSub = new PubSub();
+  }
 
   @Query(() => TrackingObject)
   async getTracking(@Args('deliveryId') deliveryId: string): Promise<TrackingObject> {
@@ -39,6 +40,6 @@ export class TrackingResolver {
       payload.positionUpdated.delivery_id === variables.deliveryId,
   })
   positionUpdated(@Args('deliveryId') deliveryId: string) {
-    return pubSub.asyncIterator('positionUpdated');
+    return (this.pubSub as any).asyncIterator('positionUpdated');
   }
 }
