@@ -1,24 +1,22 @@
-// src/tracking/services/tracking.service.ts
 import { Injectable, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TrackingPosition } from '../entities/tracking.entity';
 import { PubSub } from 'graphql-subscriptions';
+import { NotificationsClient } from '../../grpc/notifications.client';
+import { OrdersClient } from '../../grpc/orders.client';
 
-// Observer Pattern
 interface PositionObserver {
   update(position: TrackingPosition): void;
 }
 
-// Strategy Pattern
 interface ETAStrategy {
   calculateETA(currentPos: any, destination: any): number;
 }
 
 class DrivingETAStrategy implements ETAStrategy {
   calculateETA(currentPos: any, destination: any): number {
-    // Implementar cálculo real de ETA
-    return 15; // minutos
+    return 15;
   }
 }
 
@@ -31,9 +29,10 @@ export class TrackingService {
   constructor(
     @InjectRepository(TrackingPosition)
     private trackingRepo: Repository<TrackingPosition>,
+    private readonly notificationsClient: NotificationsClient,
+    private readonly ordersClient: OrdersClient,
   ) {}
 
-  // Factory Pattern - Criar nova posição
   private createPosition(data: any): TrackingPosition {
     return this.trackingRepo.create({
       delivery_id: data.delivery_id,
@@ -44,7 +43,6 @@ export class TrackingService {
     });
   }
 
-  // Observer Pattern
   attach(observer: PositionObserver): void {
     this.observers.push(observer);
   }
@@ -60,7 +58,6 @@ export class TrackingService {
     this.observers.forEach(observer => observer.update(position));
   }
 
-  // Repository Pattern
   async startTracking(data: {
     delivery_id: string;
     order_id: string;
@@ -69,12 +66,24 @@ export class TrackingService {
   }): Promise<TrackingPosition> {
     const position = this.createPosition({
       ...data,
-      latitude: data.destination_lat, // Posição inicial
+      latitude: data.destination_lat,
       longitude: data.destination_lng,
       delivery_person_id: 'system',
     });
 
-    return await this.trackingRepo.save(position);
+    const savedPosition = await this.trackingRepo.save(position);
+
+    try {
+      await this.notificationsClient.notifyOrderConfirmed(
+        'user-id-placeholder',
+        data.order_id,
+      );
+      this.logAction('Notification sent: ORDER_CONFIRMED', { order_id: data.order_id });
+    } catch (error) {
+      this.logAction('Failed to send notification', { error: error.message });
+    }
+
+    return savedPosition;
   }
 
   async updatePosition(data: {
@@ -86,10 +95,8 @@ export class TrackingService {
     const position = this.createPosition(data);
     const savedPosition = await this.trackingRepo.save(position);
 
-    // Observer Pattern - Notificar observadores
     this.notifyObservers(savedPosition);
 
-    // PubSub para GraphQL Subscriptions
     await this.pubSub.publish('positionUpdated', {
       positionUpdated: {
         delivery_id: data.delivery_id,
@@ -99,7 +106,60 @@ export class TrackingService {
       },
     });
 
+    const isFirstMove = await this.isFirstPositionUpdate(data.delivery_id);
+    if (isFirstMove) {
+      try {
+        await this.notificationsClient.notifyOutForDelivery(
+          'user-id-placeholder',
+          savedPosition.order_id,
+        );
+        this.logAction('Notification sent: OUT_FOR_DELIVERY', { order_id: savedPosition.order_id });
+      } catch (error) {
+        this.logAction('Failed to send notification', { error: error.message });
+      }
+    }
+
+    const eta = this.etaStrategy.calculateETA(savedPosition, null);
+    if (eta <= 5) {
+      try {
+        await this.notificationsClient.notifyArrivingSoon(
+          'user-id-placeholder',
+          savedPosition.order_id,
+        );
+        this.logAction('Notification sent: ARRIVING_SOON', { order_id: savedPosition.order_id });
+      } catch (error) {
+        this.logAction('Failed to send notification', { error: error.message });
+      }
+    }
+
     return savedPosition;
+  }
+
+  async markAsDelivered(orderId: string, deliveryId: string): Promise<void> {
+    try {
+      await this.ordersClient.markAsDelivered(parseInt(orderId));
+      this.logAction('Order status updated: DELIVERED', { order_id: orderId });
+    } catch (error) {
+      this.logAction('Failed to update order status', { error: error.message });
+      throw error;
+    }
+
+    try {
+      await this.notificationsClient.notifyDelivered(
+        'user-id-placeholder',
+        orderId,
+      );
+      this.logAction('Notification sent: DELIVERED', { order_id: orderId });
+    } catch (error) {
+      this.logAction('Failed to send notification', { error: error.message });
+    }
+  }
+
+  private async isFirstPositionUpdate(deliveryId: string): Promise<boolean> {
+    const count = await this.trackingRepo.count({
+      where: { delivery_id: deliveryId },
+    });
+    return count === 1;
   }
 
   async getTrackingData(deliveryId: string): Promise<any> {
@@ -110,10 +170,9 @@ export class TrackingService {
 
     const latestPosition = positions[positions.length - 1];
     
-    // Strategy Pattern - Calcular ETA
     const eta = this.etaStrategy.calculateETA(
       latestPosition,
-      { lat: -23.5505, lng: -46.6333 } // Exemplo
+      { lat: -23.5505, lng: -46.6333 }
     );
 
     return {
@@ -134,7 +193,7 @@ export class TrackingService {
       .createQueryBuilder('tracking')
       .select('DISTINCT tracking.delivery_id')
       .where('tracking.timestamp > :timestamp', {
-        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // Últimas 2 horas
+        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
       })
       .getRawMany();
 
@@ -145,12 +204,20 @@ export class TrackingService {
     );
   }
 
+  async getRecentPositions(deliveryId: string): Promise<any[]> {
+    const positions = await this.trackingRepo.find({
+      where: { delivery_id: deliveryId },
+      order: { timestamp: 'DESC' },
+      take: 10,
+    });
+
+    return positions;
+  }
+
   private calculateDistanceRemaining(positions: TrackingPosition[]): number {
-    // Implementar cálculo de distância
     return 5.2;
   }
 
-  // Decorator Pattern (simulado) para logging
   private logAction(action: string, data: any): void {
     console.log(`[TrackingService] ${action}:`, {
       ...data,
