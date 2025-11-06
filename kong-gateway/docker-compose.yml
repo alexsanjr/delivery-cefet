@@ -20,25 +20,6 @@ services:
       timeout: 5s
       retries: 10
 
-  # PostgreSQL para Konga - COM HEALTHCHECK
-  konga-database:
-    image: postgres:13
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: konga
-    ports:
-      - "5433:5432"
-    volumes:
-      - konga_data:/var/lib/postgresql/data
-    networks:
-      - kong-net
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d konga"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   # Migração do Kong
   kong-migration:
     image: kong:3.4
@@ -90,36 +71,6 @@ services:
       interval: 10s
       timeout: 10s
       retries: 10
-
-  # Konga UI
-  konga:
-    image: pantsel/konga:latest
-    environment:
-      DB_ADAPTER: ${DB_ADAPTER}
-      DB_HOST: ${DB_HOST}  
-      DB_USER: ${DB_USER}           
-      DB_PASSWORD: ${DB_PASSWORD}       
-      DB_DATABASE: ${DB_DATABASE}       
-      TOKEN_SECRET: kongasecret
-      NODE_ENV: ${NODE_ENV}
-      # Configurações adicionais para evitar timeout
-      DB_POOL_SIZE: 5
-      DB_CONNECTION_TIMEOUT: 60000
-    ports:
-      - "1337:1337"
-    volumes:
-      - ./scripts/wait-for-db.sh:/wait-for-db.sh
-    depends_on:
-      - konga-database
-    networks:
-      - kong-net
-    command: sh -c "sleep 30 && node /app/app.js"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:1337"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 90s
 
   # Microsserviço msorders
   msorders:
@@ -242,7 +193,6 @@ services:
 
 volumes:
   kong_data:
-  konga_data:
   postgres_orders_data:
   postgres_customers_data:
   redis_data:
