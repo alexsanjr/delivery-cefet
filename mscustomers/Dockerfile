@@ -12,7 +12,12 @@ COPY . .
 RUN npx prisma generate --schema ./src/prisma/schema.prisma
 RUN npm run build
 
+# Copiar e dar permissão ao entrypoint
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 EXPOSE 3000
 EXPOSE 50051
 
-CMD ["npm", "run", "dev"]
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["node", "dist/main"]

@@ -1,55 +1,87 @@
 # docker-compose.yml
 
 services:
-  kong-config-generator:
-    image: alpine:latest
+  # PostgreSQL para Kong
+  kong-database:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
     volumes:
-      - ./:/workspace
-      - kong-config:/kong-config
-    working_dir: /workspace
-    entrypoint: /bin/sh
-    command:
-      - -c
-      - |
-        if [ ! -f .env ]; then
-          echo "Error: .env not found"
-          exit 1
-        fi
-        . .env
-        sed -e "s|__KONG_JWT_SECRET_WEB_APP__|$${KONG_JWT_SECRET_WEB_APP}|g" \
-            -e "s|__KONG_JWT_SECRET_ADMIN_PANEL__|$${KONG_JWT_SECRET_ADMIN_PANEL}|g" \
-            kong/declarative/kong.yml > /kong-config/kong.yml
-        echo "Config generated"
+      - kong_data:/var/lib/postgresql/data
     networks:
       - kong-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
+  # PostgreSQL para Konga - COM HEALTHCHECK
+  konga-database:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: konga
+    ports:
+      - "5433:5432"
+    volumes:
+      - konga_data:/var/lib/postgresql/data
+    networks:
+      - kong-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d konga"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Migração do Kong
+  kong-migration:
+    image: kong:3.4
+    command: "kong migrations bootstrap"
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-database
+      KONG_PG_USER: ${POSTGRES_USER}
+      KONG_PG_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      kong-database:
+        condition: service_healthy
+    networks:
+      - kong-net
+    restart: on-failure
+
+  # Kong Gateway
   kong:
     image: kong:3.4
     environment:
-      KONG_DATABASE: "off"
-      KONG_DECLARATIVE_CONFIG: /kong/declarative/kong.yml
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-database
+      KONG_PG_USER: ${POSTGRES_USER}
+      KONG_PG_PASSWORD: ${POSTGRES_PASSWORD}
       
       KONG_PROXY_ACCESS_LOG: /dev/stdout
       KONG_ADMIN_ACCESS_LOG: /dev/stdout
       KONG_PROXY_ERROR_LOG: /dev/stderr
       KONG_ADMIN_ERROR_LOG: /dev/stderr
-
+      
       KONG_ADMIN_LISTEN: 0.0.0.0:8001, 0.0.0.0:8444 ssl
       KONG_PROXY_LISTEN: 0.0.0.0:8000, 0.0.0.0:8443 ssl
-
-      KONG_ADMIN_GUI_LISTEN: 0.0.0.0:8002
-      KONG_ADMIN_GUI_URL: http://localhost:8002
-
+      
       KONG_LOG_LEVEL: info
     ports:
       - "8000:8000"
       - "8443:8443"
       - "8001:8001"
-      - "8002:8002"
-    volumes:
-      - kong-config:/kong/declarative:ro
+      - "8444:8444"
     depends_on:
-      kong-config-generator:
+      kong-database:
+        condition: service_healthy
+      kong-migration:
         condition: service_completed_successfully
     networks:
       - kong-net
@@ -58,8 +90,38 @@ services:
       interval: 10s
       timeout: 10s
       retries: 10
-      start_period: 10s
 
+  # Konga UI
+  konga:
+    image: pantsel/konga:latest
+    environment:
+      DB_ADAPTER: ${DB_ADAPTER}
+      DB_HOST: ${DB_HOST}  
+      DB_USER: ${DB_USER}           
+      DB_PASSWORD: ${DB_PASSWORD}       
+      DB_DATABASE: ${DB_DATABASE}       
+      TOKEN_SECRET: kongasecret
+      NODE_ENV: ${NODE_ENV}
+      # Configurações adicionais para evitar timeout
+      DB_POOL_SIZE: 5
+      DB_CONNECTION_TIMEOUT: 60000
+    ports:
+      - "1337:1337"
+    volumes:
+      - ./scripts/wait-for-db.sh:/wait-for-db.sh
+    depends_on:
+      - konga-database
+    networks:
+      - kong-net
+    command: sh -c "sleep 30 && node /app/app.js"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:1337"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+  # Microsserviço msorders
   msorders:
     build: ../msorders
     ports:
@@ -70,7 +132,6 @@ services:
       CUSTOMERS_GRPC_URL: mscustomers:50051
       NODE_ENV: ${NODE_ENV}
       GRPC_PORT: 50052
-    command: ["node", "dist/main"]
     depends_on:
       postgres-orders:
         condition: service_healthy  
@@ -83,8 +144,8 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
 
+  # PostgreSQL do msorders
   postgres-orders:
     image: postgres:13
     environment:
@@ -103,6 +164,7 @@ services:
       timeout: 5s
       retries: 10
 
+  # Microsserviço mscustomers
   mscustomers:
     build: ../mscustomers
     ports:
@@ -112,7 +174,6 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_CUSTOMERS_USER}:${POSTGRES_CUSTOMERS_PASSWORD}@postgres-customers:5432/${POSTGRES_CUSTOMERS_DB}
       NODE_ENV: ${NODE_ENV}
       GRPC_PORT: 50051
-    command: ["node", "dist/main"]
     depends_on:
       postgres-customers:
         condition: service_healthy
@@ -123,8 +184,8 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
 
+  # PostgreSQL do mscustomers
   postgres-customers:
     image: postgres:13
     environment:
@@ -143,18 +204,18 @@ services:
       timeout: 5s
       retries: 10
   
+  # msnotifications
   msnotifications:
     build: ../msnotifications
     ports:
-      - "3003:3000"
-      - "50053:50053"
+      - "${MSNOTIFICATIONS_PORT}:3000"
+      - "50053:50051" 
     environment:
       NODE_ENV: ${NODE_ENV}
-      REDIS_URL: redis://redis-notifications:6379
-      GRPC_PORT: 50053
-    command: ["node", "dist/main"]
+      REDIS_URL: ${REDIS_URL}
+      GRPC_URL: msnotifications:50051
     depends_on:
-      redis-notifications:
+      redis:
         condition: service_healthy
     networks:
       - kong-net
@@ -164,10 +225,11 @@ services:
       timeout: 10s
       retries: 3
   
-  redis-notifications:
+  # redis msnotifications
+  redis:
     image: redis:7-alpine
     volumes:
-      - redis_notifications_data:/data
+      - redis_data:/data
     ports:
       - "6379:6379"
     networks:
@@ -178,114 +240,12 @@ services:
       timeout: 5s
       retries: 5
 
-  msrouting:
-    build: ../msrouting
-    ports:
-      - "3004:3004"
-      - "50054:50054"
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_ROUTING_USER}:${POSTGRES_ROUTING_PASSWORD}@postgres-routing:5432/${POSTGRES_ROUTING_DB}
-      NODE_ENV: ${NODE_ENV}
-      GRPC_PORT: 50054
-      REDIS_HOST: redis-routing
-      REDIS_PORT: 6380
-      MAPS_SERVICE: osrm
-    command: ["node", "dist/main"]
-    depends_on:
-      postgres-routing:
-        condition: service_healthy
-      redis-routing:
-        condition: service_healthy
-    networks:
-      - kong-net
-    healthcheck:
-      test: ["CMD", "curl", "-X", "POST", "-H", "Content-Type: application/json", "-d", "{\"query\":\"{ __typename }\"}", "http://localhost:3004/graphql"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
-  postgres-routing:
-    image: postgres:13
-    environment:
-      POSTGRES_USER: ${POSTGRES_ROUTING_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_ROUTING_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_ROUTING_DB}
-    ports:
-      - "5436:5432"
-    volumes:
-      - postgres_routing_data:/var/lib/postgresql/data
-    networks:
-      - kong-net
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_ROUTING_USER} -d ${POSTGRES_ROUTING_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  redis-routing:
-    image: redis:7-alpine
-    command: redis-server --port 6380
-    volumes:
-      - redis_routing_data:/data
-    ports:
-      - "6380:6380"
-    networks:
-      - kong-net
-    healthcheck:
-      test: ["CMD", "redis-cli", "-p", "6380", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  msdelivery:
-    build: ../msdelivery
-    ports:
-      - "3005:3003"
-      - "50055:50053"
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_DELIVERY_USER}:${POSTGRES_DELIVERY_PASSWORD}@postgres-delivery:5432/${POSTGRES_DELIVERY_DB}
-      NODE_ENV: ${NODE_ENV}
-      PORT: 3003
-      GRPC_PORT: 50053
-    depends_on:
-      postgres-delivery:
-        condition: service_healthy
-    networks:
-      - kong-net
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3003/graphql", "-H", "Content-Type: application/json", "-d", "{\"query\":\"{ __typename }\"}"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  postgres-delivery:
-    image: postgres:13
-    environment:
-      POSTGRES_USER: ${POSTGRES_DELIVERY_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_DELIVERY_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DELIVERY_DB}
-    ports:
-      - "5437:5432"
-    volumes:
-      - postgres_delivery_data:/var/lib/postgresql/data
-    networks:
-      - kong-net
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_DELIVERY_USER} -d ${POSTGRES_DELIVERY_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
 volumes:
-  kong-config:
+  kong_data:
+  konga_data:
   postgres_orders_data:
   postgres_customers_data:
-  postgres_routing_data:
-  postgres_delivery_data:
-  redis_notifications_data:
-  redis_routing_data:
+  redis_data:
 
 networks:
   kong-net:
