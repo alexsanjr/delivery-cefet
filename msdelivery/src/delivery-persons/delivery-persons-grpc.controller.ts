@@ -61,12 +61,12 @@ export class DeliveryPersonsGrpcController {
 
   @GrpcMethod('DeliveryPersonService', 'GetDeliveryPerson')
   async getDeliveryPerson(data: GetDeliveryPersonRequest): Promise<GetDeliveryPersonResponse> {
-    const deliveryPerson = await this.deliveryPersonsService.findOne(data.deliveryPersonId);
+    const deliveryPerson = await this.deliveryPersonsService.findOne(Number(data.deliveryPersonId));
 
     return {
       success: true,
       deliveryPerson: {
-        id: deliveryPerson.id,
+        id: String(deliveryPerson.id),
         name: deliveryPerson.name,
         email: deliveryPerson.email,
         phone: deliveryPerson.phone,
@@ -98,7 +98,7 @@ export class DeliveryPersonsGrpcController {
     }
 
     const deliveryPersonsInfo: DeliveryPersonInfo[] = deliveryPersons.map((dp) => ({
-      id: dp.id,
+      id: String(dp.id),
       name: dp.name,
       email: dp.email,
       phone: dp.phone,
@@ -119,7 +119,7 @@ export class DeliveryPersonsGrpcController {
   @GrpcMethod('DeliveryPersonService', 'UpdateDeliveryPersonStatus')
   async updateDeliveryPersonStatus(data: UpdateStatusRequest): Promise<UpdateResponse> {
     await this.deliveryPersonsService.updateStatus({
-      deliveryPersonId: data.deliveryPersonId,
+      deliveryPersonId: Number(data.deliveryPersonId),
       status: data.status as DeliveryPersonStatus,
     });
 
@@ -132,7 +132,7 @@ export class DeliveryPersonsGrpcController {
   @GrpcMethod('DeliveryPersonService', 'UpdateDeliveryPersonLocation')
   async updateDeliveryPersonLocation(data: UpdateLocationRequest): Promise<UpdateResponse> {
     await this.deliveryPersonsService.updateLocation({
-      deliveryPersonId: data.deliveryPersonId,
+      deliveryPersonId: Number(data.deliveryPersonId),
       latitude: data.latitude,
       longitude: data.longitude,
     });

@@ -1,16 +1,17 @@
-import { InputType, Field, Float } from '@nestjs/graphql';
-import { IsNotEmpty, IsNumber, Min, Max, IsOptional } from 'class-validator';
+import { InputType, Field, Float, Int } from '@nestjs/graphql';
+import { IsNotEmpty, IsNumber, Min, Max, IsOptional, IsInt } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 @InputType()
 export class UpdateLocationInput {
-  @Field()
+  @Field(() => Int)
   @ApiProperty({ 
     description: 'ID do entregador',
-    example: '123e4567-e89b-12d3-a456-426614174000'
+    example: 1
   })
   @IsNotEmpty({ message: "ID do entregador é obrigatório" })
-  deliveryPersonId: string;
+  @IsInt()
+  deliveryPersonId: number;
 
   @Field(() => Float)
   @ApiProperty({ 
