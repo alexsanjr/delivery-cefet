@@ -8,6 +8,7 @@ import { PremiumPriceCalculator } from './strategies/premium-price-calculator.st
 import { ExpressPriceCalculator } from './strategies/express-price-calculator.strategy';
 import { PriceCalculatorContext } from './strategies/price-calculator.context';
 import { GrpcModule } from 'src/grpc/grpc.module';
+import { CustomersDataloaderService } from './customers-dataloader.service';
 
 @Module({
   imports: [GrpcModule],
@@ -20,6 +21,7 @@ import { GrpcModule } from 'src/grpc/grpc.module';
     PremiumPriceCalculator,
     ExpressPriceCalculator,
     PriceCalculatorContext,
+    CustomersDataloaderService,
   ],
   exports: [OrdersService, OrdersDatasource],
 })
