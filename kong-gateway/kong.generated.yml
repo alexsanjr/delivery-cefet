@@ -167,7 +167,7 @@ consumers:
     jwt_secrets:
       - key: web-app-issuer
         algorithm: HS256
-        secret: condense-aerospace-percolate-prelaunch-skylight-surely
+        secret: condense-aerospace-percolate-prelaunch-skylight-surely
   - username: admin-panel
     tags:
       - admin
@@ -175,4 +175,4 @@ consumers:
     jwt_secrets:
       - key: admin-panel-issuer
         algorithm: HS256
-        secret: cosponsor-sculptor-cubicle-usher-mutable-dispersal
+        secret: cosponsor-sculptor-cubicle-usher-mutable-dispersal
