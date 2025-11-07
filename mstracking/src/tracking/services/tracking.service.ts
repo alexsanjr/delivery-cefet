@@ -5,25 +5,15 @@ import { TrackingPosition } from '../entities/tracking.entity';
 import { PubSub } from 'graphql-subscriptions';
 import { NotificationsClient } from '../../grpc/notifications.client';
 import { OrdersClient } from '../../grpc/orders.client';
+import { RoutingClient } from '../../grpc/routing.client';
 
 interface PositionObserver {
   update(position: TrackingPosition): void;
 }
 
-interface ETAStrategy {
-  calculateETA(currentPos: any, destination: any): number;
-}
-
-class DrivingETAStrategy implements ETAStrategy {
-  calculateETA(currentPos: any, destination: any): number {
-    return 15;
-  }
-}
-
 @Injectable()
 export class TrackingService {
   private observers: PositionObserver[] = [];
-  private etaStrategy: ETAStrategy = new DrivingETAStrategy();
   private pubSub: PubSub = new PubSub();
 
   constructor(
@@ -31,6 +21,7 @@ export class TrackingService {
     private trackingRepo: Repository<TrackingPosition>,
     private readonly notificationsClient: NotificationsClient,
     private readonly ordersClient: OrdersClient,
+    private readonly routingClient: RoutingClient,
   ) {}
 
   private createPosition(data: any): TrackingPosition {
@@ -92,7 +83,20 @@ export class TrackingService {
     longitude: number;
     delivery_person_id: string;
   }): Promise<TrackingPosition> {
-    const position = this.createPosition(data);
+    const existingTracking = await this.trackingRepo.findOne({
+      where: { delivery_id: data.delivery_id },
+      order: { timestamp: 'DESC' },
+    });
+
+    if (!existingTracking) {
+      throw new Error(`Tracking not found for delivery_id: ${data.delivery_id}`);
+    }
+
+    const position = this.createPosition({
+      ...data,
+      order_id: existingTracking.order_id,
+    });
+
     const savedPosition = await this.trackingRepo.save(position);
 
     this.notifyObservers(savedPosition);
@@ -106,7 +110,11 @@ export class TrackingService {
       },
     });
 
-    const isFirstMove = await this.isFirstPositionUpdate(data.delivery_id);
+    const positionCount = await this.trackingRepo.count({
+      where: { delivery_id: data.delivery_id },
+    });
+    
+    const isFirstMove = positionCount === 2;
     if (isFirstMove) {
       try {
         await this.notificationsClient.notifyOutForDelivery(
@@ -119,16 +127,31 @@ export class TrackingService {
       }
     }
 
-    const eta = this.etaStrategy.calculateETA(savedPosition, null);
-    if (eta <= 5) {
-      try {
-        await this.notificationsClient.notifyArrivingSoon(
-          'user-id-placeholder',
-          savedPosition.order_id,
-        );
-        this.logAction('Notification sent: ARRIVING_SOON', { order_id: savedPosition.order_id });
-      } catch (error) {
-        this.logAction('Failed to send notification', { error: error.message });
+    const firstPosition = await this.trackingRepo.findOne({
+      where: { delivery_id: data.delivery_id },
+      order: { timestamp: 'ASC' },
+    });
+
+    if (firstPosition) {
+      const eta = await this.routingClient.calculateETA(
+        savedPosition.latitude,
+        savedPosition.longitude,
+        firstPosition.latitude,
+        firstPosition.longitude,
+        'fastest',
+        1,
+      );
+
+      if (eta <= 5) {
+        try {
+          await this.notificationsClient.notifyArrivingSoon(
+            'user-id-placeholder',
+            savedPosition.order_id,
+          );
+          this.logAction('Notification sent: ARRIVING_SOON', { order_id: savedPosition.order_id });
+        } catch (error) {
+          this.logAction('Failed to send notification', { error: error.message });
+        }
       }
     }
 
@@ -155,12 +178,7 @@ export class TrackingService {
     }
   }
 
-  private async isFirstPositionUpdate(deliveryId: string): Promise<boolean> {
-    const count = await this.trackingRepo.count({
-      where: { delivery_id: deliveryId },
-    });
-    return count === 1;
-  }
+
 
   async getTrackingData(deliveryId: string): Promise<any> {
     const positions = await this.trackingRepo.find({
@@ -169,10 +187,15 @@ export class TrackingService {
     });
 
     const latestPosition = positions[positions.length - 1];
+    const firstPosition = positions[0];
     
-    const eta = this.etaStrategy.calculateETA(
-      latestPosition,
-      { lat: -23.5505, lng: -46.6333 }
+    const eta = await this.routingClient.calculateETA(
+      latestPosition.latitude,
+      latestPosition.longitude,
+      firstPosition.latitude,
+      firstPosition.longitude,
+      'fastest',
+      1,
     );
 
     return {

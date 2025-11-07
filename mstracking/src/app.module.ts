@@ -17,6 +17,9 @@ import { GrpcModule } from './grpc/grpc.module';
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
+      playground: true,
+      introspection: true,
+      csrfPrevention: false,
       installSubscriptionHandlers: true,
       subscriptions: {
         'graphql-ws': true,

@@ -23,6 +23,54 @@ services:
     networks:
       - kong-net
 
+  customers-migrations:
+    image: node:18-alpine
+    working_dir: /app
+    volumes:
+      - ../mscustomers:/app
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_CUSTOMERS_USER}:${POSTGRES_CUSTOMERS_PASSWORD}@postgres-customers:5432/${POSTGRES_CUSTOMERS_DB}
+    command:
+      - sh
+      - -c
+      - |
+        echo "Running Prisma migrations for customers..."
+        npx prisma migrate deploy --schema=./src/prisma/schema.prisma
+        echo "Generating Prisma Client..."
+        npx prisma generate --schema=./src/prisma/schema.prisma
+        echo "Seeding database for customers..."
+        npx prisma db seed --schema=./src/prisma/schema.prisma || true
+        echo "Customers database ready"
+    depends_on:
+      postgres-customers:
+        condition: service_healthy
+    networks:
+      - kong-net
+
+  orders-migrations:
+    image: node:18-alpine
+    working_dir: /app
+    volumes:
+      - ../msorders:/app
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_ORDERS_USER}:${POSTGRES_ORDERS_PASSWORD}@postgres-orders:5432/${POSTGRES_ORDERS_DB}
+    command:
+      - sh
+      - -c
+      - |
+        echo "Running Prisma migrations for orders..."
+        npx prisma migrate deploy
+        echo "Generating Prisma Client for Alpine..."
+        npx prisma generate
+        echo "Seeding database for orders..."
+        npx prisma db seed || true
+        echo "Orders database ready"
+    depends_on:
+      postgres-orders:
+        condition: service_healthy
+    networks:
+      - kong-net
+
   kong:
     image: kong:3.4
     environment:
@@ -74,13 +122,14 @@ services:
       NODE_ENV: ${NODE_ENV}
       GRPC_PORT: 50052
     volumes:
+      - ../mscustomers/src/grpc/customers.proto:/app/dist/grpc/customers.proto:ro
       - ../msnotifications/src/grpc/notifications.proto:/app/dist/grpc/notifications.proto:ro
       - ../msrouting/src/grpc/shared/protos/routing.proto:/app/dist/grpc/routing.proto:ro
       - ../mstracking/src/grpc/tracking.proto:/app/dist/grpc/tracking.proto:ro
     command: ["node", "dist/main"]
     depends_on:
-      postgres-orders:
-        condition: service_healthy  
+      orders-migrations:
+        condition: service_completed_successfully
       mscustomers:
         condition: service_healthy
     networks:
@@ -121,8 +170,8 @@ services:
       GRPC_PORT: 50051
     command: ["node", "dist/main"]
     depends_on:
-      postgres-customers:
-        condition: service_healthy
+      customers-migrations:
+        condition: service_completed_successfully
     networks:
       - kong-net
     healthcheck:
@@ -254,12 +303,14 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_TRACKING_USER}:${POSTGRES_TRACKING_PASSWORD}@postgres-tracking:5432/${POSTGRES_TRACKING_DB}
       NOTIFICATIONS_GRPC_URL: msnotifications:50053
       ORDERS_GRPC_URL: msorders:50052
+      ROUTING_GRPC_URL: msrouting:50054
       NODE_ENV: ${NODE_ENV}
       GRPC_PORT: 50055
       PORT: 3005
     volumes:
       - ../msnotifications/src/grpc/notifications.proto:/app/dist/grpc/notifications.proto:ro
       - ../msorders/src/grpc/orders.proto:/app/dist/grpc/orders.proto:ro
+      - ../msrouting/src/grpc/shared/protos/routing.proto:/app/dist/grpc/routing.proto:ro
     command: ["node", "dist/main"]
     depends_on:
       postgres-tracking:
@@ -267,6 +318,8 @@ services:
       msnotifications:
         condition: service_healthy
       msorders:
+        condition: service_healthy
+      msrouting:
         condition: service_healthy
     networks:
       - kong-net

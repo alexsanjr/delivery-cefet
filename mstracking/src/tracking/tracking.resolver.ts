@@ -35,6 +35,15 @@ export class TrackingResolver {
     return true;
   }
 
+  @Mutation(() => Boolean)
+  async markAsDelivered(
+    @Args('orderId') orderId: string,
+    @Args('deliveryId') deliveryId: string,
+  ): Promise<boolean> {
+    await this.trackingService.markAsDelivered(orderId, deliveryId);
+    return true;
+  }
+
   @Subscription(() => PositionObject, {
     filter: (payload, variables) =>
       payload.positionUpdated.delivery_id === variables.deliveryId,
