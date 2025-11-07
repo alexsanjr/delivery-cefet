@@ -44,7 +44,17 @@ export class CustomersDataloaderService {
       const customer = await this.customersClient.getCustomer(customerId);
 
       if ('error' in customer && customer.error) return null;
-      return customer as CustomerData;
+
+      // Mapeia isPrimary para isDefault para compatibilidade
+      const mappedCustomer: CustomerData = {
+        ...customer,
+        addresses: customer.addresses?.map((address: any) => ({
+          ...address,
+          isDefault: address.isPrimary ?? false,
+        })),
+      };
+
+      return mappedCustomer;
     } catch {
       return null;
     }

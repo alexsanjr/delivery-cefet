@@ -12,6 +12,9 @@ import { CreateOrderInput } from './dto/create-order.input';
 import type { Order, OrderItem } from '../../generated/prisma';
 import { UpdateOrderInput } from './dto/update-order.input';
 import { CustomersDataloaderService } from './customers-dataloader.service';
+import { RoutingClient } from '../grpc/routing.client';
+import { NotificationsClient } from '../grpc/notifications.client';
+import { firstValueFrom } from 'rxjs';
 
 type OrderWithItems = Order & {
   items?: OrderItem[];
@@ -22,6 +25,8 @@ export class OrdersResolver {
   constructor(
     private readonly ordersService: OrdersService,
     private readonly customersDataloader: CustomersDataloaderService,
+    private readonly routingClient: RoutingClient,
+    private readonly notificationsClient: NotificationsClient,
   ) {}
 
   @Query('orders')

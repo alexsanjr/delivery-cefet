@@ -51,6 +51,7 @@ export interface CustomerGrpcResponse {
   phone: string;
   isPremium: boolean;
   addresses?: Array<{
+    id?: number;
     street: string;
     number: string;
     complement?: string;
@@ -58,6 +59,7 @@ export interface CustomerGrpcResponse {
     city: string;
     state: string;
     zipCode: string;
+    isPrimary?: boolean;
   }>;
   error?: string;
 }

@@ -10,17 +10,38 @@ interface Point {
 interface RouteRequest {
   origin: Point;
   destination: Point;
-  strategy: string;
+  strategy: number; // RouteStrategy enum
+  waypoints?: Point[];
 }
 
 interface RouteResponse {
-  total_distance: number;
-  total_duration: number;
-  cost_estimate: number;
+  path: Point[];
+  distance_meters: number;
+  duration_seconds: number;
+  encoded_polyline: string;
+  steps: RouteStep[];
+  estimated_cost: number;
+}
+
+interface RouteStep {
+  instruction: string;
+  distance_meters: number;
+  duration_seconds: number;
+  start_location: Point;
+  end_location: Point;
 }
 
 interface RoutingService {
   CalculateRoute(data: RouteRequest): Observable<RouteResponse>;
+}
+
+// RouteStrategy enum values
+enum RouteStrategy {
+  STRATEGY_UNSPECIFIED = 0,
+  FASTEST = 1,
+  SHORTEST = 2,
+  ECONOMICAL = 3,
+  ECO_FRIENDLY = 4,
 }
 
 @Injectable()
@@ -30,10 +51,32 @@ export class RoutingClient implements OnModuleInit {
   constructor(@Inject('ROUTING_PACKAGE') private client: ClientGrpc) {}
 
   onModuleInit() {
-    this.routingService = this.client.getService<RoutingService>('RoutingService');
+    this.routingService =
+      this.client.getService<RoutingService>('RoutingService');
   }
 
-  calculateRoute(origin: Point, destination: Point, strategy: string = 'fastest') {
-    return this.routingService.CalculateRoute({ origin, destination, strategy });
+  calculateRoute(
+    origin: Point,
+    destination: Point,
+    strategy: string = 'fastest',
+  ) {
+    // Convert strategy string to enum
+    const strategyEnum = this.getStrategyEnum(strategy);
+    return this.routingService.CalculateRoute({
+      origin,
+      destination,
+      strategy: strategyEnum,
+      waypoints: [],
+    });
+  }
+
+  private getStrategyEnum(strategy: string): number {
+    const strategyMap: { [key: string]: number } = {
+      fastest: RouteStrategy.FASTEST,
+      shortest: RouteStrategy.SHORTEST,
+      economical: RouteStrategy.ECONOMICAL,
+      eco_friendly: RouteStrategy.ECO_FRIENDLY,
+    };
+    return strategyMap[strategy.toLowerCase()] || RouteStrategy.FASTEST;
   }
 }

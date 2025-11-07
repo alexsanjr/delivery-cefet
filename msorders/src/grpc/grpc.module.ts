@@ -22,7 +22,7 @@ import { TrackingClient } from './tracking.client';
         name: 'ROUTING_PACKAGE',
         transport: Transport.GRPC,
         options: {
-          package: 'routing',
+          package: 'routing.v1',
           protoPath: join(__dirname, 'routing.proto'),
           url: process.env.ROUTING_GRPC_URL || 'localhost:50054',
         },
@@ -47,7 +47,17 @@ import { TrackingClient } from './tracking.client';
       },
     ]),
   ],
-  providers: [CustomersClient, RoutingClient, NotificationsClient, TrackingClient],
-  exports: [CustomersClient, RoutingClient, NotificationsClient, TrackingClient],
+  providers: [
+    CustomersClient,
+    RoutingClient,
+    NotificationsClient,
+    TrackingClient,
+  ],
+  exports: [
+    CustomersClient,
+    RoutingClient,
+    NotificationsClient,
+    TrackingClient,
+  ],
 })
 export class GrpcModule {}

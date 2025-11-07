@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package tracking;
+
+service TrackingService {
+    rpc StartTracking (StartTrackingRequest) returns (TrackingResponse);
+}
+
+message StartTrackingRequest {
+    string delivery_id = 1;
+    string order_id = 2;
+    double destination_lat = 3;
+    double destination_lng = 4;
+}
+
+message TrackingResponse {
+    bool success = 1;
+    string message = 2;
+    string tracking_id = 3;
+}

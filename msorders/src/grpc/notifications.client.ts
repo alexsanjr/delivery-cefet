@@ -27,10 +27,17 @@ export class NotificationsClient implements OnModuleInit {
   constructor(@Inject('NOTIFICATIONS_PACKAGE') private client: ClientGrpc) {}
 
   onModuleInit() {
-    this.notificationsService = this.client.getService<NotificationsService>('NotificationsService');
+    this.notificationsService = this.client.getService<NotificationsService>(
+      'NotificationsService',
+    );
   }
 
-  sendNotification(userId: string, orderId: string, status: string, message?: string) {
+  sendNotification(
+    userId: string,
+    orderId: string,
+    status: string,
+    message?: string,
+  ) {
     return this.notificationsService.SendNotification({
       userId,
       orderId,
