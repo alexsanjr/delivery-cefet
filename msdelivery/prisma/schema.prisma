@@ -11,45 +11,45 @@ datasource db {
 }
 
 enum DeliveryPersonStatus {
-  AVAILABLE    // Disponível para aceitar entregas
-  BUSY         // Em entrega
-  OFFLINE      // Offline/Indisponível
-  ON_BREAK     // Em pausa
+  AVAILABLE // Disponível para aceitar entregas
+  BUSY // Em entrega
+  OFFLINE // Offline/Indisponível
+  ON_BREAK // Em pausa
 }
 
 enum VehicleType {
-  BIKE         // Bicicleta
-  MOTORCYCLE   // Motocicleta
-  CAR          // Carro
-  SCOOTER      // Patinete/Scooter
-  WALKING      // A pé
+  BIKE // Bicicleta
+  MOTORCYCLE // Motocicleta
+  CAR // Carro
+  SCOOTER // Patinete/Scooter
+  WALKING // A pé
 }
 
 // Modelo principal de Entregador
 model DeliveryPerson {
-  id            String                @id @default(uuid())
-  name          String
-  email         String                @unique
-  phone         String                @unique
-  cpf           String                @unique
-  vehicleType   VehicleType
-  licensePlate  String?               @unique // Placa do veículo (opcional para bike/walking)
-  status        DeliveryPersonStatus  @default(OFFLINE)
-  rating        Float                 @default(5.0)
-  totalDeliveries Int                 @default(0)
-  
+  id              Int                  @id @default(autoincrement())
+  name            String
+  email           String               @unique
+  phone           String               @unique
+  cpf             String               @unique
+  vehicleType     VehicleType
+  licensePlate    String?              @unique // Placa do veículo (opcional para bike/walking)
+  status          DeliveryPersonStatus @default(OFFLINE)
+  rating          Float                @default(5.0)
+  totalDeliveries Int                  @default(0)
+
   // Localização atual
-  currentLatitude  Float?
-  currentLongitude Float?
+  currentLatitude    Float?
+  currentLongitude   Float?
   lastLocationUpdate DateTime?
-  
+
   // Informações de trabalho
-  isActive      Boolean               @default(true)
-  joinedAt      DateTime              @default(now())
-  
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
-  
+  isActive Boolean  @default(true)
+  joinedAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([status])
   @@index([email])
   @@index([phone])

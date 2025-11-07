@@ -4,8 +4,8 @@ import { VehicleType } from './vehicle-type.enum';
 
 @ObjectType()
 export class DeliveryPerson {
-  @Field(() => ID)
-  id: string;
+  @Field(() => Int)
+  id: number;
 
   @Field()
   name: string;

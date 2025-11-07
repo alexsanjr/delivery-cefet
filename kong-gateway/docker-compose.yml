@@ -168,7 +168,6 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_CUSTOMERS_USER}:${POSTGRES_CUSTOMERS_PASSWORD}@postgres-customers:5432/${POSTGRES_CUSTOMERS_DB}
       NODE_ENV: ${NODE_ENV}
       GRPC_PORT: 50051
-    command: ["node", "dist/main"]
     depends_on:
       customers-migrations:
         condition: service_completed_successfully
@@ -208,7 +207,6 @@ services:
       NODE_ENV: ${NODE_ENV}
       REDIS_URL: redis://redis-notifications:6379
       GRPC_PORT: 50053
-    command: ["node", "dist/main"]
     depends_on:
       redis-notifications:
         condition: service_healthy
@@ -246,7 +244,6 @@ services:
       REDIS_HOST: redis-routing
       REDIS_PORT: 6380
       MAPS_SERVICE: osrm
-    command: ["node", "dist/main"]
     depends_on:
       postgres-routing:
         condition: service_healthy

@@ -1,17 +1,18 @@
-import { InputType, Field } from '@nestjs/graphql';
-import { IsEnum, IsNotEmpty } from 'class-validator';
+import { InputType, Field, Int } from '@nestjs/graphql';
+import { IsEnum, IsNotEmpty, IsInt } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { DeliveryPersonStatus } from '../models/delivery-person-status.enum';
 
 @InputType()
 export class UpdateStatusInput {
-  @Field()
+  @Field(() => Int)
   @ApiProperty({ 
     description: 'ID do entregador',
-    example: '123e4567-e89b-12d3-a456-426614174000'
+    example: 1
   })
   @IsNotEmpty({ message: "ID do entregador é obrigatório" })
-  deliveryPersonId: string;
+  @IsInt()
+  deliveryPersonId: number;
 
   @Field(() => String)
   @ApiProperty({ 

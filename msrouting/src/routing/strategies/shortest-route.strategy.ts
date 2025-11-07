@@ -1,4 +1,3 @@
-// src/routing/strategies/economical.strategy.ts
 import { Injectable } from '@nestjs/common';
 import { RouteStrategy } from './route.strategy';
 import { Point, RouteResponse } from '../dto/routing.objects';
@@ -6,19 +5,19 @@ import { ExternalMapsClient } from '../../grpc/clients/external-maps.client';
 import { decodePolyline } from '../utils/polyline.util';
 
 @Injectable()
-export class EconomicalRouteStrategy implements RouteStrategy {
+export class ShortestRouteStrategy implements RouteStrategy {
   constructor(private mapsClient: ExternalMapsClient) {}
 
   async calculateRoute(origin: Point, destination: Point, waypoints: Point[] = []): Promise<RouteResponse> {
-    // Por enquanto, usar apenas uma rota sem avoid para evitar erro 400
+    // Usar API real para rota mais curta
     const route = await this.mapsClient.getDirections(origin, destination, { mode: 'driving' });
 
-    // Modifica as instruções para indicar que é rota econômica
-    const economicalSteps = route.steps.map((step, index) => {
+    // Modifica as instruções para indicar que é rota mais curta
+    const shortestSteps = route.steps.map((step, index) => {
       if (index === 0) {
         return {
           ...step,
-          instruction: step.instruction.replace('Siga', 'Siga pela rota mais econômica'),
+          instruction: step.instruction.replace('Siga pela rota', 'Siga pela rota mais curta'),
         };
       }
       return step;
@@ -29,8 +28,15 @@ export class EconomicalRouteStrategy implements RouteStrategy {
       distance_meters: route.distance,
       duration_seconds: route.duration,
       encoded_polyline: route.polyline,
-      steps: economicalSteps,
-      estimated_cost: this.getCostEstimateFromRoute(route),
+      steps: shortestSteps,
+      estimated_cost: this.getCostEstimate({ 
+        distance_meters: route.distance, 
+        duration_seconds: route.duration, 
+        path: decodePolyline(route.polyline),
+        encoded_polyline: route.polyline,
+        steps: shortestSteps,
+        estimated_cost: 0
+      }),
     };
   }
 
@@ -41,20 +47,9 @@ export class EconomicalRouteStrategy implements RouteStrategy {
 
   getCostEstimate(route: RouteResponse): number {
     const distanceKm = route.distance_meters / 1000;
-    const fuelCost = distanceKm * 0.15;
-    const maintenanceCost = distanceKm * 0.02;
-    const tollCost = this.hasTolls(route) ? distanceKm * 0.05 : 0;
-    return fuelCost + maintenanceCost + tollCost;
-  }
-
-  private getCostEstimateFromRoute(route: any): number {
-    return (route.distance / 1000) * 0.22;
-  }
-
-  private hasTolls(route: RouteResponse): boolean {
-    return route.steps.some(step =>
-      step.instruction.toLowerCase().includes('pedágio') ||
-      step.instruction.toLowerCase().includes('toll')
-    );
+    // Rota mais curta pode ser mais cara por usar vias menores
+    const baseCost = distanceKm * 0.45; // Menor custo por km
+    const timePenalty = (route.duration_seconds / 3600) * 8; // Menos tempo = menor custo
+    return baseCost + timePenalty;
   }
 }

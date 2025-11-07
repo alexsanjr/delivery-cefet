@@ -91,7 +91,7 @@ async function main() {
 
   const basicOrder = await prisma.order.create({
     data: {
-      customerId: 123,
+      customerId: 2,
       status: 'PENDING',
       subtotal: 56.0, // (25.50 * 2) + 5.00 = 56.00
       deliveryFee: 5.0,
@@ -128,7 +128,7 @@ async function main() {
 
   const premiumOrder = await prisma.order.create({
     data: {
-      customerId: 999, // Cliente VIP
+      customerId: 1, // Cliente VIP
       status: 'CONFIRMED',
       subtotal: 50.0, // 35.00 + 15.00 = 50.00
       deliveryFee: 0.0, // Frete grátis para PREMIUM
@@ -165,7 +165,7 @@ async function main() {
 
   const expressOrder = await prisma.order.create({
     data: {
-      customerId: 456,
+      customerId: 2,
       status: 'PREPARING',
       subtotal: 30.0, // 22.00 + 8.00 = 30.00
       deliveryFee: 12.0, // Taxa express elevada

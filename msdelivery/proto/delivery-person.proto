@@ -10,7 +10,7 @@ service DeliveryPersonService {
 }
 
 message GetDeliveryPersonRequest {
-  string deliveryPersonId = 1;
+  int32 deliveryPersonId = 1;
 }
 
 message GetDeliveryPersonResponse {
@@ -30,7 +30,7 @@ message DeliveryPersonsList {
 }
 
 message DeliveryPersonInfo {
-  string id = 1;
+  int32 id = 1;
   string name = 2;
   string email = 3;
   string phone = 4;
@@ -46,12 +46,12 @@ message DeliveryPersonInfo {
 }
 
 message UpdateStatusRequest {
-  string deliveryPersonId = 1;
+  int32 deliveryPersonId = 1;
   string status = 2;
 }
 
 message UpdateLocationRequest {
-  string deliveryPersonId = 1;
+  int32 deliveryPersonId = 1;
   double latitude = 2;
   double longitude = 3;
 }

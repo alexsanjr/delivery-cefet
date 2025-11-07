@@ -1,26 +1,51 @@
-// src/main.ts
 import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { join } from 'path';
 import { AppModule } from './app.module';
+import { existsSync } from 'fs';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  console.log('🚀 Starting MSRouting service...');
+  
+  // Verifique se o proto file existe
+  const protoPath = join(process.cwd(), 'src/grpc/shared/protos/routing.proto');
+  console.log('🔍 Checking proto file:', protoPath);
+  console.log('📄 Proto exists:', existsSync(protoPath));
+  
+  if (!existsSync(protoPath)) {
+    console.error('❌ Proto file not found!');
+    process.exit(1);
+  }
 
-  app.connectMicroservice<MicroserviceOptions>({
+  console.log('📡 Creating gRPC microservice...');
+  
+  const app = await NestFactory.createMicroservice<MicroserviceOptions>(AppModule, {
     transport: Transport.GRPC,
     options: {
-      package: 'routing',
-      protoPath: join(__dirname, 'shared/protos/routing.proto'),
-      url: 'localhost:50055', // ← Mudar para 50055
+      package: 'routing.v1',
+      protoPath: protoPath,
+      url: 'localhost:50055',
+      loader: {
+        keepCase: true,
+        longs: String,
+        enums: String,
+        defaults: true,
+        oneofs: true,
+      },
     },
   });
 
-  await app.startAllMicroservices();
-  await app.listen(process.env.PORT ?? 3003); // ← Mudar para 3003
+  console.log('▶️ Starting gRPC microservice...');
+  await app.listen();
   
-  console.log('🗺️ MSRouting Service running');
-  console.log('📡 gRPC: localhost:50055');
-  console.log('🔮 GraphQL: http://localhost:3003/graphql');
+  console.log('=================================');
+  console.log('✅ MSRouting Service RUNNING');
+  console.log('📡 gRPC Server: localhost:50055');
+  console.log('📦 Package: routing.v1');
+  console.log('=================================');
 }
-bootstrap();
+
+bootstrap().catch((error) => {
+  console.error('❌ Bootstrap failed:', error);
+  process.exit(1);
+});

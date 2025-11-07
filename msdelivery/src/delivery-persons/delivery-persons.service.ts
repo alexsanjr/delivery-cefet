@@ -46,7 +46,7 @@ export class DeliveryPersonsService {
     });
   }
 
-  async findOne(id: string): Promise<DeliveryPerson> {
+  async findOne(id: number): Promise<DeliveryPerson> {
     const deliveryPerson = await this.prisma.deliveryPerson.findUnique({
       where: { id },
     });
@@ -58,7 +58,7 @@ export class DeliveryPersonsService {
     return deliveryPerson;
   }
 
-  async update(id: string, updateDeliveryPersonInput: UpdateDeliveryPersonInput): Promise<DeliveryPerson> {
+  async update(id: number, updateDeliveryPersonInput: UpdateDeliveryPersonInput): Promise<DeliveryPerson> {
     await this.findOne(id);
 
     if (updateDeliveryPersonInput.email) {
@@ -83,7 +83,7 @@ export class DeliveryPersonsService {
     });
   }
 
-  async updateActiveStatus(id: string, isActive: boolean): Promise<DeliveryPerson> {
+  async updateActiveStatus(id: number, isActive: boolean): Promise<DeliveryPerson> {
     const deliveryPerson = await this.findOne(id);
     
     // Validar se já está no estado desejado
@@ -102,7 +102,7 @@ export class DeliveryPersonsService {
     });
   }
 
-  async remove(id: string): Promise<DeliveryPerson> {
+  async remove(id: number): Promise<DeliveryPerson> {
     await this.findOne(id);
     
     return this.prisma.deliveryPerson.delete({

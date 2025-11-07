@@ -5,7 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class DeliveryPersonValidationService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async validateEmailUniqueness(email: string, excludeId?: string): Promise<void> {
+  async validateEmailUniqueness(email: string, excludeId?: number): Promise<void> {
     const existing = await this.prisma.deliveryPerson.findUnique({
       where: { email },
     });
@@ -15,7 +15,7 @@ export class DeliveryPersonValidationService {
     }
   }
 
-  async validateCpfUniqueness(cpf: string, excludeId?: string): Promise<void> {
+  async validateCpfUniqueness(cpf: string, excludeId?: number): Promise<void> {
     const existing = await this.prisma.deliveryPerson.findUnique({
       where: { cpf },
     });
@@ -25,7 +25,7 @@ export class DeliveryPersonValidationService {
     }
   }
 
-  async validatePhoneUniqueness(phone: string, excludeId?: string): Promise<void> {
+  async validatePhoneUniqueness(phone: string, excludeId?: number): Promise<void> {
     const existing = await this.prisma.deliveryPerson.findFirst({
       where: { 
         phone,
@@ -38,7 +38,7 @@ export class DeliveryPersonValidationService {
     }
   }
 
-  async validateLicensePlateUniqueness(licensePlate: string, excludeId?: string): Promise<void> {
+  async validateLicensePlateUniqueness(licensePlate: string, excludeId?: number): Promise<void> {
     if (!licensePlate || licensePlate.trim() === '') {
       return; // Placa vazia ou null é permitida
     }

@@ -1,4 +1,4 @@
-import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args, ID, Int } from '@nestjs/graphql';
 import { DeliveryPersonsService } from './delivery-persons.service';
 import { DeliveryPerson } from './models/delivery-person.model';
 import { CreateDeliveryPersonInput } from './dto/create-delivery-person.input';
@@ -27,30 +27,30 @@ export class DeliveryPersonsResolver {
   }
 
   @Query(() => DeliveryPerson, { name: 'deliveryPerson' })
-  async findOne(@Args('id', { type: () => ID }) id: string) {
+  async findOne(@Args("id", { type: () => Int }) id: number) {
     return this.deliveryPersonsService.findOne(id);
   }
 
   @Mutation(() => DeliveryPerson)
   async updateDeliveryPerson(
-    @Args('id', { type: () => ID }) id: string,
+    @Args("id", { type: () => Int }) id: number,
     @Args('updateDeliveryPersonInput') updateDeliveryPersonInput: UpdateDeliveryPersonInput,
   ) {
     return this.deliveryPersonsService.update(id, updateDeliveryPersonInput);
   }
 
   @Mutation(() => DeliveryPerson, { description: 'Desativar entregador (soft delete)' })
-  async deactivateDeliveryPerson(@Args('id', { type: () => ID }) id: string) {
-    return this.deliveryPersonsService.deactivate(id);
+  async deactivateDeliveryPerson(@Args("id", { type: () => Int }) id: number) {
+    return this.deliveryPersonsService.updateActiveStatus(id, false);
   }
 
   @Mutation(() => DeliveryPerson, { description: 'Ativar entregador' })
-  async activateDeliveryPerson(@Args('id', { type: () => ID }) id: string) {
-    return this.deliveryPersonsService.activate(id);
+  async activateDeliveryPerson(@Args("id", { type: () => Int }) id: number) {
+    return this.deliveryPersonsService.updateActiveStatus(id, true);
   }
 
   @Mutation(() => DeliveryPerson, { description: 'Deletar entregador permanentemente (hard delete)' })
-  async removeDeliveryPerson(@Args('id', { type: () => ID }) id: string) {
+  async removeDeliveryPerson(@Args("id", { type: () => Int }) id: number) {
     return this.deliveryPersonsService.remove(id);
   }
 

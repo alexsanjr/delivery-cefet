@@ -11,42 +11,17 @@ import { OrdersService } from './orders.service';
 import { CreateOrderInput } from './dto/create-order.input';
 import type { Order, OrderItem } from '../../generated/prisma';
 import { UpdateOrderInput } from './dto/update-order.input';
-import { CustomersClient } from '../grpc/customers.client';
-import { RoutingClient } from '../grpc/routing.client';
-import { NotificationsClient } from '../grpc/notifications.client';
-import { firstValueFrom } from 'rxjs';
+import { CustomersDataloaderService } from './customers-dataloader.service';
 
 type OrderWithItems = Order & {
   items?: OrderItem[];
 };
 
-interface CustomerGrpcResponse {
-  id: number;
-  name: string;
-  email: string;
-  phone: string;
-  isPremium: boolean;
-  addresses?: Array<{
-    id: number;
-    street: string;
-    number: string;
-    complement?: string;
-    neighborhood: string;
-    city: string;
-    state: string;
-    zipCode: string;
-    isDefault: boolean;
-  }>;
-  error?: string;
-}
-
 @Resolver('Order')
 export class OrdersResolver {
   constructor(
     private readonly ordersService: OrdersService,
-    private readonly customersClient: CustomersClient,
-    private readonly routingClient: RoutingClient,
-    private readonly notificationsClient: NotificationsClient,
+    private readonly customersDataloader: CustomersDataloaderService,
   ) {}
 
   @Query('orders')
@@ -170,53 +145,38 @@ export class OrdersResolver {
     return order.items || [];
   }
 
-  private async getCustomerData(
-    customerId: number,
-  ): Promise<CustomerGrpcResponse | null> {
-    try {
-      const customer = (await this.customersClient.getCustomer(
-        customerId,
-      )) as CustomerGrpcResponse;
-
-      if (customer.error) return null;
-      return customer;
-    } catch {
-      return null;
-    }
-  }
-
   @ResolveField('customerName')
   async getCustomerName(@Parent() order: Order): Promise<string | null> {
     if (!order.customerId) return null;
-    const customer = await this.getCustomerData(order.customerId);
+    const customer = await this.customersDataloader.load(order.customerId);
     return customer?.name || null;
   }
 
   @ResolveField('customerEmail')
   async getCustomerEmail(@Parent() order: Order): Promise<string | null> {
     if (!order.customerId) return null;
-    const customer = await this.getCustomerData(order.customerId);
+    const customer = await this.customersDataloader.load(order.customerId);
     return customer?.email || null;
   }
 
   @ResolveField('customerPhone')
   async getCustomerPhone(@Parent() order: Order): Promise<string | null> {
     if (!order.customerId) return null;
-    const customer = await this.getCustomerData(order.customerId);
+    const customer = await this.customersDataloader.load(order.customerId);
     return customer?.phone || null;
   }
 
   @ResolveField('customerIsPremium')
   async getCustomerIsPremium(@Parent() order: Order): Promise<boolean | null> {
     if (!order.customerId) return null;
-    const customer = await this.getCustomerData(order.customerId);
+    const customer = await this.customersDataloader.load(order.customerId);
     return customer?.isPremium || null;
   }
 
   @ResolveField('customerAddresses')
   async getCustomerAddresses(@Parent() order: Order) {
     if (!order.customerId) return [];
-    const customer = await this.getCustomerData(order.customerId);
+    const customer = await this.customersDataloader.load(order.customerId);
     return customer?.addresses || [];
   }
 }

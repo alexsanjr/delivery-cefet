@@ -1,72 +1,75 @@
+// src/redis/redis.service.ts
 import { Injectable, Inject } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
 
 export interface RouteCacheData {
-    path: Array<{ latitude: number; longitude: number }>;
-    total_distance: number;
-    total_duration: number;
-    polyline: string;
-    cost_estimate: number;
+  path: Array<{ latitude: number; longitude: number }>;
+  total_distance: number;
+  total_duration: number;
+  polyline: string;
+  cost_estimate: number;
+  steps: any[];  // RouteStep[]
 }
 
 export interface OptimizedRouteCacheData {
-    vehicle_routes: any[];
-    total_cost: number;
-    total_distance: number;
-    total_duration: number;
+  vehicle_routes: any[];
+  total_cost: number;
+  total_distance: number;
+  total_duration: number;
 }
 
 @Injectable()
 export class RedisService {
-    constructor(@Inject(CACHE_MANAGER) private readonly cacheManager: any) {}
+  constructor(@Inject(CACHE_MANAGER) private readonly cache: Cache) {}
 
-    async get<T = any>(key: string): Promise<T | null> {
-        return this.cacheManager.get(key);
-    }
+  async get<T>(key: string): Promise<T | undefined> {
+    return this.cache.get<T>(key);
+  }
 
-    async set<T = any>(key: string, value: T, ttl?: number): Promise<void> {
-        await this.cacheManager.set(key, value, ttl);
-    }
+  async set<T>(key: string, value: T, ttl?: number): Promise<void> {
+    await this.cache.set(key, value, ttl );
+  }
 
-    async del(key: string): Promise<void> {
-        await this.cacheManager.del(key);
-    }
+  async del(key: string): Promise<void> {
+    await this.cache.del(key);
+  }
 
-    async getRouteCache(key: string): Promise<RouteCacheData | null> {
-        return this.get(`route:${key}`);
-    }
+  async getRouteCache(key: string): Promise<RouteCacheData | undefined> {
+    return this.get(`route:${key}`);
+  }
 
-    async setRouteCache(key: string, route: RouteCacheData, ttl: number = 3600): Promise<void> {
-        await this.set(`route:${key}`, route, ttl);
-    }
+  async setRouteCache(key: string, route: RouteCacheData, ttl = 3600): Promise<void> {
+    await this.set(`route:${key}`, route, ttl);
+  }
 
-    async getOptimizedRouteCache(routeHash: string): Promise<OptimizedRouteCacheData | null> {
-        return this.get(`optimized_route:${routeHash}`);
-    }
+  async getOptimizedRouteCache(routeHash: string): Promise<OptimizedRouteCacheData | undefined> {
+    return this.get(`optimized_route:${routeHash}`);
+  }
 
-    async setOptimizedRouteCache(routeHash: string, route: OptimizedRouteCacheData, ttl: number = 7200): Promise<void> {
-        await this.set(`optimized_route:${routeHash}`, route, ttl);
-    }
+  async setOptimizedRouteCache(routeHash: string, route: OptimizedRouteCacheData, ttl = 7200): Promise<void> {
+    await this.set(`optimized_route:${routeHash}`, route, ttl);
+  }
 
-    generateRouteKey(origin: { lat: number; lng: number }, destination: { lat: number; lng: number }, strategy: string): string {
-        return `${origin.lat.toFixed(6)}:${origin.lng.toFixed(6)}:${destination.lat.toFixed(6)}:${destination.lng.toFixed(6)}:${strategy}`;
-    }
+  generateRouteKey(origin: { latitude: number; longitude: number }, destination: { latitude: number; longitude: number }, strategy: string): string {
+    return `${origin.latitude.toFixed(6)}:${origin.longitude.toFixed(6)}:${destination.latitude.toFixed(6)}:${destination.longitude.toFixed(6)}:${strategy}`;
+  }
 
-    generateOptimizedRouteKey(depot: { lat: number; lng: number }, deliveries: any[]): string {
-        const deliveriesHash = deliveries
-            .map(d => `${d.location.latitude.toFixed(6)}:${d.location.longitude.toFixed(6)}`)
-            .join('|');
-        return `${depot.lat.toFixed(6)}:${depot.lng.toFixed(6)}:${deliveriesHash}`;
-    }
+  generateOptimizedRouteKey(depot: { latitude: number; longitude: number }, deliveries: any[]): string {
+    const deliveriesHash = deliveries
+      .map(d => `${d.location.latitude.toFixed(6)}:${d.location.longitude.toFixed(6)}`)
+      .sort()
+      .join('|');
+    return `${depot.latitude.toFixed(6)}:${depot.longitude.toFixed(6)}:${deliveriesHash}`;
+  }
 
-    async healthCheck(): Promise<{ status: string; responseTime?: number }> {
-        const start = Date.now();
-        try {
-            await this.cacheManager.get('health-check');
-            const responseTime = Date.now() - start;
-            return { status: 'healthy', responseTime };
-        } catch (error) {
-            return { status: 'unhealthy' };
-        }
+  async healthCheck(): Promise<{ status: string; responseTime?: number }> {
+    const start = Date.now();
+    try {
+      await this.get('health-check');
+      return { status: 'healthy', responseTime: Date.now() - start };
+    } catch (error) {
+      return { status: 'unhealthy' };
     }
+  }
 }

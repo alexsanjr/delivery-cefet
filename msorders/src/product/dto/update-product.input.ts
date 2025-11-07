@@ -1,7 +1,22 @@
-import { CreateProductInput } from './create-product.input';
-import { InputType, PartialType } from '@nestjs/graphql';
+import { IsInt, IsString, IsNumber, IsOptional } from 'class-validator';
 
-@InputType()
-export class UpdateProductInput extends PartialType(CreateProductInput) {
+export class UpdateProductInput {
+  @IsInt()
   id: number;
+
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsNumber()
+  price?: number;
+
+  @IsOptional()
+  @IsString()
+  category?: string;
 }

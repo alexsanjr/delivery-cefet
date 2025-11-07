@@ -1,32 +1,21 @@
-FROM node:20-alpine AS builder
+﻿FROM node:18-slim
+
+RUN apt-get update && apt-get install -y openssl ca-certificates curl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY package*.json ./
-COPY prisma ./prisma/
-
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 COPY . .
-
 RUN npx prisma generate
+RUN npm run build
 
-RUN npm run build 
+# Copiar e dar permissão ao entrypoint separadamente
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-FROM node:20-alpine
+EXPOSE 3005 50055
 
-WORKDIR /app
-
-COPY package*.json ./
-COPY prisma ./prisma/
-
-RUN npm ci --only=production
-
-RUN npx prisma generate
-
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/proto ./proto
-
-EXPOSE 3003 50053 3103
-
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["node", "dist/main"]

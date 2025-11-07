@@ -37,6 +37,9 @@ docker compose logs kong -f
 |---------|-------------|--------------|---------------|
 | msorders | http://msorders:3000 | /api/orders | 3001 |
 | mscustomers | http://mscustomers:3000 | /api/customers | 3002 |
+| msnotifications | http://msnotifications:3000 | /api/notifications | 3003 |
+| msrouting | http://msrouting:3004 | /api/routing | 3004 |
+| msdelivery | http://msdelivery:3003 | /api/delivery | 3005 |
 
 ### Comandos para Configurar Novos Serviços
 
@@ -82,37 +85,37 @@ curl http://localhost:8000/api/novo/
 ### PostgreSQL Instances
 
 ```yaml
-# Kong Database (porta 5432)
-kong-database:
-  image: postgres:13
-  environment:
-    POSTGRES_DB: kong
-    POSTGRES_USER: kong
-    POSTGRES_PASSWORD: kong
-
 # Orders Database (porta 5434)  
 postgres-orders:
   image: postgres:13
   environment:
-    POSTGRES_DB: msorders
-    POSTGRES_USER: user
-    POSTGRES_PASSWORD: password
+    POSTGRES_DB: orders
+    POSTGRES_USER: orders
+    POSTGRES_PASSWORD: orders123
 
 # Customers Database (porta 5435)
 postgres-customers:
   image: postgres:13
   environment:
-    POSTGRES_DB: mscustomers
-    POSTGRES_USER: user
-    POSTGRES_PASSWORD: password
+    POSTGRES_DB: customers
+    POSTGRES_USER: customers
+    POSTGRES_PASSWORD: customers123
 
-# Konga Database (porta 5433)
-konga-database:
+# Routing Database (porta 5436)
+postgres-routing:
   image: postgres:13
   environment:
-    POSTGRES_DB: konga
-    POSTGRES_USER: user
-    POSTGRES_PASSWORD: password
+    POSTGRES_DB: routing
+    POSTGRES_USER: routing
+    POSTGRES_PASSWORD: routing123
+
+# Delivery Database (porta 5437)
+postgres-delivery:
+  image: postgres:13
+  environment:
+    POSTGRES_DB: delivery
+    POSTGRES_USER: delivery
+    POSTGRES_PASSWORD: delivery123
 ```
 
 ## 🔍 Monitoramento e Debug

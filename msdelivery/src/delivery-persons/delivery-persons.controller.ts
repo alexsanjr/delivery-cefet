@@ -71,7 +71,7 @@ export class DeliveryPersonsController {
   @ApiResponse({ status: 404, description: 'Entregador não encontrado' })
   @ApiParam({ name: 'id', description: 'ID do entregador' })
   findOne(@Param('id') id: string) {
-    return this.deliveryPersonsService.findOne(id);
+    return this.deliveryPersonsService.findOne(+id);
   }
 
   @Patch(':id')
@@ -83,7 +83,7 @@ export class DeliveryPersonsController {
     @Param('id') id: string,
     @Body() updateDeliveryPersonInput: UpdateDeliveryPersonInput,
   ) {
-    return this.deliveryPersonsService.update(id, updateDeliveryPersonInput);
+    return this.deliveryPersonsService.update(+id, updateDeliveryPersonInput);
   }
 
   @Patch(':id/active')
@@ -105,7 +105,7 @@ export class DeliveryPersonsController {
     },
   })
   updateActiveStatus(@Param('id') id: string, @Body() body: { isActive: boolean }) {
-    return this.deliveryPersonsService.updateActiveStatus(id, body.isActive);
+    return this.deliveryPersonsService.updateActiveStatus(+id, body.isActive);
   }
 
   @Delete(':id')
@@ -115,7 +115,7 @@ export class DeliveryPersonsController {
   @ApiResponse({ status: 404, description: 'Entregador não encontrado' })
   @ApiParam({ name: 'id', description: 'ID do entregador' })
   remove(@Param('id') id: string) {
-    return this.deliveryPersonsService.remove(id);
+    return this.deliveryPersonsService.remove(+id);
   }
 
   @Patch(':id/status')
@@ -147,7 +147,7 @@ export class DeliveryPersonsController {
   })
   updateStatus(@Param('id') id: string, @Body() body: UpdateStatusBodyDto) {
     return this.deliveryPersonsService.updateStatus({
-      deliveryPersonId: id,
+      deliveryPersonId: +id,
       status: body.status,
     });
   }
@@ -182,7 +182,7 @@ export class DeliveryPersonsController {
   })
   updateLocation(@Param('id') id: string, @Body() updateLocationInput: UpdateLocationBodyDto) {
     return this.deliveryPersonsService.updateLocation({
-      deliveryPersonId: id,
+      deliveryPersonId: +id,
       ...updateLocationInput,
     });
   }

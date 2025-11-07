@@ -6,21 +6,11 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
-RUN npx prisma generate --schema ./src/prisma/schema.prisma
+# MSRouting não usa Prisma, então removemos esta linha
 RUN npm run build
 
-FROM node:18-alpine
+# Usar portas corretas para msrouting
+EXPOSE 50055
 
-RUN apk add --no-cache curl
-
-WORKDIR /app
-
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/src/grpc/shared/protos ./dist/shared/protos
-
-EXPOSE 3004
-EXPOSE 50054
-
-CMD ["node", "dist/main"]
+# Comando de produção
+CMD ["npm", "run", "start:prod"]
