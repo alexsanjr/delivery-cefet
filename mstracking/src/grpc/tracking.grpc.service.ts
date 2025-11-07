@@ -1,10 +1,10 @@
-// src/tracking/grpc/tracking.grpc.service.ts
+
 import { Injectable } from '@nestjs/common';
 import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
-import { TrackingService } from '../services/tracking.service';
+import { TrackingService } from '../tracking/services/tracking.service';
 import { Observable, Subject } from 'rxjs';
 
-@Injectable() // ← Serviço gRPC, não Controller!
+@Injectable()
 export class TrackingGrpcService {
   constructor(private readonly trackingService: TrackingService) {}
 
@@ -39,7 +39,6 @@ export class TrackingGrpcService {
     
     data$.subscribe({
       next: (data) => {
-        // Factory Pattern - Criar stream de updates
         this.handleSubscription(data, subject);
       },
       error: (err) => subject.error(err),
@@ -51,7 +50,6 @@ export class TrackingGrpcService {
   private async handleSubscription(data: any, subject: Subject<any>) {
     const { delivery_id } = data;
     
-    // Observer Pattern - Notificar subscribers
     const positions = await this.trackingService.getRecentPositions(delivery_id);
     subject.next({
       delivery_id,

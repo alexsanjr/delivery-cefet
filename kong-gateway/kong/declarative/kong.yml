@@ -148,7 +148,7 @@ services:
           policy: local
 
   - name: msdelivery
-    url: http://msdelivery:3003
+    url: http://msdelivery:3000
     tags:
       - delivery
       - rest

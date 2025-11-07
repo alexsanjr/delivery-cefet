@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderInput } from './dto/create-order.input';
 import { UpdateOrderInput } from './dto/update-order.input';
 import { IOrderDatasource } from './interfaces';
-import { OrderStatus } from 'generated/prisma';
+import { OrderStatus } from '../../generated/prisma';
 
 interface CreateOrderData extends CreateOrderInput {
   subtotal: number;

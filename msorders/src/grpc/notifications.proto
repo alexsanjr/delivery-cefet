@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package notifications;
+
+service NotificationsService {
+    rpc SendNotification (NotificationRequest) returns (NotificationResponse);
+    rpc ConnectClient (ConnectClientRequest) returns (ConnectClientResponse);
+    rpc DisconnectClient (DisconnectClientRequest) returns (DisconnectClientResponse);
+}
+
+message NotificationRequest {
+    string userId = 1;
+    string orderId = 2;
+    string status = 3;
+    string serviceOrigin = 4;
+    optional string message = 5;
+    optional string additionalInfo = 6;
+}
+
+message NotificationResponse {
+    string id = 1;
+    string userId = 2;
+    string orderId = 3;
+    string status = 4;
+    string message = 5;
+    string serviceOrigin = 6;
+    bool success = 7;
+}
+
+message ConnectClientRequest {
+    string userId = 1;
+}
+
+message ConnectClientResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message DisconnectClientRequest {
+    string userId = 1;
+}
+
+message DisconnectClientResponse {
+    bool success = 1;
+    string message = 2;
+}

@@ -23,6 +23,78 @@ services:
     networks:
       - kong-net
 
+  customers-migrations:
+    image: node:18-alpine
+    working_dir: /app
+    volumes:
+      - ../mscustomers:/app
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_CUSTOMERS_USER}:${POSTGRES_CUSTOMERS_PASSWORD}@postgres-customers:5432/${POSTGRES_CUSTOMERS_DB}
+    command:
+      - sh
+      - -c
+      - |
+        echo "Running Prisma migrations for customers..."
+        npx prisma migrate deploy --schema=./src/prisma/schema.prisma
+        echo "Generating Prisma Client..."
+        npx prisma generate --schema=./src/prisma/schema.prisma
+        echo "Seeding database for customers..."
+        npx prisma db seed --schema=./src/prisma/schema.prisma || true
+        echo "Customers database ready"
+    depends_on:
+      postgres-customers:
+        condition: service_healthy
+    networks:
+      - kong-net
+
+  orders-migrations:
+    image: node:18-alpine
+    working_dir: /app
+    volumes:
+      - ../msorders:/app
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_ORDERS_USER}:${POSTGRES_ORDERS_PASSWORD}@postgres-orders:5432/${POSTGRES_ORDERS_DB}
+    command:
+      - sh
+      - -c
+      - |
+        echo "Running Prisma migrations for orders..."
+        npx prisma migrate deploy
+        echo "Generating Prisma Client for Alpine..."
+        npx prisma generate
+        echo "Seeding database for orders..."
+        npx prisma db seed || true
+        echo "Orders database ready"
+    depends_on:
+      postgres-orders:
+        condition: service_healthy
+    networks:
+      - kong-net
+
+  delivery-migrations:
+    image: node:18-alpine
+    working_dir: /app
+    volumes:
+      - ../msdelivery:/app
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_DELIVERY_USER}:${POSTGRES_DELIVERY_PASSWORD}@postgres-delivery:5432/${POSTGRES_DELIVERY_DB}
+    command:
+      - sh
+      - -c
+      - |
+        echo "Running Prisma migrations for delivery..."
+        npx prisma migrate deploy
+        echo "Generating Prisma Client for Alpine..."
+        npx prisma generate
+        echo "Seeding database for delivery..."
+        npx prisma db seed || true
+        echo "Delivery database ready"
+    depends_on:
+      postgres-delivery:
+        condition: service_healthy
+    networks:
+      - kong-net
+
   kong:
     image: kong:3.4
     environment:
@@ -68,11 +140,20 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_ORDERS_USER}:${POSTGRES_ORDERS_PASSWORD}@postgres-orders:5432/${POSTGRES_ORDERS_DB}
       CUSTOMERS_GRPC_URL: mscustomers:50051
+      NOTIFICATIONS_GRPC_URL: msnotifications:50053
+      ROUTING_GRPC_URL: msrouting:50054
+      TRACKING_GRPC_URL: mstracking:50055
       NODE_ENV: ${NODE_ENV}
       GRPC_PORT: 50052
+    volumes:
+      - ../mscustomers/src/grpc/customers.proto:/app/dist/grpc/customers.proto:ro
+      - ../msnotifications/src/grpc/notifications.proto:/app/dist/grpc/notifications.proto:ro
+      - ../msrouting/src/grpc/shared/protos/routing.proto:/app/dist/grpc/routing.proto:ro
+      - ../mstracking/src/grpc/tracking.proto:/app/dist/grpc/tracking.proto:ro
+    command: ["node", "dist/main"]
     depends_on:
-      postgres-orders:
-        condition: service_healthy  
+      orders-migrations:
+        condition: service_completed_successfully
       mscustomers:
         condition: service_healthy
     networks:
@@ -112,8 +193,8 @@ services:
       NODE_ENV: ${NODE_ENV}
       GRPC_PORT: 50051
     depends_on:
-      postgres-customers:
-        condition: service_healthy
+      customers-migrations:
+        condition: service_completed_successfully
     networks:
       - kong-net
     healthcheck:
@@ -195,11 +276,11 @@ services:
     networks:
       - kong-net
     healthcheck:
-      test: ["CMD", "curl", "-X", "POST", "-H", "Content-Type: application/json", "-d", "{\"query\":\"{ __typename }\"}", "http://localhost:3004/graphql"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+      test: ["CMD", "nc", "-z", "localhost", "50054"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   postgres-routing:
     image: postgres:13
@@ -237,24 +318,24 @@ services:
   msdelivery:
     build: ../msdelivery
     ports:
-      - "3005:3003"
-      - "50055:50053"
+      - "3006:3000"
+      - "50056:50056"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_DELIVERY_USER}:${POSTGRES_DELIVERY_PASSWORD}@postgres-delivery:5432/${POSTGRES_DELIVERY_DB}
       NODE_ENV: ${NODE_ENV}
-      PORT: 3003
-      GRPC_PORT: 50053
+      GRPC_PORT: 50056
+      PORT: 3000
     depends_on:
-      postgres-delivery:
-        condition: service_healthy
+      delivery-migrations:
+        condition: service_completed_successfully
     networks:
       - kong-net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3003/graphql", "-H", "Content-Type: application/json", "-d", "{\"query\":\"{ __typename }\"}"]
+      test: ["CMD", "curl", "-X", "POST", "-H", "Content-Type: application/json", "-d", "{\"query\":\"{ __typename }\"}", "http://localhost:3000/graphql"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 30s
 
   postgres-delivery:
     image: postgres:13
@@ -263,7 +344,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_DELIVERY_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DELIVERY_DB}
     ports:
-      - "5437:5432"
+      - "5438:5432"
     volumes:
       - postgres_delivery_data:/var/lib/postgresql/data
     networks:
@@ -274,11 +355,66 @@ services:
       timeout: 5s
       retries: 10
 
+  mstracking:
+    build: ../mstracking
+    ports:
+      - "3005:3005"
+      - "50055:50055"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_TRACKING_USER}:${POSTGRES_TRACKING_PASSWORD}@postgres-tracking:5432/${POSTGRES_TRACKING_DB}
+      NOTIFICATIONS_GRPC_URL: msnotifications:50053
+      ORDERS_GRPC_URL: msorders:50052
+      ROUTING_GRPC_URL: msrouting:50054
+      NODE_ENV: ${NODE_ENV}
+      GRPC_PORT: 50055
+      PORT: 3005
+    volumes:
+      - ../msnotifications/src/grpc/notifications.proto:/app/dist/grpc/notifications.proto:ro
+      - ../msorders/src/grpc/orders.proto:/app/dist/grpc/orders.proto:ro
+      - ../msrouting/src/grpc/shared/protos/routing.proto:/app/dist/grpc/routing.proto:ro
+    command: ["node", "dist/main"]
+    depends_on:
+      postgres-tracking:
+        condition: service_healthy
+      msnotifications:
+        condition: service_healthy
+      msorders:
+        condition: service_healthy
+      msrouting:
+        condition: service_healthy
+    networks:
+      - kong-net
+    healthcheck:
+      test: ["CMD", "curl", "-X", "POST", "-H", "Content-Type: application/json", "-d", "{\"query\":\"{ __typename }\"}", "http://localhost:3005/graphql"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  postgres-tracking:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: ${POSTGRES_TRACKING_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_TRACKING_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_TRACKING_DB}
+    ports:
+      - "5437:5432"
+    volumes:
+      - postgres_tracking_data:/var/lib/postgresql/data
+    networks:
+      - kong-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_TRACKING_USER} -d ${POSTGRES_TRACKING_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   kong-config:
   postgres_orders_data:
   postgres_customers_data:
   postgres_routing_data:
+  postgres_tracking_data:
   postgres_delivery_data:
   redis_notifications_data:
   redis_routing_data:

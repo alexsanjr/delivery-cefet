@@ -1,44 +1,78 @@
-// No MSTracking - src/grpc/clients/routing.client.ts
-import { Injectable, OnModuleInit } from '@nestjs/common';
-import { Client, ClientGrpc, Transport } from '@nestjs/microservices';
-import { join } from 'path';
-import { Observable } from 'rxjs';
+import { Injectable, Inject, OnModuleInit, Logger } from '@nestjs/common';
+import type { ClientGrpc } from '@nestjs/microservices';
+import { Observable, firstValueFrom } from 'rxjs';
 
-interface RoutingGrpcService {
-  CalculateETA(request: {
+interface Point {
+    latitude: number;
+    longitude: number;
+}
+
+interface ETARequest {
     origin: Point;
     destination: Point;
-    strategy: string;
-    traffic_level: number;
-  }): Observable<{ eta_minutes: number }>;
+    strategy?: string;
+    traffic_level?: number;
+}
+
+interface ETAResponse {
+    eta_minutes: number;
+    distance_meters: number;
+    traffic_condition: string;
+}
+
+interface IRoutingService {
+    CalculateETA(data: ETARequest): Observable<ETAResponse>;
 }
 
 @Injectable()
-export class RoutingGrpcClient implements OnModuleInit {
-  @Client({
-    transport: Transport.GRPC,
-    options: {
-      package: 'routing',
-      protoPath: join(__dirname, '../../shared/protos/routing.proto'),
-      url: 'localhost:50054', // MSRouting port
-    },
-  })
-  private client: ClientGrpc;
+export class RoutingClient implements OnModuleInit {
+    private readonly logger = new Logger(RoutingClient.name);
+    private routingService: IRoutingService;
 
-  private routingService: RoutingGrpcService;
+    constructor(
+        @Inject('ROUTING_PACKAGE') private readonly client: ClientGrpc,
+    ) { }
 
-  onModuleInit() {
-    this.routingService = this.client.getService<RoutingGrpcService>('RoutingService');
-  }
+    onModuleInit() {
+        this.routingService = this.client.getService<IRoutingService>('RoutingService');
+        this.logger.log('RoutingClient initialized');
+    }
 
-  async calculateETA(origin: Point, destination: Point, strategy: string = 'fastest'): Promise<number> {
-    const response = await this.routingService.CalculateETA({
-      origin,
-      destination,
-      strategy,
-      traffic_level: 1,
-    }).toPromise();
-    
-    return response.eta_minutes;
-  }
+    async calculateETA(
+        currentLat: number,
+        currentLng: number,
+        destinationLat: number,
+        destinationLng: number,
+        strategy: string = 'fastest',
+        trafficLevel: number = 1,
+    ): Promise<number> {
+        try {
+            const response = await firstValueFrom(
+                this.routingService.CalculateETA({
+                    origin: {
+                        latitude: currentLat,
+                        longitude: currentLng,
+                    },
+                    destination: {
+                        latitude: destinationLat,
+                        longitude: destinationLng,
+                    },
+                    strategy,
+                    traffic_level: trafficLevel,
+                }),
+            );
+
+            this.logger.log(
+                `ETA calculated: ${response.eta_minutes} minutes (${response.traffic_condition})`,
+            );
+
+            return response.eta_minutes;
+        } catch (error) {
+            this.logger.error(
+                `Failed to calculate ETA: ${error.message}`,
+                error.stack,
+            );
+            return 15;
+        }
+    }
 }

@@ -8,7 +8,7 @@ import {
 } from '@nestjs/graphql';
 import { ProductService } from './product.service';
 import { CreateProductInput } from './dto/create-product.input';
-import type { Product } from 'generated/prisma';
+import type { Product } from '../../generated/prisma';
 import { UpdateProductInput } from './dto/update-product.input';
 
 @Resolver('Product')
