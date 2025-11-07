@@ -12,6 +12,8 @@ import { GraphQLNotificationsModule } from './graphql/graphql.module';
             driver: ApolloDriver,
             autoSchemaFile: true,
             playground: true,
+            introspection: true,
+            csrfPrevention: false,
             sortSchema: true,
         }),
         RedisModule.forRoot({

@@ -32,7 +32,12 @@ export class NotificationsRepository {
         for (const id of notificationIds) {
             const data = await this.redis.get(`notification:${id}`);
             if (data) {
-                notifications.push(JSON.parse(data));
+                const parsed = JSON.parse(data);
+                notifications.push({
+                    ...parsed,
+                    createdAt: new Date(parsed.createdAt),
+                    updatedAt: new Date(parsed.updatedAt),
+                });
             }
         }
         return notifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -44,7 +49,12 @@ export class NotificationsRepository {
         for (const id of notificationIds) {
             const data = await this.redis.get(`notification:${id}`);
             if (data) {
-                notifications.push(JSON.parse(data));
+                const parsed = JSON.parse(data);
+                notifications.push({
+                    ...parsed,
+                    createdAt: new Date(parsed.createdAt),
+                    updatedAt: new Date(parsed.updatedAt),
+                });
             }
         }
         return notifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
