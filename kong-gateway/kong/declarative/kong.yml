@@ -33,6 +33,16 @@ services:
             - Authorization
           credentials: true
           max_age: 3600
+      - name: jwt
+        config:
+          uri_param_names:
+            - jwt
+          cookie_names: []
+          header_names:
+            - Authorization
+          claims_to_verify:
+            - exp
+          run_on_preflight: false
       - name: rate-limiting
         config:
           minute: 100
@@ -69,6 +79,16 @@ services:
             - Authorization
           credentials: true
           max_age: 3600
+      - name: jwt
+        config:
+          uri_param_names:
+            - jwt
+          cookie_names: []
+          header_names:
+            - Authorization
+          claims_to_verify:
+            - exp
+          run_on_preflight: false
       - name: rate-limiting
         config:
           minute: 100
@@ -105,46 +125,20 @@ services:
             - Authorization
           credentials: true
           max_age: 3600
+      - name: jwt
+        config:
+          uri_param_names:
+            - jwt
+          cookie_names: []
+          header_names:
+            - Authorization
+          claims_to_verify:
+            - exp
+          run_on_preflight: false
       - name: rate-limiting
         config:
           minute: 200
           hour: 2000
-          policy: local
-
-  - name: msrouting
-    url: http://msrouting:3004
-    tags:
-      - routing
-      - graphql
-    routes:
-      - name: msrouting-graphql
-        paths:
-          - /routing
-        methods:
-          - GET
-          - POST
-          - OPTIONS
-        strip_path: true
-        preserve_host: false
-    plugins:
-      - name: cors
-        config:
-          origins:
-            - "*"
-          methods:
-            - GET
-            - POST
-            - OPTIONS
-          headers:
-            - Accept
-            - Content-Type
-            - Authorization
-          credentials: true
-          max_age: 3600
-      - name: rate-limiting
-        config:
-          minute: 150
-          hour: 1500
           policy: local
 
   - name: msdelivery
@@ -184,23 +178,67 @@ services:
             - Authorization
           credentials: true
           max_age: 3600
+      - name: jwt
+        config:
+          uri_param_names:
+            - jwt
+          cookie_names: []
+          header_names:
+            - Authorization
+          claims_to_verify:
+            - exp
+          run_on_preflight: false
       - name: rate-limiting
         config:
           minute: 150
           hour: 1500
           policy: local
 
-plugins:
-  - name: jwt
-    config:
-      uri_param_names:
-        - jwt
-      cookie_names: []
-      header_names:
-        - Authorization
-      claims_to_verify:
-        - exp
-      run_on_preflight: false
+  - name: mstracking
+    url: http://mstracking:3005
+    tags:
+      - tracking
+      - graphql
+    routes:
+      - name: mstracking-graphql
+        paths:
+          - /tracking
+        methods:
+          - GET
+          - POST
+          - OPTIONS
+        strip_path: true
+        preserve_host: false
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - OPTIONS
+          headers:
+            - Accept
+            - Content-Type
+            - Authorization
+          credentials: true
+          max_age: 3600
+      - name: jwt
+        config:
+          uri_param_names:
+            - jwt
+          cookie_names: []
+          header_names:
+            - Authorization
+          claims_to_verify:
+            - exp
+          run_on_preflight: false
+      - name: rate-limiting
+        config:
+          minute: 150
+          hour: 1500
+          policy: local
 
 consumers:
   - username: web-app
@@ -210,7 +248,7 @@ consumers:
     jwt_secrets:
       - key: web-app-issuer
         algorithm: HS256
-        secret: condense-aerospace-percolate-prelaunch-skylight-surely
+        secret: __KONG_JWT_SECRET_WEB_APP__
   - username: admin-panel
     tags:
       - admin
@@ -218,4 +256,4 @@ consumers:
     jwt_secrets:
       - key: admin-panel-issuer
         algorithm: HS256
-        secret: cosponsor-sculptor-cubicle-usher-mutable-dispersal
+        secret: __KONG_JWT_SECRET_ADMIN_PANEL__

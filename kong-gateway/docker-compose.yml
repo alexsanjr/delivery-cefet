@@ -95,19 +95,19 @@ services:
     networks:
       - kong-net
 
-  cleanup-test-data:
+  cleanup-data:
     image: postgres:13
-    profiles:
-      - cleanup
     command:
       - sh
       - -c
       - |
-        echo "Cleaning test data..."
         echo "Cleaning tracking positions..."
-        PGPASSWORD=${POSTGRES_TRACKING_PASSWORD} psql -h kong-gateway-postgres-tracking-1 -U ${POSTGRES_TRACKING_USER} -d ${POSTGRES_TRACKING_DB} -c "DELETE FROM tracking_positions;"
-        echo "Tracking positions cleaned"
-        echo "Test data cleanup completed"
+        echo "Cleaning tracking data..."
+        PGPASSWORD=${POSTGRES_TRACKING_PASSWORD} psql -h kong-gateway-postgres-tracking-1 -U ${POSTGRES_TRACKING_USER} -d ${POSTGRES_TRACKING_DB} -c "DELETE FROM tracking_positions; DELETE FROM delivery_tracking;"
+        echo "Tracking data cleaned"
+        echo "Cleaning delivery persons..."
+        PGPASSWORD=${POSTGRES_DELIVERY_PASSWORD} psql -h postgres-delivery -U ${POSTGRES_DELIVERY_USER} -d ${POSTGRES_DELIVERY_DB} -c "DELETE FROM delivery_persons;"
+        echo "Delivery data cleaned"
     depends_on:
       postgres-tracking:
         condition: service_healthy
@@ -127,6 +127,22 @@ services:
         echo "Notifications cleaned"
     depends_on:
       redis-notifications:
+        condition: service_healthy
+    networks:
+      - kong-net
+
+  cleanup-delivery:
+    image: postgres:13
+    command:
+      - sh
+      - -c
+      - |
+        echo "Cleaning delivery data..."
+        echo "Cleaning delivery persons..."
+        PGPASSWORD=${POSTGRES_DELIVERY_PASSWORD} psql -h postgres-delivery -U ${POSTGRES_DELIVERY_USER} -d ${POSTGRES_DELIVERY_DB} -c "DELETE FROM delivery_persons;"
+        echo "Delivery data cleaned"
+    depends_on:
+      postgres-delivery:
         condition: service_healthy
     networks:
       - kong-net
