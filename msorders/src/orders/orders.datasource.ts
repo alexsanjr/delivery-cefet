@@ -10,7 +10,7 @@ interface CreateOrderData extends CreateOrderInput {
   deliveryFee: number;
   total: number;
   estimatedDeliveryTime: number;
-  status: OrderStatus;
+  status: OrderStatus | string;
   customerId: number; // Torna obrigatório para criação
 }
 
@@ -27,7 +27,7 @@ export class OrdersDatasource implements IOrderDatasource {
         deliveryFee: orderData.deliveryFee,
         total: orderData.total,
         estimatedDeliveryTime: orderData.estimatedDeliveryTime,
-        status: orderData.status,
+        status: orderData.status as any,
 
         items: {
           create: await Promise.all(
@@ -83,6 +83,18 @@ export class OrdersDatasource implements IOrderDatasource {
   async findByCustomer(customerId: number) {
     return this.prisma.order.findMany({
       where: { customerId },
+      include: {
+        items: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
+  async findByStatus(status: string) {
+    return this.prisma.order.findMany({
+      where: { status: status as any },
       include: {
         items: true,
       },

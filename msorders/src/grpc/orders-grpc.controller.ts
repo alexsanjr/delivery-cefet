@@ -4,6 +4,7 @@ import type {
   IOrderRepository,
   ICustomerDataEnricher,
   IOrderResponseMapper,
+  UpdateOrderStatusResponse,
 } from './interfaces/grpc-orders.interfaces';
 import {
   OrderResponse,
@@ -134,6 +135,96 @@ export class GrpcOrdersService {
       return {
         isValid: false,
         message: `Erro ao validar pedido: ${this.getErrorMessage(error)}`,
+        order: null,
+      };
+    }
+  }
+
+  @GrpcMethod('OrdersService', 'GetOrdersByStatus')
+  async getOrdersByStatus(data: { status: string }): Promise<OrdersListResponse> {
+    this.logger.log(`[gRPC] Buscando pedidos com status: ${data.status}`);
+
+    try {
+      const orders = await this.orderRepository.findByStatus(data.status);
+
+      if (!orders || orders.length === 0) {
+        this.logger.log(
+          `[gRPC] Nenhum pedido encontrado com status ${data.status}`,
+        );
+        return { orders: [], total: 0, error: '' };
+      }
+
+      const ordersWithData = await Promise.all(
+        orders.map(async (order) => {
+          const customerData = await this.customerEnricher.enrichWithCustomerData(
+            order.customerId,
+          );
+          return this.responseMapper.mapOrderToResponse(order, customerData);
+        }),
+      );
+
+      this.logger.log(
+        `[gRPC] ${ordersWithData.length} pedidos encontrados com status ${data.status}`,
+      );
+
+      return {
+        orders: ordersWithData,
+        total: ordersWithData.length,
+        error: '',
+      };
+    } catch (error) {
+      this.logger.error(
+        `[gRPC] Erro ao buscar pedidos com status ${data.status}: ${this.getErrorMessage(error)}`,
+      );
+      return {
+        orders: [],
+        total: 0,
+        error: `Erro ao buscar pedidos: ${this.getErrorMessage(error)}`,
+      };
+    }
+  }
+
+  @GrpcMethod('OrdersService', 'UpdateOrderStatus')
+  async updateOrderStatus(data: { id: number; status: string }): Promise<UpdateOrderStatusResponse> {
+    this.logger.log(`[gRPC] Atualizando status do pedido ID: ${data.id} para ${data.status}`);
+
+    try {
+      const updatedOrder = await this.orderRepository.updateStatus(data.id, data.status);
+
+      if (!updatedOrder) {
+        this.logger.warn(`[gRPC] Pedido não encontrado: ID ${data.id}`);
+        return { 
+          success: false,
+          message: `Pedido com ID ${data.id} não encontrado`,
+          order: null,
+        };
+      }
+
+      const customerData = await this.customerEnricher.enrichWithCustomerData(
+        updatedOrder.customerId,
+      );
+
+      const response = this.responseMapper.mapOrderToResponse(
+        updatedOrder,
+        customerData,
+      );
+
+      this.logger.log(
+        `[gRPC] Status do pedido ${data.id} atualizado para ${data.status}`,
+      );
+
+      return {
+        success: true,
+        message: 'Status atualizado com sucesso',
+        order: response,
+      };
+    } catch (error) {
+      this.logger.error(
+        `[gRPC] Erro ao atualizar status do pedido ${data.id}: ${this.getErrorMessage(error)}`,
+      );
+      return { 
+        success: false,
+        message: `Erro ao atualizar status: ${this.getErrorMessage(error)}`,
         order: null,
       };
     }

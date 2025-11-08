@@ -12,6 +12,8 @@ export interface ICustomerDataEnricher {
 export interface IOrderRepository {
   findById(id: number): Promise<any>;
   findByCustomerId(customerId: number): Promise<any[]>;
+  findByStatus(status: string): Promise<any[]>;
+  updateStatus(id: number, status: string): Promise<any>;
 }
 
 // ========== DTOs e Types ==========
@@ -56,6 +58,8 @@ export interface DeliveryAddressResponse {
   city: string;
   state: string;
   zipCode: string;
+  latitude: number;
+  longitude: number;
 }
 
 export interface CustomerData {
@@ -74,6 +78,12 @@ export interface OrdersListResponse {
 
 export interface ValidateOrderResponse {
   isValid: boolean;
+  message: string;
+  order: OrderResponse | null;
+}
+
+export interface UpdateOrderStatusResponse {
+  success: boolean;
   message: string;
   order: OrderResponse | null;
 }

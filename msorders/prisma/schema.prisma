@@ -19,7 +19,6 @@ model Order {
   customerId            Int
   status                OrderStatus   @default(PENDING)
   items                 OrderItem[]
-  //deliveryAddress deliveryAddress
   subtotal              Decimal
   deliveryFee           Decimal
   total                 Decimal
