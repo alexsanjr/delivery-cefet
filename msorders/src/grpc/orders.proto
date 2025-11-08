@@ -24,11 +24,6 @@ message GetOrdersByStatusRequest {
   string status = 1;
 }
 
-message UpdateOrderStatusRequest {
-  int32 id = 1;
-  string status = 2;
-}
-
 message ValidateOrderRequest {
   int32 id = 1;
 }
