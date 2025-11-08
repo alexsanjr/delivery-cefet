@@ -96,8 +96,10 @@ export class TrackingService {
       throw new Error(`Order not found: ${data.order_id}`);
     }
 
-    if (order.status !== 'PENDING') {
-      throw new Error(`Order ${data.order_id} status must be PENDING to start tracking`);
+    if (order.status !== 'OUT_FOR_DELIVERY') {
+      throw new Error(
+        `Order ${data.order_id} must be OUT_FOR_DELIVERY to start tracking. Current status: ${order.status}`
+      );
     }
 
     await this.deliveryTrackingRepo.save({

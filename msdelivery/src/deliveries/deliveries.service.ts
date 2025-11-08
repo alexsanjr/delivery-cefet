@@ -97,10 +97,17 @@ export class DeliveriesService {
       },
     });
 
-    await this.deliveryPersonsService.updateStatus({
-      deliveryPersonId: nearestDeliveryPerson.id,
-      status: 'BUSY' as any,
-    });
+    try {
+      await this.deliveryPersonsService.updateStatus({
+        deliveryPersonId: nearestDeliveryPerson.id,
+        status: 'BUSY' as any,
+      });
+      this.logger.log(`Status do entregador ${nearestDeliveryPerson.id} atualizado para BUSY`);
+    } catch (error) {
+      this.logger.error(`Erro ao atualizar status do entregador: ${error.message}`);
+      await (this.prisma as any).delivery.delete({ where: { id: delivery.id } });
+      throw new BadRequestException('Falha ao atualizar status do entregador');
+    }
 
     await this.ordersClient.updateOrderStatus(orderId, 'OUT_FOR_DELIVERY');
 
