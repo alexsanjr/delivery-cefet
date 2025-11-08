@@ -71,6 +71,30 @@ services:
     networks:
       - kong-net
 
+  delivery-migrations:
+    image: node:18-alpine
+    working_dir: /app
+    volumes:
+      - ../msdelivery:/app
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_DELIVERY_USER}:${POSTGRES_DELIVERY_PASSWORD}@postgres-delivery:5432/${POSTGRES_DELIVERY_DB}
+    command:
+      - sh
+      - -c
+      - |
+        echo "Running Prisma migrations for delivery..."
+        npx prisma migrate deploy
+        echo "Generating Prisma Client for Alpine..."
+        npx prisma generate
+        echo "Seeding database for delivery..."
+        npx prisma db seed || true
+        echo "Delivery database ready"
+    depends_on:
+      postgres-delivery:
+        condition: service_healthy
+    networks:
+      - kong-net
+
   cleanup-test-data:
     image: postgres:13
     profiles:
@@ -288,11 +312,11 @@ services:
     networks:
       - kong-net
     healthcheck:
-      test: ["CMD", "curl", "-X", "POST", "-H", "Content-Type: application/json", "-d", "{\"query\":\"{ __typename }\"}", "http://localhost:3004/graphql"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+      test: ["CMD", "nc", "-z", "localhost", "50054"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   postgres-routing:
     image: postgres:13
@@ -326,6 +350,46 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  msdelivery:
+    build: ../msdelivery
+    ports:
+      - "3006:3000"
+      - "50056:50056"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_DELIVERY_USER}:${POSTGRES_DELIVERY_PASSWORD}@postgres-delivery:5432/${POSTGRES_DELIVERY_DB}
+      NODE_ENV: ${NODE_ENV}
+      GRPC_PORT: 50056
+      PORT: 3000
+    depends_on:
+      delivery-migrations:
+        condition: service_completed_successfully
+    networks:
+      - kong-net
+    healthcheck:
+      test: ["CMD", "curl", "-X", "POST", "-H", "Content-Type: application/json", "-d", "{\"query\":\"{ __typename }\"}", "http://localhost:3000/graphql"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  postgres-delivery:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: ${POSTGRES_DELIVERY_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_DELIVERY_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DELIVERY_DB}
+    ports:
+      - "5438:5432"
+    volumes:
+      - postgres_delivery_data:/var/lib/postgresql/data
+    networks:
+      - kong-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_DELIVERY_USER} -d ${POSTGRES_DELIVERY_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   mstracking:
     build: ../mstracking
@@ -387,6 +451,7 @@ volumes:
   postgres_customers_data:
   postgres_routing_data:
   postgres_tracking_data:
+  postgres_delivery_data:
   redis_notifications_data:
   redis_routing_data:
 

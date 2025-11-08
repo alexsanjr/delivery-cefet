@@ -1,5 +1,7 @@
 FROM node:18-alpine AS builder
 
+RUN apk add --no-cache netcat-openbsd
+
 WORKDIR /app
 
 COPY package*.json ./
@@ -10,7 +12,7 @@ COPY . .
 RUN npm run build
 
 # Usar portas corretas para msrouting
-EXPOSE 50055
+EXPOSE 50054 3004
 
 # Comando de produção
 CMD ["npm", "run", "start:prod"]
