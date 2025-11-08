@@ -15,6 +15,14 @@ export class CreateTrackingInput {
 
   @Field()
   @IsNumber()
+  origin_lat: number;
+
+  @Field()
+  @IsNumber()
+  origin_lng: number;
+
+  @Field()
+  @IsNumber()
   destination_lat: number;
 
   @Field()

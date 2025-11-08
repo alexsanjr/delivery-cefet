@@ -17,7 +17,7 @@ interface ETARequest {
 interface ETAResponse {
     eta_minutes: number;
     distance_meters: number;
-    traffic_condition: string;
+    current_traffic: string;
 }
 
 interface IRoutingService {
@@ -62,17 +62,27 @@ export class RoutingClient implements OnModuleInit {
                 }),
             );
 
-            this.logger.log(
-                `ETA calculated: ${response.eta_minutes} minutes (${response.traffic_condition})`,
-            );
+            const eta = response?.eta_minutes || this.calculateFallbackETA(currentLat, currentLng, destinationLat, destinationLng);
+            
+            this.logger.log(`ETA calculated: ${eta} minutes`);
 
-            return response.eta_minutes;
+            return eta;
         } catch (error) {
-            this.logger.error(
-                `Failed to calculate ETA: ${error.message}`,
-                error.stack,
-            );
-            return 15;
+            const fallbackETA = this.calculateFallbackETA(currentLat, currentLng, destinationLat, destinationLng);
+            this.logger.log(`Using fallback ETA: ${fallbackETA} minutes`);
+            return fallbackETA;
         }
+    }
+
+    private calculateFallbackETA(lat1: number, lon1: number, lat2: number, lon2: number): number {
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        const distanceKm = R * c;
+        return Math.ceil((distanceKm / 40) * 60);
     }
 }

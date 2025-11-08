@@ -2,6 +2,7 @@ import { Injectable, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TrackingPosition } from '../entities/tracking.entity';
+import { DeliveryTracking } from '../entities/delivery-tracking.entity';
 import { PubSub } from 'graphql-subscriptions';
 import { NotificationsClient } from '../../grpc/notifications.client';
 import { OrdersClient } from '../../grpc/orders.client';
@@ -19,6 +20,8 @@ export class TrackingService {
   constructor(
     @InjectRepository(TrackingPosition)
     private trackingRepo: Repository<TrackingPosition>,
+    @InjectRepository(DeliveryTracking)
+    private deliveryTrackingRepo: Repository<DeliveryTracking>,
     private readonly notificationsClient: NotificationsClient,
     private readonly ordersClient: OrdersClient,
     private readonly routingClient: RoutingClient,
@@ -67,13 +70,49 @@ export class TrackingService {
   async startTracking(data: {
     delivery_id: string;
     order_id: string;
+    origin_lat: number;
+    origin_lng: number;
     destination_lat: number;
     destination_lng: number;
   }): Promise<TrackingPosition> {
+    const existingDelivery = await this.deliveryTrackingRepo.findOne({
+      where: { delivery_id: data.delivery_id },
+    });
+
+    if (existingDelivery) {
+      throw new Error(`Tracking already exists for delivery_id: ${data.delivery_id}`);
+    }
+
+    const existingTracking = await this.deliveryTrackingRepo.findOne({
+      where: { order_id: data.order_id },
+    });
+
+    if (existingTracking) {
+      throw new Error(`Order ${data.order_id} already has tracking started`);
+    }
+
+    const order = await this.ordersClient.getOrder(parseInt(data.order_id));
+    if (!order) {
+      throw new Error(`Order not found: ${data.order_id}`);
+    }
+
+    if (order.status !== 'PENDING') {
+      throw new Error(`Order ${data.order_id} status must be PENDING to start tracking`);
+    }
+
+    await this.deliveryTrackingRepo.save({
+      delivery_id: data.delivery_id,
+      order_id: data.order_id,
+      destination_lat: data.destination_lat,
+      destination_lng: data.destination_lng,
+      status: 'in_transit',
+    });
+
     const position = this.createPosition({
-      ...data,
-      latitude: data.destination_lat,
-      longitude: data.destination_lng,
+      delivery_id: data.delivery_id,
+      order_id: data.order_id,
+      latitude: data.origin_lat,
+      longitude: data.origin_lng,
       delivery_person_id: 'system',
     });
 
@@ -106,6 +145,14 @@ export class TrackingService {
 
     if (!existingTracking) {
       throw new Error(`Tracking not found for delivery_id: ${data.delivery_id}`);
+    }
+
+    const deliveryTracking = await this.deliveryTrackingRepo.findOne({
+      where: { delivery_id: data.delivery_id },
+    });
+
+    if (deliveryTracking?.status === 'DELIVERED') {
+      throw new Error(`Cannot update position: delivery ${data.delivery_id} is already completed`);
     }
 
     const position = this.createPosition({
@@ -177,6 +224,27 @@ export class TrackingService {
   }
 
   async markAsDelivered(orderId: string, deliveryId: string): Promise<void> {
+    const existingTracking = await this.deliveryTrackingRepo.findOne({
+      where: { delivery_id: deliveryId },
+    });
+
+    if (!existingTracking) {
+      throw new Error(`Tracking not found for delivery_id: ${deliveryId}`);
+    }
+
+    if (existingTracking.order_id !== orderId) {
+      throw new Error(`Order ${orderId} does not match delivery ${deliveryId}`);
+    }
+
+    if (existingTracking.status === 'DELIVERED') {
+      throw new Error(`Order ${orderId} is already marked as delivered`);
+    }
+
+    await this.deliveryTrackingRepo.update(
+      { delivery_id: deliveryId },
+      { status: 'DELIVERED', completed_at: new Date() }
+    );
+
     try {
       await this.ordersClient.markAsDelivered(parseInt(orderId));
       this.logAction('Order status updated: DELIVERED', { order_id: orderId });
@@ -206,17 +274,26 @@ export class TrackingService {
     });
 
     const latestPosition = positions[positions.length - 1];
-    const firstPosition = positions[0];
+    
+    const deliveryTracking = await this.deliveryTrackingRepo.findOne({
+      where: { delivery_id: deliveryId },
+    });
+
+    if (!deliveryTracking) {
+      throw new Error(`Delivery tracking not found for delivery_id: ${deliveryId}`);
+    }
     
     const eta = await this.routingClient.calculateETA(
       latestPosition.latitude,
       latestPosition.longitude,
-      firstPosition.latitude,
-      firstPosition.longitude,
+      deliveryTracking.destination_lat,
+      deliveryTracking.destination_lng,
       'fastest',
       1,
     );
 
+    const etaMinutes = eta || 30;
+    
     return {
       delivery_id: deliveryId,
       positions: positions.map(p => ({
@@ -225,7 +302,7 @@ export class TrackingService {
         timestamp: p.timestamp.toISOString(),
       })),
       status: 'IN_TRANSIT',
-      estimated_arrival: new Date(Date.now() + eta * 60000).toISOString(),
+      estimated_arrival: new Date(Date.now() + etaMinutes * 60000).toISOString(),
       distance_remaining: this.calculateDistanceRemaining(positions),
     };
   }
