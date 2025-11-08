@@ -11,21 +11,30 @@ datasource db {
 }
 
 enum DeliveryPersonStatus {
-  AVAILABLE // Disponível para aceitar entregas
-  BUSY // Em entrega
-  OFFLINE // Offline/Indisponível
-  ON_BREAK // Em pausa
+  AVAILABLE
+  BUSY
+  OFFLINE
+  ON_BREAK
 }
 
 enum VehicleType {
-  BIKE // Bicicleta
-  MOTORCYCLE // Motocicleta
-  CAR // Carro
-  SCOOTER // Patinete/Scooter
-  WALKING // A pé
+  BIKE
+  MOTORCYCLE
+  CAR
+  SCOOTER
+  WALKING
 }
 
-// Modelo principal de Entregador
+enum DeliveryStatus {
+  PENDING
+  ASSIGNED
+  PICKED_UP
+  IN_TRANSIT
+  DELIVERED
+  CANCELLED
+  FAILED
+}
+
 model DeliveryPerson {
   id              Int                  @id @default(autoincrement())
   name            String
@@ -33,22 +42,22 @@ model DeliveryPerson {
   phone           String               @unique
   cpf             String               @unique
   vehicleType     VehicleType
-  licensePlate    String?              @unique // Placa do veículo (opcional para bike/walking)
+  licensePlate    String?              @unique
   status          DeliveryPersonStatus @default(OFFLINE)
   rating          Float                @default(5.0)
   totalDeliveries Int                  @default(0)
 
-  // Localização atual
   currentLatitude    Float?
   currentLongitude   Float?
   lastLocationUpdate DateTime?
 
-  // Informações de trabalho
   isActive Boolean  @default(true)
   joinedAt DateTime @default(now())
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  deliveries Delivery[]
 
   @@index([status])
   @@index([email])
@@ -56,4 +65,33 @@ model DeliveryPerson {
   @@index([licensePlate])
   @@index([currentLatitude, currentLongitude])
   @@map("delivery_persons")
+}
+
+model Delivery {
+  id               Int            @id @default(autoincrement())
+  orderId          Int            @unique
+  deliveryPersonId Int?
+  deliveryPerson   DeliveryPerson? @relation(fields: [deliveryPersonId], references: [id])
+  
+  status DeliveryStatus @default(PENDING)
+  
+  customerLatitude  Float
+  customerLongitude Float
+  customerAddress   String
+  
+  assignedAt   DateTime?
+  pickedUpAt   DateTime?
+  deliveredAt  DateTime?
+  cancelledAt  DateTime?
+  
+  estimatedDeliveryTime Int?
+  actualDeliveryTime    Int?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([deliveryPersonId])
+  @@index([status])
+  @@map("deliveries")
 }
