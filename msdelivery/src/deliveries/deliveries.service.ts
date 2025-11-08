@@ -176,4 +176,30 @@ export class DeliveriesService {
       },
     });
   }
+
+  async findByStatuses(statuses: string[]) {
+    return (this.prisma as any).delivery.findMany({
+      where: {
+        status: {
+          in: statuses,
+        },
+      },
+      include: {
+        deliveryPerson: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
+  async updateStatus(deliveryId: number, status: string) {
+    return (this.prisma as any).delivery.update({
+      where: { id: deliveryId },
+      data: { status },
+      include: {
+        deliveryPerson: true,
+      },
+    });
+  }
 }
