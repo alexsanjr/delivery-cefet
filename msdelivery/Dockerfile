@@ -5,7 +5,11 @@ RUN apt-get update && apt-get install -y openssl ca-certificates curl && rm -rf 
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --legacy-peer-deps
+RUN npm config set fetch-timeout 600000 && \
+    npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000 && \
+    npm install --legacy-peer-deps
 
 COPY . .
 RUN npx prisma generate
