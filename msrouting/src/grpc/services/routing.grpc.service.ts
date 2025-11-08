@@ -114,16 +114,9 @@ export class RoutingGrpcService {
   @GrpcMethod('RoutingService', 'CalculateETA')
   async calculateETA(data: ETARequest): Promise<any> {
     try {
-      this.logger.log('📡 CalculateETA called', {
-        origin: data.origin,
-        destination: data.destination,
-        strategy: data.strategy,
-        traffic_level: data.traffic_level
-      });
-
       if (!data.origin || !data.destination) {
         throw new RpcException({
-          code: 3, // INVALID_ARGUMENT
+          code: 3,
           message: 'Origin and destination are required',
         });
       }
@@ -137,9 +130,8 @@ export class RoutingGrpcService {
 
       return this.mapETAResponse(etaResponse);
     } catch (error) {
-      this.logger.error('CalculateETA error:', error);
       throw new RpcException({
-        code: 13, // INTERNAL
+        code: 13,
         message: `ETA calculation failed: ${error.message}`,
       });
     }

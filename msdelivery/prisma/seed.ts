@@ -5,9 +5,17 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Populando o banco...');
 
+  const existingCount = await prisma.deliveryPerson.count();
+  if (existingCount > 0) {
+    console.log(`Banco já possui ${existingCount} entregadores. Pulando seed.`);
+    return;
+  }
+
   const deliveryPersons = await Promise.all([
-    prisma.deliveryPerson.create({
-      data: {
+    prisma.deliveryPerson.upsert({
+      where: { email: 'joao.silva@delivery.com' },
+      update: {},
+      create: {
         name: 'João Silva',
         email: 'joao.silva@delivery.com',
         phone: '+5531987654321',
@@ -23,8 +31,10 @@ async function main() {
         isActive: true,
       },
     }),
-    prisma.deliveryPerson.create({
-      data: {
+    prisma.deliveryPerson.upsert({
+      where: { email: 'maria.santos@delivery.com' },
+      update: {},
+      create: {
         name: 'Maria Santos',
         email: 'maria.santos@delivery.com',
         phone: '+5531987654322',
@@ -39,8 +49,10 @@ async function main() {
         isActive: true,
       },
     }),
-    prisma.deliveryPerson.create({
-      data: {
+    prisma.deliveryPerson.upsert({
+      where: { email: 'carlos.oliveira@delivery.com' },
+      update: {},
+      create: {
         name: 'Carlos Oliveira',
         email: 'carlos.oliveira@delivery.com',
         phone: '+5531987654323',
@@ -56,8 +68,10 @@ async function main() {
         isActive: true,
       },
     }),
-    prisma.deliveryPerson.create({
-      data: {
+    prisma.deliveryPerson.upsert({
+      where: { email: 'ana.paula@delivery.com' },
+      update: {},
+      create: {
         name: 'Ana Paula',
         email: 'ana.paula@delivery.com',
         phone: '+5531987654324',
@@ -72,8 +86,10 @@ async function main() {
         isActive: true,
       },
     }),
-    prisma.deliveryPerson.create({
-      data: {
+    prisma.deliveryPerson.upsert({
+      where: { email: 'pedro.costa@delivery.com' },
+      update: {},
+      create: {
         name: 'Pedro Costa',
         email: 'pedro.costa@delivery.com',
         phone: '+5531987654325',

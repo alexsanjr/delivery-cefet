@@ -9,7 +9,6 @@ export class FastestRouteStrategy implements RouteStrategy {
   constructor(private mapsClient: ExternalMapsClient) {}
 
   async calculateRoute(origin: Point, destination: Point, waypoints: Point[] = []): Promise<RouteResponse> {
-    // Usar API real para rota mais rápida
     const route = await this.mapsClient.getDirections(origin, destination, { mode: 'driving' });
 
     // Modifica as instruções para indicar que é rota mais rápida

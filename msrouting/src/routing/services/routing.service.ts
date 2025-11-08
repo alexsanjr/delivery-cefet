@@ -48,14 +48,55 @@ export class RoutingService {
     strategy: RouteStrategy = RouteStrategy.FASTEST,
     trafficLevel: TrafficLevel = TrafficLevel.MODERATE
   ): Promise<ETAResponse> {
+    if (origin.latitude === destination.latitude && origin.longitude === destination.longitude) {
+      return {
+        eta_minutes: 0,
+        distance_meters: 0,
+        current_traffic: trafficLevel,
+      };
+    }
+
     const selectedStrategy = this.strategies.get(strategy) || this.fastestStrategy;
     const route = await selectedStrategy.calculateRoute(origin, destination);
     
+    if (!route || route.duration_seconds === undefined || route.duration_seconds === null) {
+      const distanceMeters = this.haversineDistance(origin, destination);
+      const velocidadeMediaKmh = 40;
+      const distanciaKm = distanceMeters / 1000;
+      const tempoHoras = distanciaKm / velocidadeMediaKmh;
+      const tempoMinutos = Math.ceil(tempoHoras * 60);
+      
+      return {
+        eta_minutes: tempoMinutos,
+        distance_meters: Math.round(distanceMeters),
+        current_traffic: trafficLevel,
+      };
+    }
+    
     return {
-      eta_minutes: Math.floor(route.duration_seconds / 60),
+      eta_minutes: Math.ceil(route.duration_seconds / 60),
       distance_meters: route.distance_meters,
       current_traffic: trafficLevel,
     };
+  }
+
+  private haversineDistance(point1: Point, point2: Point): number {
+    const raioTerraMetros = 6371000;
+    const lat1Rad = point1.latitude * Math.PI / 180;
+    const lat2Rad = point2.latitude * Math.PI / 180;
+    const deltaLatRad = (point2.latitude - point1.latitude) * Math.PI / 180;
+    const deltaLonRad = (point2.longitude - point1.longitude) * Math.PI / 180;
+    
+    const sinDeltaLat = Math.sin(deltaLatRad / 2);
+    const sinDeltaLon = Math.sin(deltaLonRad / 2);
+    
+    const haversine = sinDeltaLat * sinDeltaLat + 
+                     Math.cos(lat1Rad) * Math.cos(lat2Rad) * 
+                     sinDeltaLon * sinDeltaLon;
+    
+    const anguloCentral = 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+    
+    return raioTerraMetros * anguloCentral;
   }
 
   async optimizeDeliveryRoute(
