@@ -16,8 +16,18 @@ interface NotificationResponse {
   message: string;
 }
 
+interface ConnectClientRequest {
+  userId: string;
+}
+
+interface ConnectClientResponse {
+  success: boolean;
+  message: string;
+}
+
 interface NotificationsService {
   SendNotification(data: NotificationRequest): Observable<NotificationResponse>;
+  ConnectClient(data: ConnectClientRequest): Observable<ConnectClientResponse>;
 }
 
 @Injectable()
@@ -37,6 +47,12 @@ export class NotificationsClient implements OnModuleInit {
       status,
       serviceOrigin: 'msorders',
       message,
+    });
+  }
+
+  connectClient(userId: string) {
+    return this.notificationsService.ConnectClient({
+      userId,
     });
   }
 }

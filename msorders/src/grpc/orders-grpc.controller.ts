@@ -139,6 +139,59 @@ export class GrpcOrdersService {
     }
   }
 
+  @GrpcMethod('OrdersService', 'UpdateOrderStatus')
+  async updateOrderStatus(data: {
+    orderId: number;
+    status: string;
+  }): Promise<{ success: boolean; message: string; order: OrderResponse | null }> {
+    this.logger.log(
+      `[gRPC] Atualizando status do pedido ${data.orderId} para ${data.status}`,
+    );
+
+    try {
+      const updatedOrder = await this.orderRepository.updateStatus(
+        data.orderId,
+        data.status,
+      );
+
+      if (!updatedOrder) {
+        return {
+          success: false,
+          message: `Pedido ${data.orderId} não encontrado`,
+          order: null,
+        };
+      }
+
+      const customerData = await this.customerEnricher.enrichWithCustomerData(
+        updatedOrder.customerId,
+      );
+
+      const response = this.responseMapper.mapOrderToResponse(
+        updatedOrder,
+        customerData,
+      );
+
+      this.logger.log(
+        `[gRPC] Status do pedido ${data.orderId} atualizado com sucesso`,
+      );
+
+      return {
+        success: true,
+        message: 'Status atualizado com sucesso',
+        order: response,
+      };
+    } catch (error) {
+      this.logger.error(
+        `[gRPC] Erro ao atualizar status do pedido ${data.orderId}: ${this.getErrorMessage(error)}`,
+      );
+      return {
+        success: false,
+        message: `Erro ao atualizar status: ${this.getErrorMessage(error)}`,
+        order: null,
+      };
+    }
+  }
+
   /**
    * Extrai mensagem de erro de forma type-safe
    * @private

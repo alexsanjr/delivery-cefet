@@ -6,6 +6,7 @@ service OrdersService {
   rpc GetOrder (GetOrderRequest) returns (OrderResponse);
   rpc GetOrdersByCustomer (GetOrdersByCustomerRequest) returns (OrdersListResponse);
   rpc ValidateOrder (ValidateOrderRequest) returns (ValidateOrderResponse);
+  rpc UpdateOrderStatus (UpdateOrderStatusRequest) returns (UpdateOrderStatusResponse);
 }
 
 // ========== Request Messages ==========
@@ -20,6 +21,11 @@ message GetOrdersByCustomerRequest {
 
 message ValidateOrderRequest {
   int32 id = 1;
+}
+
+message UpdateOrderStatusRequest {
+  int32 orderId = 1;
+  string status = 2;
 }
 
 // ========== Response Messages ==========
@@ -96,6 +102,12 @@ message OrdersListResponse {
 
 message ValidateOrderResponse {
   bool isValid = 1;
+  string message = 2;
+  OrderResponse order = 3;
+}
+
+message UpdateOrderStatusResponse {
+  bool success = 1;
   string message = 2;
   OrderResponse order = 3;
 }

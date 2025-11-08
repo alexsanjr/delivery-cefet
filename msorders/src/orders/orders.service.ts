@@ -23,6 +23,8 @@ import {
 } from './interfaces';
 import { PriceCalculatorContext } from './strategies/price-calculator.context';
 import { CustomersClient } from '../grpc/customers.client';
+import { NotificationsClient } from '../grpc/notifications.client';
+import { firstValueFrom } from 'rxjs';
 
 @Injectable()
 export class OrdersService implements IOrderValidator {
@@ -32,6 +34,7 @@ export class OrdersService implements IOrderValidator {
     private readonly ordersDatasource: OrdersDatasource,
     private readonly priceCalculatorContext: PriceCalculatorContext,
     private readonly customersClient: CustomersClient,
+    private readonly notificationsClient: NotificationsClient,
   ) {}
 
   async create(createOrderInput: CreateOrderInput) {
@@ -88,6 +91,11 @@ export class OrdersService implements IOrderValidator {
       const createdOrder = await this.ordersDatasource.create(orderData);
       this.logger.log(`Pedido criado com sucesso: ID ${createdOrder.id}`);
 
+      await this.connectClientToNotifications(
+        createOrderInput.customerId,
+        createdOrder.id,
+      );
+
       return createdOrder;
     } catch (error) {
       this.logger.error(
@@ -134,6 +142,38 @@ export class OrdersService implements IOrderValidator {
       throw new HttpException(
         'Erro ao buscar dados do cliente',
         HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  private async connectClientToNotifications(
+    customerId: number,
+    orderId: number,
+  ): Promise<void> {
+    try {
+      const userId = `customer-${customerId}`;
+      this.logger.log(
+        `Conectando cliente ${userId} ao sistema de notificações (Order ID: ${orderId})`,
+      );
+
+      const result = await firstValueFrom(
+        this.notificationsClient.connectClient(userId),
+      );
+
+      if (result.success) {
+        this.logger.log(
+          `Cliente ${userId} conectado com sucesso: ${result.message}`,
+        );
+      } else {
+        this.logger.warn(
+          `Falha ao conectar cliente ${userId}: ${result.message}`,
+        );
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erro desconhecido';
+      this.logger.warn(
+        `Erro ao conectar cliente ao sistema de notificações: ${errorMessage}`,
       );
     }
   }

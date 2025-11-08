@@ -12,6 +12,7 @@ export interface ICustomerDataEnricher {
 export interface IOrderRepository {
   findById(id: number): Promise<any>;
   findByCustomerId(customerId: number): Promise<any[]>;
+  updateStatus(orderId: number, status: string): Promise<any>;
 }
 
 // ========== DTOs e Types ==========
@@ -74,6 +75,12 @@ export interface OrdersListResponse {
 
 export interface ValidateOrderResponse {
   isValid: boolean;
+  message: string;
+  order: OrderResponse | null;
+}
+
+export interface UpdateOrderStatusResponse {
+  success: boolean;
   message: string;
   order: OrderResponse | null;
 }

@@ -49,6 +49,21 @@ export class TrackingService {
     this.observers.forEach(observer => observer.update(position));
   }
 
+  private async getUserIdFromOrder(orderId: string): Promise<string> {
+    try {
+      const order = await this.ordersClient.getOrder(parseInt(orderId, 10));
+      if (order && order.customerId) {
+        return `customer-${order.customerId}`;
+      }
+    } catch (error) {
+      this.logAction('Failed to get customer ID from order', { 
+        orderId, 
+        error: error.message 
+      });
+    }
+    return `order-${orderId}`;
+  }
+
   async startTracking(data: {
     delivery_id: string;
     order_id: string;
@@ -65,8 +80,9 @@ export class TrackingService {
     const savedPosition = await this.trackingRepo.save(position);
 
     try {
+      const userId = await this.getUserIdFromOrder(data.order_id);
       await this.notificationsClient.notifyOrderConfirmed(
-        'user-id-placeholder',
+        userId,
         data.order_id,
       );
       this.logAction('Notification sent: ORDER_CONFIRMED', { order_id: data.order_id });
@@ -117,8 +133,9 @@ export class TrackingService {
     const isFirstMove = positionCount === 2;
     if (isFirstMove) {
       try {
+        const userId = await this.getUserIdFromOrder(savedPosition.order_id);
         await this.notificationsClient.notifyOutForDelivery(
-          'user-id-placeholder',
+          userId,
           savedPosition.order_id,
         );
         this.logAction('Notification sent: OUT_FOR_DELIVERY', { order_id: savedPosition.order_id });
@@ -144,8 +161,9 @@ export class TrackingService {
 
       if (eta <= 5) {
         try {
+          const userId = await this.getUserIdFromOrder(savedPosition.order_id);
           await this.notificationsClient.notifyArrivingSoon(
-            'user-id-placeholder',
+            userId,
             savedPosition.order_id,
           );
           this.logAction('Notification sent: ARRIVING_SOON', { order_id: savedPosition.order_id });
@@ -168,8 +186,9 @@ export class TrackingService {
     }
 
     try {
+      const userId = await this.getUserIdFromOrder(orderId);
       await this.notificationsClient.notifyDelivered(
-        'user-id-placeholder',
+        userId,
         orderId,
       );
       this.logAction('Notification sent: DELIVERED', { order_id: orderId });

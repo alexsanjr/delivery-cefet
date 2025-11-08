@@ -6,9 +6,18 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  // Create sample customers
-  const customer1 = await prisma.customer.create({
-    data: {
+  console.log('Starting database seed...');
+
+  const existingCount = await prisma.customer.count();
+  if (existingCount > 0) {
+    console.log(`Found ${existingCount} existing customers. Skipping seed.`);
+    return;
+  }
+
+  const customer1 = await prisma.customer.upsert({
+    where: { email: 'joao@email.com' },
+    update: {},
+    create: {
       name: 'João Silva',
       email: 'joao@email.com',
       phone: '11999887766',
@@ -38,8 +47,10 @@ async function main() {
     },
   });
 
-  const customer2 = await prisma.customer.create({
-    data: {
+  const customer2 = await prisma.customer.upsert({
+    where: { email: 'maria@email.com' },
+    update: {},
+    create: {
       name: 'Maria Santos',
       email: 'maria@email.com',
       phone: '21888776655',
@@ -60,8 +71,10 @@ async function main() {
     },
   });
 
-  const customer3 = await prisma.customer.create({
-    data: {
+  const customer3 = await prisma.customer.upsert({
+    where: { email: 'pedro@email.com' },
+    update: {},
+    create: {
       name: 'Pedro Oliveira',
       email: 'pedro@email.com',
       phone: '21777665544',
@@ -82,7 +95,12 @@ async function main() {
     },
   });
 
-  console.log('Customers created:', { customer1, customer2, customer3 });
+  console.log('Customers seeded:', { 
+    customer1: customer1.id, 
+    customer2: customer2.id, 
+    customer3: customer3.id 
+  });
+  console.log('Database seed completed successfully');
 }
 
 main()

@@ -71,6 +71,42 @@ services:
     networks:
       - kong-net
 
+  cleanup-test-data:
+    image: postgres:13
+    profiles:
+      - cleanup
+    command:
+      - sh
+      - -c
+      - |
+        echo "Cleaning test data..."
+        echo "Cleaning tracking positions..."
+        PGPASSWORD=${POSTGRES_TRACKING_PASSWORD} psql -h kong-gateway-postgres-tracking-1 -U ${POSTGRES_TRACKING_USER} -d ${POSTGRES_TRACKING_DB} -c "DELETE FROM tracking_positions;"
+        echo "Tracking positions cleaned"
+        echo "Test data cleanup completed"
+    depends_on:
+      postgres-tracking:
+        condition: service_healthy
+    networks:
+      - kong-net
+
+  cleanup-notifications:
+    image: redis:7-alpine
+    profiles:
+      - cleanup
+    command:
+      - sh
+      - -c
+      - |
+        echo "Cleaning notifications from Redis..."
+        redis-cli -h redis-notifications -p 6379 FLUSHDB
+        echo "Notifications cleaned"
+    depends_on:
+      redis-notifications:
+        condition: service_healthy
+    networks:
+      - kong-net
+
   kong:
     image: kong:3.4
     environment:
