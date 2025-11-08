@@ -3,6 +3,36 @@ _format_version: "3.0"
 _transform: true
 
 services:
+  - name: auth
+    url: http://auth-service:3100
+    tags:
+      - auth
+      - public
+    routes:
+      - name: auth-login
+        paths:
+          - /auth
+        methods:
+          - GET
+          - POST
+          - OPTIONS
+        strip_path: false
+        preserve_host: false
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - OPTIONS
+          headers:
+            - Accept
+            - Content-Type
+          credentials: true
+          max_age: 3600
+
   - name: msorders
     url: http://msorders:3000
     tags:

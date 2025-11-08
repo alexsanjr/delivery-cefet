@@ -12,6 +12,7 @@ export interface ICustomerDataEnricher {
 export interface IOrderRepository {
   findById(id: number): Promise<any>;
   findByCustomerId(customerId: number): Promise<any[]>;
+  findByStatus(status: string): Promise<any[]>;
   updateStatus(orderId: number, status: string): Promise<any>;
 }
 
@@ -57,6 +58,8 @@ export interface DeliveryAddressResponse {
   city: string;
   state: string;
   zipCode: string;
+  latitude: number;
+  longitude: number;
 }
 
 export interface CustomerData {

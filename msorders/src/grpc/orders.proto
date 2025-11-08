@@ -5,6 +5,7 @@ package orders;
 service OrdersService {
   rpc GetOrder (GetOrderRequest) returns (OrderResponse);
   rpc GetOrdersByCustomer (GetOrdersByCustomerRequest) returns (OrdersListResponse);
+  rpc GetOrdersByStatus (GetOrdersByStatusRequest) returns (OrdersListResponse);
   rpc ValidateOrder (ValidateOrderRequest) returns (ValidateOrderResponse);
   rpc UpdateOrderStatus (UpdateOrderStatusRequest) returns (UpdateOrderStatusResponse);
 }
@@ -17,6 +18,15 @@ message GetOrderRequest {
 
 message GetOrdersByCustomerRequest {
   int32 customerId = 1;
+}
+
+message GetOrdersByStatusRequest {
+  string status = 1;
+}
+
+message UpdateOrderStatusRequest {
+  int32 id = 1;
+  string status = 2;
 }
 
 message ValidateOrderRequest {
@@ -50,6 +60,8 @@ message DeliveryAddress {
   string city = 5;
   string state = 6;
   string zipCode = 7;
+  double latitude = 8;
+  double longitude = 9;
 }
 
 message CustomerInfo {

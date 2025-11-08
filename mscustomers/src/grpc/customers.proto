@@ -27,6 +27,8 @@ message Address {
   bool isPrimary = 9;
   int32 customerId = 10;
   string createdAt = 11;
+  double latitude = 12;
+  double longitude = 13;
 }
 
 message CustomerResponse {

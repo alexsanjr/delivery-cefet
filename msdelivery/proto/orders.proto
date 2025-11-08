@@ -1,0 +1,120 @@
+syntax = "proto3";
+
+package orders;
+
+service OrdersService {
+  rpc GetOrder (GetOrderRequest) returns (OrderResponse);
+  rpc GetOrdersByCustomer (GetOrdersByCustomerRequest) returns (OrdersListResponse);
+  rpc GetOrdersByStatus (GetOrdersByStatusRequest) returns (OrdersListResponse);
+  rpc ValidateOrder (ValidateOrderRequest) returns (ValidateOrderResponse);
+  rpc UpdateOrderStatus (UpdateOrderStatusRequest) returns (UpdateOrderStatusResponse);
+}
+
+// ========== Request Messages ==========
+
+message GetOrderRequest {
+  int32 id = 1;
+}
+
+message GetOrdersByCustomerRequest {
+  int32 customerId = 1;
+}
+
+message GetOrdersByStatusRequest {
+  string status = 1;
+}
+
+message UpdateOrderStatusRequest {
+  int32 id = 1;
+  string status = 2;
+}
+
+message ValidateOrderRequest {
+  int32 id = 1;
+}
+
+// ========== Response Messages ==========
+
+message OrderItem {
+  int32 id = 1;
+  int32 orderId = 2;
+  int32 productId = 3;
+  string productName = 4;
+  string productDescription = 5;
+  int32 quantity = 6;
+  double unitPrice = 7;
+  double totalPrice = 8;
+  string createdAt = 9;
+}
+
+message DeliveryAddress {
+  string street = 1;
+  string number = 2;
+  string complement = 3;
+  string neighborhood = 4;
+  string city = 5;
+  string state = 6;
+  string zipCode = 7;
+  double latitude = 8;
+  double longitude = 9;
+}
+
+message CustomerInfo {
+  int32 id = 1;
+  string name = 2;
+  string email = 3;
+  string phone = 4;
+  bool isPremium = 5;
+}
+
+message OrderResponse {
+  int32 id = 1;
+  int32 customerId = 2;
+  
+  // Informações do cliente
+  string customerName = 3;
+  string customerEmail = 4;
+  string customerPhone = 5;
+  bool customerIsPremium = 6;
+  
+  // Endereço de entrega
+  DeliveryAddress deliveryAddress = 7;
+  
+  // Items do pedido
+  repeated OrderItem items = 8;
+  
+  // Valores financeiros
+  double subtotal = 9;
+  double deliveryFee = 10;
+  double total = 11;
+  
+  // Informações de entrega e pagamento
+  int32 estimatedDeliveryTime = 12;
+  string paymentMethod = 13;
+  string status = 14;
+  
+  // Timestamps
+  string createdAt = 15;
+  string updatedAt = 16;
+  
+  // Error handling
+  string error = 17;
+}
+
+message OrdersListResponse {
+  repeated OrderResponse orders = 1;
+  int32 total = 2;
+  string error = 3;
+}
+
+message ValidateOrderResponse {
+  bool isValid = 1;
+  string message = 2;
+  OrderResponse order = 3;
+}
+
+message UpdateOrderStatusResponse {
+  bool success = 1;
+  string message = 2;
+  OrderResponse order = 3;
+}

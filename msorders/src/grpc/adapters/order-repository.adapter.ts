@@ -15,6 +15,10 @@ export class OrderRepositoryAdapter implements IOrderRepository {
     return this.ordersDatasource.findByCustomer(customerId);
   }
 
+  async findByStatus(status: string): Promise<any[]> {
+    return this.ordersDatasource.findByStatus(status);
+  }
+
   async updateStatus(orderId: number, status: string): Promise<any> {
     return this.ordersDatasource.updateStatus({ 
       id: orderId, 

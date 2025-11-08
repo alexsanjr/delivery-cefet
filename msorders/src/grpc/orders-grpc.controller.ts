@@ -4,6 +4,7 @@ import type {
   IOrderRepository,
   ICustomerDataEnricher,
   IOrderResponseMapper,
+  UpdateOrderStatusResponse,
 } from './interfaces/grpc-orders.interfaces';
 import {
   OrderResponse,
@@ -139,11 +140,55 @@ export class GrpcOrdersService {
     }
   }
 
+  @GrpcMethod('OrdersService', 'GetOrdersByStatus')
+  async getOrdersByStatus(data: { status: string }): Promise<OrdersListResponse> {
+    this.logger.log(`[gRPC] Buscando pedidos com status: ${data.status}`);
+
+    try {
+      const orders = await this.orderRepository.findByStatus(data.status);
+
+      if (!orders || orders.length === 0) {
+        this.logger.log(
+          `[gRPC] Nenhum pedido encontrado com status ${data.status}`,
+        );
+        return { orders: [], total: 0, error: '' };
+      }
+
+      const ordersWithData = await Promise.all(
+        orders.map(async (order) => {
+          const customerData = await this.customerEnricher.enrichWithCustomerData(
+            order.customerId,
+          );
+          return this.responseMapper.mapOrderToResponse(order, customerData);
+        }),
+      );
+
+      this.logger.log(
+        `[gRPC] ${ordersWithData.length} pedidos encontrados com status ${data.status}`,
+      );
+
+      return {
+        orders: ordersWithData,
+        total: ordersWithData.length,
+        error: '',
+      };
+    } catch (error) {
+      this.logger.error(
+        `[gRPC] Erro ao buscar pedidos com status ${data.status}: ${this.getErrorMessage(error)}`,
+      );
+      return {
+        orders: [],
+        total: 0,
+        error: `Erro ao buscar pedidos: ${this.getErrorMessage(error)}`,
+      };
+    }
+  }
+
   @GrpcMethod('OrdersService', 'UpdateOrderStatus')
   async updateOrderStatus(data: {
     orderId: number;
     status: string;
-  }): Promise<{ success: boolean; message: string; order: OrderResponse | null }> {
+  }): Promise<UpdateOrderStatusResponse> {
     this.logger.log(
       `[gRPC] Atualizando status do pedido ${data.orderId} para ${data.status}`,
     );
@@ -172,7 +217,7 @@ export class GrpcOrdersService {
       );
 
       this.logger.log(
-        `[gRPC] Status do pedido ${data.orderId} atualizado com sucesso`,
+        `[gRPC] Status do pedido ${data.orderId} atualizado para ${data.status}`,
       );
 
       return {

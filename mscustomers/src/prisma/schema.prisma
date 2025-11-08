@@ -31,6 +31,8 @@ model Address {
   state        String
   zipCode      String
   complement   String?
+  latitude     Float?
+  longitude    Float?
   isPrimary    Boolean  @default(false)
   createdAt    DateTime @default(now())
 

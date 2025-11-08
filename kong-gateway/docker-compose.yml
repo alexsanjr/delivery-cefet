@@ -34,6 +34,12 @@ services:
       - sh
       - -c
       - |
+        echo "Checking if migrations need to be reset..."
+        apk add --no-cache postgresql-client
+        PGPASSWORD=${POSTGRES_CUSTOMERS_PASSWORD} psql -h postgres-customers -U ${POSTGRES_CUSTOMERS_USER} -d ${POSTGRES_CUSTOMERS_DB} -c "SELECT 1 FROM information_schema.columns WHERE table_name='addresses' AND column_name='latitude';" | grep -q 1 || {
+          echo "Schema needs update - dropping and recreating..."
+          PGPASSWORD=${POSTGRES_CUSTOMERS_PASSWORD} psql -h postgres-customers -U ${POSTGRES_CUSTOMERS_USER} -d ${POSTGRES_CUSTOMERS_DB} -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+        }
         echo "Running Prisma migrations for customers..."
         npx prisma migrate deploy --schema=./src/prisma/schema.prisma
         echo "Generating Prisma Client..."
@@ -97,6 +103,8 @@ services:
 
   cleanup-data:
     image: postgres:13
+    profiles:
+      - cleanup
     command:
       - sh
       - -c
@@ -106,10 +114,17 @@ services:
         PGPASSWORD=${POSTGRES_TRACKING_PASSWORD} psql -h kong-gateway-postgres-tracking-1 -U ${POSTGRES_TRACKING_USER} -d ${POSTGRES_TRACKING_DB} -c "DELETE FROM tracking_positions; DELETE FROM delivery_tracking;"
         echo "Tracking data cleaned"
         echo "Cleaning delivery persons..."
-        PGPASSWORD=${POSTGRES_DELIVERY_PASSWORD} psql -h postgres-delivery -U ${POSTGRES_DELIVERY_USER} -d ${POSTGRES_DELIVERY_DB} -c "DELETE FROM delivery_persons;"
+        PGPASSWORD=${POSTGRES_DELIVERY_PASSWORD} psql -h postgres-delivery -U ${POSTGRES_DELIVERY_USER} -d ${POSTGRES_DELIVERY_DB} -c "DELETE FROM deliveries; DELETE FROM delivery_persons;"
         echo "Delivery data cleaned"
+        echo "Recreating customers database schema..."
+        PGPASSWORD=${POSTGRES_CUSTOMERS_PASSWORD} psql -h postgres-customers -U ${POSTGRES_CUSTOMERS_USER} -d ${POSTGRES_CUSTOMERS_DB} -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+        echo "Customers database schema recreated (migrations will run on next startup)"
     depends_on:
       postgres-tracking:
+        condition: service_healthy
+      postgres-customers:
+        condition: service_healthy
+      postgres-delivery:
         condition: service_healthy
     networks:
       - kong-net
@@ -131,21 +146,23 @@ services:
     networks:
       - kong-net
 
-  cleanup-delivery:
-    image: postgres:13
-    command:
-      - sh
-      - -c
-      - |
-        echo "Cleaning delivery data..."
-        echo "Cleaning delivery persons..."
-        PGPASSWORD=${POSTGRES_DELIVERY_PASSWORD} psql -h postgres-delivery -U ${POSTGRES_DELIVERY_USER} -d ${POSTGRES_DELIVERY_DB} -c "DELETE FROM delivery_persons;"
-        echo "Delivery data cleaned"
-    depends_on:
-      postgres-delivery:
-        condition: service_healthy
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.auth
+    ports:
+      - "3100:3100"
+    environment:
+      KONG_JWT_SECRET_WEB_APP: ${KONG_JWT_SECRET_WEB_APP}
+      KONG_JWT_SECRET_ADMIN_PANEL: ${KONG_JWT_SECRET_ADMIN_PANEL}
+      PORT: 3100
     networks:
       - kong-net
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3100/auth/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   kong:
     image: kong:3.4

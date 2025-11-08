@@ -37,6 +37,8 @@ export class GrpcCustomersService {
           isPrimary: addr.isPrimary,
           customerId: addr.customerId,
           createdAt: addr.createdAt.toISOString(),
+          latitude: addr.latitude || 0,
+          longitude: addr.longitude || 0,
         })),
         createdAt: customer.createdAt.toISOString(),
         updatedAt: customer.updatedAt.toISOString(),

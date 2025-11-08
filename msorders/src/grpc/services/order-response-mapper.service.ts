@@ -71,6 +71,8 @@ export class OrderResponseMapperService implements IOrderResponseMapper {
       city: address.city || '',
       state: address.state || '',
       zipCode: address.zipCode || '',
+      latitude: address.latitude || 0,
+      longitude: address.longitude || 0,
     };
   }
 
