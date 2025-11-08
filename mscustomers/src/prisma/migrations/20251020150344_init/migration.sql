@@ -22,6 +22,8 @@ CREATE TABLE "addresses" (
     "state" TEXT NOT NULL,
     "zipCode" TEXT NOT NULL,
     "complement" TEXT,
+    "latitude" DOUBLE PRECISION,
+    "longitude" DOUBLE PRECISION,
     "isPrimary" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
