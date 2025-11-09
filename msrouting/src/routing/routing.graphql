@@ -1,0 +1,114 @@
+# ===========================================
+# MSRouting GraphQL Schema
+# ===========================================
+# Schema-first approach para compatibilidade
+# com MSCustomers
+# ===========================================
+
+# ===========================================
+# ENUMS
+# ===========================================
+
+"""
+Estratégias de cálculo de rota disponíveis
+"""
+enum RouteStrategy {
+  STRATEGY_UNSPECIFIED
+  FASTEST
+  SHORTEST
+  ECONOMICAL
+  ECO_FRIENDLY
+}
+
+"""
+Nível de tráfego atual
+"""
+enum TrafficLevel {
+  TRAFFIC_UNSPECIFIED
+  LIGHT
+  MODERATE
+  HEAVY
+  EXTREME
+}
+
+# ===========================================
+# INPUT TYPES
+# ===========================================
+
+"""
+Ponto geográfico com latitude e longitude
+"""
+input PointInput {
+  latitude: Float!
+  longitude: Float!
+}
+
+# ===========================================
+# OUTPUT TYPES
+# ===========================================
+
+"""
+Ponto geográfico
+"""
+type PointType {
+  latitude: Float!
+  longitude: Float!
+}
+
+"""
+Passo individual da rota
+"""
+type RouteStepType {
+  instruction: String!
+  distance_meters: Int!
+  duration_seconds: Int!
+  start_location: PointType!
+  end_location: PointType!
+}
+
+"""
+Resposta do cálculo de rota
+"""
+type RouteResponseType {
+  path: [PointType!]!
+  distance_meters: Int!
+  duration_seconds: Int!
+  encoded_polyline: String!
+  steps: [RouteStepType!]!
+  estimated_cost: Float!
+}
+
+"""
+Resposta do cálculo de ETA (tempo estimado de chegada)
+"""
+type ETAResponseType {
+  eta_minutes: Int!
+  distance_meters: Int!
+  current_traffic: TrafficLevel!
+}
+
+# ===========================================
+# QUERIES
+# ===========================================
+
+type Query {
+  """
+  Calcula a melhor rota entre dois pontos usando a estratégia especificada
+  """
+  calculateRoute(
+    origin: PointInput!
+    destination: PointInput!
+    strategy: RouteStrategy
+    waypoints: [PointInput!]
+  ): RouteResponseType!
+
+  """
+  Calcula o tempo estimado de chegada (ETA) entre dois pontos
+  """
+  calculateETA(
+    origin: PointInput!
+    destination: PointInput!
+    strategy: RouteStrategy
+    trafficLevel: TrafficLevel
+  ): ETAResponseType!
+}
