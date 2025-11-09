@@ -39,8 +39,15 @@ export class RoutingService implements IRoutingService {
     strategy: RouteStrategy = RouteStrategy.FASTEST,
     waypoints: Point[] = []
   ): Promise<RouteResponse> {
-    const selectedStrategy = this.strategies.get(strategy) || this.fastestStrategy;
-    return await selectedStrategy.calculateRoute(origin, destination, waypoints);
+    // GraphQL pode enviar o enum como string, precisamos converter para o valor numérico
+    const strategyValue = typeof strategy === 'string' 
+      ? RouteStrategy[strategy as keyof typeof RouteStrategy]
+      : strategy;
+    
+    const selectedStrategy = this.strategies.get(strategyValue) || this.fastestStrategy;
+    const result = await selectedStrategy.calculateRoute(origin, destination, waypoints);
+    
+    return result;
   }
 
   async calculateETA(

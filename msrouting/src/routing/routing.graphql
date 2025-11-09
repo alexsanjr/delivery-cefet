@@ -41,8 +41,8 @@ Passo individual da rota
 """
 type RouteStepType {
   instruction: String!
-  distance_meters: Int!
-  duration_seconds: Int!
+  distance_meters: Float!
+  duration_seconds: Float!
   start_location: PointType!
   end_location: PointType!
 }
@@ -52,8 +52,8 @@ Resposta do cálculo de rota
 """
 type RouteResponseType {
   path: [PointType!]!
-  distance_meters: Int!
-  duration_seconds: Int!
+  distance_meters: Float!
+  duration_seconds: Float!
   encoded_polyline: String!
   steps: [RouteStepType!]!
   estimated_cost: Float!
@@ -63,8 +63,8 @@ type RouteResponseType {
 Resposta do cálculo de ETA (tempo estimado de chegada)
 """
 type ETAResponseType {
-  eta_minutes: Int!
-  distance_meters: Int!
+  eta_minutes: Float!
+  distance_meters: Float!
   current_traffic: TrafficLevel!
 }
 

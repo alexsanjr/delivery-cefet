@@ -46,6 +46,8 @@ export class ExternalMapsClient {
       const avoid = this.buildAvoid(options.avoid);
       const url = `https://api.geoapify.com/v1/routing?waypoints=${waypoints}&mode=${mode}${avoid}&apiKey=${this.apiKey}`;
       
+      console.log('🌍 Geoapify URL:', url);
+      
       const { data } = await firstValueFrom(this.http.get(url));
       const feature = data.features?.[0];
       if (!feature) throw new Error('No route found (Geoapify)');
@@ -76,6 +78,8 @@ export class ExternalMapsClient {
       
       return result;
     } catch (error) {
+      console.error('❌ Geoapify API Error:', error.response?.data || error.message);
+      console.log('🔄 Usando rota mock como fallback para:', { origin, destination, options });
       return this.getMockDirections(origin, destination, options);
     }
   }
