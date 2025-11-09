@@ -1,64 +1,71 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import { Injectable, NotFoundException, Inject, Logger } from '@nestjs/common';
+import type { ICustomerRepository } from '../repositories/interfaces/customer-repository.interface';
+import type { IAddressRepository } from '../repositories/interfaces/address-repository.interface';
+import { CustomerValidator } from '../validators/customer.validator';
+import { AddressValidator } from '../validators/address.validator';
 import { CreateCustomerInput } from '../dto/create-customer.input';
 import { UpdateCustomerInput } from '../dto/update-customer.input';
 import { CreateAddressInput } from '../dto/create-address.input';
 import { UpdateAddressInput } from '../dto/update-address.input';
 
+/**
+ * SOLID Principles Applied:
+ * 
+ * S - Single Responsibility: 
+ *     Responsável APENAS pela lógica de negócio de clientes.
+ *     Validações delegadas a CustomerValidator/AddressValidator.
+ *     Persistência delegada aos Repositories.
+ * 
+ * O - Open/Closed:
+ *     Aberto para extensão: novos métodos podem ser adicionados.
+ *     Fechado para modificação: usa interfaces, não implementações.
+ * 
+ * D - Dependency Inversion:
+ *     Depende de abstrações (interfaces), não de implementações concretas.
+ *     Permite trocar repositórios sem modificar este service.
+ */
 @Injectable()
 export class CustomersService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(CustomersService.name);
+
+  constructor(
+    @Inject('ICustomerRepository')
+    private readonly customerRepository: ICustomerRepository,
+    @Inject('IAddressRepository')
+    private readonly addressRepository: IAddressRepository,
+    private readonly customerValidator: CustomerValidator,
+    private readonly addressValidator: AddressValidator,
+  ) {
+    this.logger.log('✅ CustomersService inicializado');
+  }
 
   async create(createCustomerInput: CreateCustomerInput) {
-    // Verificar se email já existe
-    const existingCustomer = await this.prisma.customer.findUnique({
-      where: { email: createCustomerInput.email },
-    });
+    this.logger.log(
+      `📝 [Business Logic] Iniciando criação de cliente: ${createCustomerInput.email}`
+    );
 
-    if (existingCustomer) {
-      throw new ConflictException('Cliente com email ja existente.');
-    }
+    await this.customerValidator.validateUniqueEmail(createCustomerInput.email);
 
-    return await this.prisma.customer.create({
-      data: {
-        name: createCustomerInput.name,
-        email: createCustomerInput.email,
-        phone: createCustomerInput.phone,
-        addresses: createCustomerInput.address ? {
-          create: {
-            ...createCustomerInput.address,
-            isPrimary: true, // Primeiro endereço é sempre primário
-          },
-        } : undefined,
-        isPremium: createCustomerInput.isPremium
-      },
-      include: {
-        addresses: true,
-      },
-    });
+    const customer = await this.customerRepository.create(createCustomerInput);
+
+    this.logger.log(
+      `✅ [Business Logic] Cliente criado: ID ${customer.id} - ${customer.name}`
+    );
+
+    return customer;
   }
 
   async findAll() {
-    return await this.prisma.customer.findMany({
-      include: {
-        addresses: {
-          orderBy: { isPrimary: 'desc' },
-        },
-      },
-    });
+    this.logger.debug('📋 [Business Logic] Listando todos os clientes');
+    return await this.customerRepository.findAll();
   }
 
   async findById(id: number) {
-    const customer = await this.prisma.customer.findUnique({
-      where: { id },
-      include: {
-        addresses: {
-          orderBy: { isPrimary: 'desc' },
-        },
-      },
-    });
+    this.logger.debug(`🔍 [Business Logic] Buscando cliente ID: ${id}`);
+    const customer = await this.customerRepository.findById(id);
 
     if (!customer) {
+      this.logger.warn(`⚠️ [Business Logic] Cliente ID: ${id} não encontrado`);
       throw new NotFoundException(`Cliente ${id} nao encontrado.`);
     }
 
@@ -66,16 +73,11 @@ export class CustomersService {
   }
 
   async findByEmail(email: string) {
-    const customer = await this.prisma.customer.findUnique({
-      where: { email },
-      include: {
-        addresses: {
-          orderBy: { isPrimary: 'desc' },
-        },
-      },
-    });
+    this.logger.debug(`🔍 [Business Logic] Buscando cliente por email: ${email}`);
+    const customer = await this.customerRepository.findByEmail(email);
 
     if (!customer) {
+      this.logger.warn(`⚠️ [Business Logic] Cliente com email ${email} não encontrado`);
       throw new NotFoundException(`Cliente com email ${email} nao encontrado.`);
     }
 
@@ -83,80 +85,63 @@ export class CustomersService {
   }
 
   async update(id: number, updateCustomerInput: UpdateCustomerInput) {
-    await this.findById(id); // Verifica se existe
+    this.logger.log(`🔄 [Business Logic] Atualizando cliente ID: ${id}`);
+    await this.findById(id);
 
-    return await this.prisma.customer.update({
-      where: { id },
-      data: updateCustomerInput,
-      include: {
-        addresses: {
-          orderBy: { isPrimary: 'desc' },
-        },
-      },
-    });
+    const updated = await this.customerRepository.update(id, updateCustomerInput);
+    this.logger.log(`✅ [Business Logic] Cliente ${id} atualizado com sucesso`);
+
+    return updated;
   }
 
   async addAddress(customerId: number, createAddressInput: CreateAddressInput) {
-    await this.findById(customerId); // Verifica se customer existe
+    this.logger.log(
+      `📍 [Business Logic] Adicionando endereço ao cliente ID: ${customerId}`
+    );
+    await this.findById(customerId);
 
-    return await this.prisma.customer.update({
-      where: { id: customerId },
-      data: {
-        addresses: {
-          create: createAddressInput,
-        },
-      },
-      include: {
-        addresses: {
-          orderBy: { isPrimary: 'desc' },
-        },
-      },
-    });
+    await this.addressRepository.addToCustomer(customerId, createAddressInput);
+
+    this.logger.log(`✅ [Business Logic] Endereço adicionado ao cliente ${customerId}`);
+
+    return await this.findById(customerId);
   }
 
   async updateAddress(addressId: number, updateAddressInput: UpdateAddressInput) {
-    const address = await this.prisma.address.findUnique({
-      where: { id: addressId },
-    });
+    this.logger.log(`🔄 [Business Logic] Atualizando endereço ID: ${addressId}`);
+    
+    await this.addressValidator.validateExists(addressId);
 
-    if (!address) {
-      throw new NotFoundException(`Endereco ${addressId} nao encontrado.`);
-    }
+    const updated = await this.addressRepository.update(addressId, updateAddressInput);
+    this.logger.log(`✅ [Business Logic] Endereço ${addressId} atualizado`);
 
-    return await this.prisma.address.update({
-      where: { id: addressId },
-      data: updateAddressInput,
-    });
+    return updated;
   }
 
   async setPrimaryAddress(customerId: number, addressId: number) {
-    // Primeiro, remove primary de todos os endereços do customer
-    await this.prisma.address.updateMany({
-      where: { customerId },
-      data: { isPrimary: false },
-    });
+    this.logger.log(
+      `⭐ [Business Logic] Definindo endereço ${addressId} como primário para cliente ${customerId}`
+    );
 
-    // Depois, seta o endereço específico como primary
-    await this.prisma.address.update({
-      where: { id: addressId },
-      data: { isPrimary: true },
-    });
+    await this.addressValidator.validateExists(addressId);
+
+    await this.addressRepository.removePrimaryFromCustomer(customerId);
+
+    await this.addressRepository.setPrimary(addressId);
+
+    this.logger.log(`✅ [Business Logic] Endereço primário atualizado para cliente ${customerId}`);
 
     return await this.findById(customerId);
   }
 
   async removeAddress(addressId: number) {
-    const address = await this.prisma.address.findUnique({
-      where: { id: addressId },
-    });
+    this.logger.log(`🗑️ [Business Logic] Removendo endereço ID: ${addressId}`);
+    
+    await this.addressValidator.validateExists(addressId);
 
-    if (!address) {
-      throw new NotFoundException(`Endereco ${addressId} nao encontrado.`);
-    }
+    await this.addressRepository.remove(addressId);
 
-    await this.prisma.address.delete({
-      where: { id: addressId },
-    });
+    this.logger.log(`✅ [Business Logic] Endereço ${addressId} removido com sucesso`);
 
     return true;
   }
