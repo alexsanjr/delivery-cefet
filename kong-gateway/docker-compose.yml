@@ -217,7 +217,7 @@ services:
     volumes:
       - ../mscustomers/src/grpc/customers.proto:/app/dist/grpc/customers.proto:ro
       - ../msnotifications/src/grpc/notifications.proto:/app/dist/grpc/notifications.proto:ro
-      - ../msrouting/src/grpc/shared/protos/routing.proto:/app/dist/grpc/routing.proto:ro
+      - ../msrouting/src/grpc/routing.proto:/app/dist/grpc/routing.proto:ro
       - ../mstracking/src/grpc/tracking.proto:/app/dist/grpc/tracking.proto:ro
     command: ["node", "dist/main"]
     depends_on:
@@ -441,7 +441,7 @@ services:
     volumes:
       - ../msnotifications/src/grpc/notifications.proto:/app/dist/grpc/notifications.proto:ro
       - ../msorders/src/grpc/orders.proto:/app/dist/grpc/orders.proto:ro
-      - ../msrouting/src/grpc/shared/protos/routing.proto:/app/dist/grpc/routing.proto:ro
+      - ../msrouting/src/grpc/routing.proto:/app/dist/grpc/routing.proto:ro
     command: ["node", "dist/main"]
     depends_on:
       postgres-tracking:
