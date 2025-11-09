@@ -79,6 +79,52 @@ services:
           hour: 1000
           policy: local
 
+  - name: msrouting
+    url: http://msrouting:3004
+    tags:
+      - routing
+      - graphql
+    routes:
+      - name: msrouting-graphql
+        paths:
+          - /routing
+        methods:
+          - GET
+          - POST
+          - OPTIONS
+        strip_path: true
+        preserve_host: false
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - OPTIONS
+          headers:
+            - Accept
+            - Content-Type
+            - Authorization
+          credentials: true
+          max_age: 3600
+      - name: jwt
+        config:
+          uri_param_names:
+            - jwt
+          cookie_names: []
+          header_names:
+            - Authorization
+          claims_to_verify:
+            - exp
+          run_on_preflight: false
+      - name: rate-limiting
+        config:
+          minute: 200
+          hour: 2000
+          policy: local
+
   - name: mscustomers
     url: http://mscustomers:3000
     tags:

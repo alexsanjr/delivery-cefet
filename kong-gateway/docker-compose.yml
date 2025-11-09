@@ -333,6 +333,7 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_ROUTING_USER}:${POSTGRES_ROUTING_PASSWORD}@postgres-routing:5432/${POSTGRES_ROUTING_DB}
       NODE_ENV: ${NODE_ENV}
+      HTTP_PORT: 3004
       GRPC_PORT: 50054
       REDIS_HOST: redis-routing
       REDIS_PORT: 6380
@@ -345,7 +346,7 @@ services:
     networks:
       - kong-net
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "50054"]
+      test: ["CMD", "sh", "-c", "nc -z localhost 50054 && nc -z localhost 3004"]
       interval: 10s
       timeout: 5s
       retries: 5
