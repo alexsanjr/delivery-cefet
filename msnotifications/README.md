@@ -1,98 +1,499 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# MS Notifications - Microserviço de Notificações
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Microserviço responsável pelo envio de notificações aos usuários do sistema através de múltiplos canais.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Responsabilidades
 
-## Description
+- Envio de notificações assíncronas
+- Gerenciamento de múltiplos canais (email, SMS, push)
+- Cache de notificações recentes
+- Histórico de notificações enviadas
+- Retry automático em caso de falha
+- Templates de mensagens personalizáveis
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Tecnologias Utilizadas
 
-## Project setup
+- **NestJS**: Framework principal
+- **TypeScript**: Linguagem de programação
+- **GraphQL**: API para consulta de notificações
+- **gRPC**: Recebimento de solicitações de outros serviços
+- **Redis**: Cache e fila de mensagens
+- **TypeORM**: ORM para PostgreSQL
+- **IORedis**: Cliente Redis para NestJS
 
-```bash
-$ npm install
+## Estrutura do Projeto
+
+```
+msnotifications/
+├── src/
+│   ├── notifications/
+│   │   ├── dto/
+│   │   ├── entities/
+│   │   ├── notifications.service.ts
+│   │   ├── notifications.resolver.ts
+│   │   └── notifications.module.ts
+│   ├── graphql/
+│   │   └── graphql.module.ts
+│   ├── grpc/
+│   │   ├── grpc.service.ts
+│   │   └── grpc.module.ts
+│   ├── database/
+│   │   └── database.module.ts
+│   └── main.ts
+└── package.json
 ```
 
-## Compile and run the project
+## Modelo de Dados
 
-```bash
-# development
-$ npm run start
+### Notification
 
-# watch mode
-$ npm run start:dev
+```typescript
+@Entity('notifications')
+export class Notification {
+  @PrimaryGeneratedColumn()
+  id: number;
 
-# production mode
-$ npm run start:prod
+  @Column()
+  userId: number;
+
+  @Column()
+  type: NotificationType; // ORDER_CREATED, DELIVERY_ASSIGNED, etc
+
+  @Column()
+  channel: NotificationChannel; // EMAIL, SMS, PUSH
+
+  @Column({ type: 'json' })
+  payload: any;
+
+  @Column()
+  message: string;
+
+  @Column({ default: false })
+  sent: boolean;
+
+  @Column({ nullable: true })
+  sentAt: Date;
+
+  @Column({ default: 0 })
+  retries: number;
+
+  @Column({ nullable: true })
+  error: string;
+
+  @CreateDateColumn()
+  createdAt: Date;
+}
+
+enum NotificationType {
+  ORDER_CREATED = 'ORDER_CREATED',
+  ORDER_CONFIRMED = 'ORDER_CONFIRMED',
+  DELIVERY_ASSIGNED = 'DELIVERY_ASSIGNED',
+  OUT_FOR_DELIVERY = 'OUT_FOR_DELIVERY',
+  DELIVERED = 'DELIVERED',
+  CANCELLED = 'CANCELLED'
+}
+
+enum NotificationChannel {
+  EMAIL = 'EMAIL',
+  SMS = 'SMS',
+  PUSH = 'PUSH'
+}
 ```
 
-## Run tests
+## API GraphQL
 
-```bash
-# unit tests
-$ npm run test
+### Queries
 
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+```graphql
+type Query {
+  # Buscar notificações de um usuário
+  notificationsByUser(userId: Int!): [Notification!]!
+  
+  # Buscar notificações não lidas
+  unreadNotifications(userId: Int!): [Notification!]!
+  
+  # Buscar histórico de notificações
+  notificationHistory(userId: Int!, limit: Int): [Notification!]!
+}
 ```
 
-## Deployment
+### Mutations
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+```graphql
+type Mutation {
+  # Marcar notificação como lida
+  markAsRead(id: Int!): Notification!
+  
+  # Marcar todas como lidas
+  markAllAsRead(userId: Int!): Boolean!
+}
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### Subscriptions (Futuro)
 
-## Resources
+```graphql
+type Subscription {
+  # Receber notificações em tempo real
+  notificationReceived(userId: Int!): Notification!
+}
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+## API gRPC
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+### Serviços Expostos
 
-## Support
+```protobuf
+service NotificationService {
+  // Enviar notificação
+  rpc SendNotification (SendNotificationRequest) returns (NotificationResponse);
+  
+  // Enviar notificação em lote
+  rpc SendBatchNotifications (BatchNotificationRequest) returns (BatchNotificationResponse);
+  
+  // Reenviar notificação falhada
+  rpc RetryNotification (RetryRequest) returns (NotificationResponse);
+}
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+### Mensagens
 
-## Stay in touch
+```protobuf
+message SendNotificationRequest {
+  int32 userId = 1;
+  string type = 2;
+  string channel = 3;
+  string message = 4;
+  map<string, string> payload = 5;
+}
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+message NotificationResponse {
+  int32 id = 1;
+  bool sent = 2;
+  string error = 3;
+}
+```
 
-## License
+## Sistema de Templates
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+O serviço usa templates para gerar mensagens personalizadas:
+
+```typescript
+class NotificationTemplates {
+  static ORDER_CREATED = {
+    email: {
+      subject: 'Pedido #{orderId} criado com sucesso!',
+      body: 'Olá {customerName}, seu pedido foi criado. Total: R$ {total}'
+    },
+    sms: 'Pedido #{orderId} criado! Total: R$ {total}'
+  };
+
+  static DELIVERY_ASSIGNED = {
+    email: {
+      subject: 'Entregador a caminho!',
+      body: '{deliveryPersonName} está indo buscar seu pedido.'
+    },
+    sms: 'Entregador {deliveryPersonName} a caminho!'
+  };
+
+  static DELIVERED = {
+    email: {
+      subject: 'Pedido entregue!',
+      body: 'Seu pedido #{orderId} foi entregue. Bom apetite!'
+    },
+    sms: 'Pedido #{orderId} entregue!'
+  };
+}
+```
+
+### Uso
+
+```typescript
+async sendOrderCreatedNotification(order: Order, customer: Customer) {
+  const template = NotificationTemplates.ORDER_CREATED;
+  
+  const message = this.replaceVariables(template.sms, {
+    orderId: order.id,
+    customerName: customer.name,
+    total: order.total
+  });
+
+  await this.sendNotification({
+    userId: customer.id,
+    type: 'ORDER_CREATED',
+    channel: 'SMS',
+    message,
+    payload: { orderId: order.id }
+  });
+}
+```
+
+## Cache com Redis
+
+Notificações recentes são armazenadas em cache:
+
+```typescript
+@Injectable()
+class NotificationsService {
+  constructor(
+    @InjectRedis() private readonly redis: Redis
+  ) {}
+
+  async cacheNotification(notification: Notification) {
+    const key = `notifications:user:${notification.userId}`;
+    
+    // Adiciona à lista de notificações do usuário
+    await this.redis.lpush(key, JSON.stringify(notification));
+    
+    // Mantém apenas as 100 mais recentes
+    await this.redis.ltrim(key, 0, 99);
+    
+    // Define expiração de 7 dias
+    await this.redis.expire(key, 7 * 24 * 60 * 60);
+  }
+
+  async getCachedNotifications(userId: number): Promise<Notification[]> {
+    const key = `notifications:user:${userId}`;
+    const cached = await this.redis.lrange(key, 0, -1);
+    
+    return cached.map(item => JSON.parse(item));
+  }
+}
+```
+
+## Sistema de Retry
+
+Notificações falhadas são reenviadas automaticamente:
+
+```typescript
+async sendWithRetry(notification: Notification) {
+  const MAX_RETRIES = 3;
+  
+  try {
+    await this.sendToChannel(notification);
+    
+    notification.sent = true;
+    notification.sentAt = new Date();
+    await this.save(notification);
+    
+  } catch (error) {
+    notification.retries++;
+    notification.error = error.message;
+    
+    if (notification.retries < MAX_RETRIES) {
+      // Retry exponencial: 1min, 5min, 15min
+      const delay = Math.pow(5, notification.retries) * 60 * 1000;
+      
+      await this.scheduleRetry(notification, delay);
+    }
+    
+    await this.save(notification);
+  }
+}
+
+async scheduleRetry(notification: Notification, delay: number) {
+  // Adiciona à fila do Redis com delay
+  await this.redis.zadd(
+    'notifications:retry',
+    Date.now() + delay,
+    notification.id
+  );
+}
+```
+
+## Configuração
+
+### Variáveis de Ambiente
+
+```env
+# Database
+DATABASE_URL="postgresql://user:password@localhost:5432/db_notifications"
+
+# Redis
+REDIS_URL="redis://localhost:6379"
+
+# Server
+PORT=3002
+GRAPHQL_PATH=/graphql
+
+# gRPC
+GRPC_PORT=50052
+
+# External Services
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-password
+
+SMS_API_KEY=your-sms-api-key
+SMS_API_URL=https://api.sms-provider.com
+```
+
+### Instalação
+
+```bash
+npm install
+npm run start:dev
+```
+
+## Exemplos de Uso
+
+### Enviar via gRPC (de outro serviço)
+
+```typescript
+// No msorders após criar pedido
+await this.notificationsClient.sendNotification({
+  userId: customer.id,
+  type: 'ORDER_CREATED',
+  channel: 'EMAIL',
+  message: `Pedido #${order.id} criado!`,
+  payload: {
+    orderId: order.id,
+    total: order.total
+  }
+});
+```
+
+### Consultar via GraphQL
+
+```graphql
+query {
+  notificationsByUser(userId: 1) {
+    id
+    type
+    channel
+    message
+    sent
+    sentAt
+    createdAt
+  }
+}
+```
+
+### Marcar como lida
+
+```graphql
+mutation {
+  markAsRead(id: 1) {
+    id
+    sent
+  }
+}
+```
+
+## Canais Implementados
+
+### Email
+
+```typescript
+async sendEmail(notification: Notification) {
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: process.env.SMTP_PORT,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS
+    }
+  });
+
+  await transporter.sendMail({
+    from: 'noreply@delivery.com',
+    to: notification.payload.email,
+    subject: notification.payload.subject,
+    text: notification.message
+  });
+}
+```
+
+### SMS
+
+```typescript
+async sendSMS(notification: Notification) {
+  const response = await axios.post(process.env.SMS_API_URL, {
+    apiKey: process.env.SMS_API_KEY,
+    to: notification.payload.phone,
+    message: notification.message
+  });
+
+  if (!response.data.success) {
+    throw new Error('Failed to send SMS');
+  }
+}
+```
+
+## Fluxo de Notificação
+
+```
+1. Serviço externo chama gRPC sendNotification
+2. NotificationService valida dados
+3. Cria registro no banco (sent: false)
+4. Adiciona ao cache Redis
+5. Tenta enviar pelo canal especificado
+6. Se sucesso:
+   - Atualiza registro (sent: true, sentAt: now)
+   - Retorna sucesso
+7. Se falha:
+   - Incrementa retries
+   - Agenda retry
+   - Retorna erro
+```
+
+## Regras de Negócio
+
+1. **Retry automático**: Até 3 tentativas com delay exponencial
+2. **Cache**: Últimas 100 notificações por usuário
+3. **Expiração**: Notificações em cache expiram em 7 dias
+4. **Validação**: Email e telefone devem ser válidos
+5. **Rate limiting**: Máximo 10 notificações por minuto por usuário
+6. **Prioridade**: Notificações críticas são enviadas primeiro
+
+## Testes
+
+```bash
+npm run test
+npm run test:e2e
+npm run test:cov
+```
+
+## Monitoramento
+
+```typescript
+this.logger.log('Notification sent', {
+  id: notification.id,
+  type: notification.type,
+  channel: notification.channel,
+  userId: notification.userId
+});
+```
+
+## Troubleshooting
+
+### Email não enviado
+
+```bash
+# Verificar configurações SMTP
+echo $SMTP_HOST
+echo $SMTP_USER
+
+# Testar conexão
+telnet smtp.gmail.com 587
+```
+
+### Redis não conecta
+
+```bash
+# Verificar se Redis está rodando
+docker ps | grep redis
+
+# Testar conexão
+redis-cli ping
+```
+
+### Notificações ficam pendentes
+
+```bash
+# Verificar worker de retry
+npm run start:worker
+
+# Limpar fila
+redis-cli del notifications:retry
+```
