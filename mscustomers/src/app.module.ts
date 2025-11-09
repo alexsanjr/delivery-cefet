@@ -26,7 +26,7 @@ import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin
     CustomersModule,
     GrpcModule,
   ],
-  controllers: [GrpcCustomersService], // Registrar como controller para gRPC
+  controllers: [GrpcCustomersService],
   providers: [],
 })
 export class AppModule {}

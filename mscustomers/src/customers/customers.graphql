@@ -37,25 +37,25 @@ input UpdateCustomerInput {
 }
 
 input CreateAddressInput {
-  street: String!        # ← era "rua"
-  number: String!        # ← era "numero"
-  neighborhood: String!  # ← era "bairro"
-  city: String!          # ← era "cidade"
-  state: String!         # ← era "estado"
-  zipCode: String!       # ← era "cep"
-  complement: String     # ← era "complemento"
-  isPrimary: Boolean     # ← era "principal"
+  street: String!        
+  number: String!        
+  neighborhood: String!  
+  city: String!          
+  state: String!         
+  zipCode: String!       
+  complement: String     
+  isPrimary: Boolean     
 }
 
 input UpdateAddressInput {
-  street: String        # ← era "rua"
-  number: String        # ← era "numero"
-  neighborhood: String  # ← era "bairro"
-  city: String          # ← era "cidade"
-  state: String         # ← era "estado"
-  zipCode: String       # ← era "cep"
-  complement: String    # ← era "complemento"
-  isPrimary: Boolean    # ← era "principal"
+  street: String        
+  number: String        
+  neighborhood: String  
+  city: String          
+  state: String         
+  zipCode: String       
+  complement: String    
+  isPrimary: Boolean    
 }
 
 type Query {
