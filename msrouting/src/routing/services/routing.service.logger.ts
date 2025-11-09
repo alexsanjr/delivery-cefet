@@ -11,22 +11,6 @@ import {
 } from '../dto/routing.objects';
 import type { IRoutingService } from './interfaces/routing-service.interface';
 
-/**
- * Decorator Pattern aplicado para Logging
- * 
- * Open/Closed Principle (O):
- * - Adiciona funcionalidade de logging SEM modificar RoutingService
- * - Estende comportamento mantendo o código base fechado para modificação
- * 
- * Single Responsibility Principle (S):
- * - Responsável APENAS por logging de operações de Routing
- * 
- * Liskov Substitution Principle (L):
- * - Pode substituir qualquer IRoutingService sem quebrar o código
- * 
- * Dependency Inversion Principle (D):
- * - Depende da interface IRoutingService, não de implementação concreta
- */
 @Injectable()
 export class RoutingServiceLogger implements IRoutingService {
   private readonly logger = new Logger('RoutingService');
@@ -124,7 +108,6 @@ export class RoutingServiceLogger implements IRoutingService {
         `Custo total: R$${optimized.total_cost.toFixed(2)}`
       );
       
-      // Log detalhado de cada veículo
       optimized.vehicle_routes.forEach((vr, index) => {
         this.logger.debug(
           `   📍 Veículo ${index + 1} (${vr.vehicle.vehicle_id}): ${vr.assigned_deliveries.length} entregas | ` +

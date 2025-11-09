@@ -1,7 +1,6 @@
 import { ObjectType, Field, Float, Int, registerEnumType } from '@nestjs/graphql';
 import { RouteStrategy, TrafficLevel } from './routing.objects';
 
-// Register enums for GraphQL (hybrid approach like MSCustomers)
 registerEnumType(RouteStrategy, {
   name: 'RouteStrategy',
   description: 'Estratégias de cálculo de rota disponíveis',

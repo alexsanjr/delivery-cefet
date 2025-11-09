@@ -15,7 +15,6 @@ export class ExternalMapsClient {
     this.apiKey = this.config.get<string>('GEOAPIFY_API_KEY')?.trim() ?? '';
   }
 
-  /** Retorna rota completa usando apenas a API do Geoapify */
   async getDirections(
     origin: Point,
     destination: Point,
@@ -26,8 +25,8 @@ export class ExternalMapsClient {
     } = {},
   ): Promise<{
     polyline: string;
-    distance: number;   // metros
-    duration: number;   // segundos
+    distance: number;   
+    duration: number;   
     steps: Array<{
       instruction: string;
       distance_meters: number;
@@ -36,7 +35,7 @@ export class ExternalMapsClient {
       end_location: Point;
     }>;
   }> {
-    // Se não há API key, usa implementação mock
+
     if (!this.apiKey) {
       return this.getMockDirections(origin, destination, options);
     }
@@ -53,11 +52,10 @@ export class ExternalMapsClient {
 
       const { properties, geometry } = feature;
       
-      // A estrutura da Geoapify é diferente - coordenadas estão em geometry.geometry.coordinates
       const coords = geometry.geometry?.coordinates?.[0] || geometry.coordinates?.[0] || [];
 
       const result = {
-        polyline: this.encodePolyline(coords), // polyline encoded
+        polyline: this.encodePolyline(coords),
         distance: properties.distance || 0,
         duration: properties.time || 0,
         steps: [{
@@ -73,18 +71,15 @@ export class ExternalMapsClient {
             longitude: coords[coords.length - 1]?.[0] || 0,
           },
         }],
-        // Adiciona coordenadas brutas para debug
         rawCoordinates: coords,
       };
       
       return result;
     } catch (error) {
-      // Fallback to mock data on API error
       return this.getMockDirections(origin, destination, options);
     }
   }
 
-  /** Implementação mock para desenvolvimento e fallback */
   private getMockDirections(
     origin: Point,
     destination: Point,
@@ -106,8 +101,7 @@ export class ExternalMapsClient {
   } {
     const distance = this.haversineDistance(origin, destination);
     
-    // Adjust speed based on mode
-    let speedKph = 40; // default driving speed
+    let speedKph = 40;
     let modeText = 'de carro';
     if (options.mode === 'walking') {
       speedKph = 5;
@@ -118,7 +112,7 @@ export class ExternalMapsClient {
       modeText = 'de bicicleta';
     }
     
-    const duration = (distance / 1000) / speedKph * 3600; // seconds
+    const duration = (distance / 1000) / speedKph * 3600;
     
     return {
       polyline: this.encodeMockPolyline(origin, destination),
@@ -128,9 +122,6 @@ export class ExternalMapsClient {
     };
   }
 
-  /**
-   * Gera instruções mais realistas em português brasileiro
-   */
   private generateBrazilianSteps(
     origin: Point,
     destination: Point,
@@ -156,7 +147,6 @@ export class ExternalMapsClient {
     const distanceKm = (totalDistance / 1000).toFixed(1);
     const durationMin = Math.round(totalDuration / 60);
 
-    // Primeira instrução - saída
     steps.push({
       instruction: `Siga ${direction} ${mode} por ${distanceKm} km`,
       distance_meters: Math.round(totalDistance * 0.7),
@@ -168,7 +158,6 @@ export class ExternalMapsClient {
       },
     });
 
-    // Instrução intermediária
     if (totalDistance > 1000) {
       const midPoint = {
         latitude: origin.latitude + (destination.latitude - origin.latitude) * 0.7,
@@ -187,7 +176,6 @@ export class ExternalMapsClient {
       });
     }
 
-    // Instrução final
     const lastPoint = steps.length > 1 ? steps[steps.length - 1].end_location : origin;
     steps.push({
       instruction: `Você chegará ao destino em ${durationMin} minutos`,
@@ -209,7 +197,7 @@ export class ExternalMapsClient {
 
   private buildWaypoints(origin: Point, dest: Point, waypoints?: Point[]): string {
     const pts = [origin, ...(waypoints ?? []), dest];
-    // Tentando latitude,longitude baseado no erro da API
+
     return pts.map(p => `${p.latitude},${p.longitude}`).join('|');
   }
 
@@ -220,7 +208,6 @@ export class ExternalMapsClient {
     return values.length ? `&avoid=${values.join('|')}` : '';
   }
 
-  /** Converte GeoJSON → Google-encoded polyline */
   private encodePolyline(coords: number[][]): string {
     let encoded = '';
     let prevLat = 0;
@@ -287,9 +274,6 @@ export class ExternalMapsClient {
     return `mock_polyline_encoded_string`;
   }
 
-  /**
-   * Gera pontos intermediários mais realistas para a rota
-   */
   private generateRoutePoints(origin: Point, destination: Point): Point[] {
     const points: Point[] = [origin];
     

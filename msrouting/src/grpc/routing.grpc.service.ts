@@ -12,7 +12,6 @@ import {
   OptimizedRouteResponse,
 } from '../routing/dto/routing.objects';
 
-// Interfaces para o gRPC baseadas no proto
 interface Point {
   latitude: number;
   longitude: number;
@@ -81,15 +80,14 @@ export class RoutingGrpcService {
 
       if (!data.origin || !data.destination) {
         throw new RpcException({
-          code: 3, // INVALID_ARGUMENT
+          code: 3,
           message: 'Origin and destination are required',
         });
       }
 
-      // Validar coordenadas
       if (!this.isValidCoordinate(data.origin) || !this.isValidCoordinate(data.destination)) {
         throw new RpcException({
-          code: 3, // INVALID_ARGUMENT
+          code: 3,
           message: 'Invalid coordinates. Latitude must be between -90 and 90, longitude between -180 and 180',
         });
       }
@@ -105,7 +103,7 @@ export class RoutingGrpcService {
     } catch (error) {
       this.logger.error('CalculateRoute error:', error);
       throw new RpcException({
-        code: 13, // INTERNAL
+        code: 13,
         message: `Route calculation failed: ${error.message}`,
       });
     }
@@ -147,7 +145,7 @@ export class RoutingGrpcService {
 
       if (!data.depot || !data.deliveries || data.deliveries.length === 0) {
         throw new RpcException({
-          code: 3, // INVALID_ARGUMENT
+          code: 3,
           message: 'Depot and at least one delivery are required',
         });
       }
@@ -162,13 +160,12 @@ export class RoutingGrpcService {
     } catch (error) {
       this.logger.error('OptimizeDeliveryRoute error:', error);
       throw new RpcException({
-        code: 13, // INTERNAL
+        code: 13,
         message: `Route optimization failed: ${error.message}`,
       });
     }
   }
 
-  // Mappers
   private mapPoint(point: Point): InternalPoint {
     return {
       latitude: point.latitude,
@@ -177,7 +174,6 @@ export class RoutingGrpcService {
   }
 
   private mapRouteStrategy(strategy: number | string): RouteStrategy {
-    // Se for string, converte para o enum correspondente
     if (typeof strategy === 'string') {
       const stringMap: { [key: string]: RouteStrategy } = {
         'STRATEGY_UNSPECIFIED': RouteStrategy.STRATEGY_UNSPECIFIED,
@@ -201,7 +197,6 @@ export class RoutingGrpcService {
   }
 
   private mapTrafficLevel(level: number): TrafficLevel {
-    // Mapeia valores numéricos do proto para o enum interno
     const levelMap: { [key: number]: TrafficLevel } = {
       0: TrafficLevel.TRAFFIC_UNSPECIFIED,
       1: TrafficLevel.LIGHT,
@@ -298,8 +293,6 @@ export class RoutingGrpcService {
     };
   }
 
-
-  // Valida se as coordenadas estão dentro dos limites válidos da Terra
   private isValidCoordinate(point: Point): boolean {
     if (!point || typeof point.latitude !== 'number' || typeof point.longitude !== 'number') {
       return false;

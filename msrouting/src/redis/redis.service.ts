@@ -1,4 +1,3 @@
-// src/redis/redis.service.ts
 import { Injectable, Inject } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
@@ -9,7 +8,7 @@ export interface RouteCacheData {
   total_duration: number;
   polyline: string;
   cost_estimate: number;
-  steps: any[];  // RouteStep[]
+  steps: any[]; 
 }
 
 export interface OptimizedRouteCacheData {

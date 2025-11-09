@@ -1,4 +1,3 @@
-// === Enums (sincronizados com .proto) ===
 export enum RouteStrategy {
   STRATEGY_UNSPECIFIED = 0,
   FASTEST = 1,
