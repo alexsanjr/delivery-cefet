@@ -1,6 +1,4 @@
 export function decodePolyline(encoded: string): { latitude: number; longitude: number }[] {
-  //TODO: Se for um mock polyline, retornar pontos mock realistas
-  //TODO: Retorna array vazio para que seja usado o generateRoutePoints
   if (encoded === 'mock_polyline_encoded_string' || encoded.includes('mock')) {
     return []; 
   }

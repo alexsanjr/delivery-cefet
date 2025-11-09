@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { RouteStrategy } from './route.strategy';
 import { Point, RouteResponse } from '../dto/routing.objects';
-import { ExternalMapsClient } from '../../grpc/clients/external-maps.client';
+import { ExternalMapsClient } from '../clients/external-maps.client';
 import { decodePolyline } from '../utils/polyline.util';
 
 @Injectable()
@@ -9,10 +9,8 @@ export class ShortestRouteStrategy implements RouteStrategy {
   constructor(private mapsClient: ExternalMapsClient) {}
 
   async calculateRoute(origin: Point, destination: Point, waypoints: Point[] = []): Promise<RouteResponse> {
-    // Usar API real para rota mais curta
     const route = await this.mapsClient.getDirections(origin, destination, { mode: 'driving' });
 
-    // Modifica as instruções para indicar que é rota mais curta
     const shortestSteps = route.steps.map((step, index) => {
       if (index === 0) {
         return {
@@ -25,13 +23,13 @@ export class ShortestRouteStrategy implements RouteStrategy {
 
     return {
       path: decodePolyline(route.polyline),
-      distance_meters: route.distance,
-      duration_seconds: route.duration,
+      distance_meters: Math.round(route.distance),
+      duration_seconds: Math.round(route.duration),
       encoded_polyline: route.polyline,
       steps: shortestSteps,
       estimated_cost: this.getCostEstimate({ 
-        distance_meters: route.distance, 
-        duration_seconds: route.duration, 
+        distance_meters: Math.round(route.distance), 
+        duration_seconds: Math.round(route.duration), 
         path: decodePolyline(route.polyline),
         encoded_polyline: route.polyline,
         steps: shortestSteps,
@@ -47,9 +45,8 @@ export class ShortestRouteStrategy implements RouteStrategy {
 
   getCostEstimate(route: RouteResponse): number {
     const distanceKm = route.distance_meters / 1000;
-    // Rota mais curta pode ser mais cara por usar vias menores
-    const baseCost = distanceKm * 0.45; // Menor custo por km
-    const timePenalty = (route.duration_seconds / 3600) * 8; // Menos tempo = menor custo
+    const baseCost = distanceKm * 0.45;
+    const timePenalty = (route.duration_seconds / 3600) * 8;
     return baseCost + timePenalty;
   }
 }

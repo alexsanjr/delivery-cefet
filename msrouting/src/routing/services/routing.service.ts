@@ -14,9 +14,10 @@ import { EconomicalRouteStrategy } from '../strategies/economical-route.strategy
 import { EcoFriendlyRouteStrategy } from '../strategies/eco-friendly.strategy';
 import { ShortestRouteStrategy } from '../strategies/shortest-route.strategy';
 import { RouteOptimizerService } from './route-optimizer.service';
+import { IRoutingService } from './interfaces/routing-service.interface';
 
 @Injectable()
-export class RoutingService {
+export class RoutingService implements IRoutingService {
   private strategies: Map<RouteStrategy, any> = new Map();
 
   constructor(
@@ -111,9 +112,8 @@ export class RoutingService {
   ): Promise<OptimizedRouteResponse> {
     const optimizedRoutes = await this.routeOptimizer.solveVRP(depot, deliveries, vehicles);
     
-    // Mapear os dados do RouteOptimizer para o formato esperado pelo GraphQL
     const vehicleRoutes = await Promise.all(optimizedRoutes.map(async (optimizedRoute) => {
-      // Criar uma rota usando a estratégia fastest para cada veículo
+
       const routePoints = [depot, ...optimizedRoute.deliveries.map(d => d.location), depot];
       const fullRoute = await this.calculateRoute(routePoints[0], routePoints[routePoints.length - 1], RouteStrategy.FASTEST, routePoints.slice(1, -1));
       

@@ -1,8 +1,7 @@
-// src/routing/strategies/eco-friendly.strategy.ts
 import { Injectable } from '@nestjs/common';
 import { RouteStrategy } from './route.strategy';
 import { Point, RouteResponse } from '../dto/routing.objects';
-import { ExternalMapsClient } from '../../grpc/clients/external-maps.client';
+import { ExternalMapsClient } from '../clients/external-maps.client';
 import { decodePolyline } from '../utils/polyline.util';
 
 @Injectable()
@@ -27,8 +26,8 @@ export class EcoFriendlyRouteStrategy implements RouteStrategy {
 
     return {
       path: decodePolyline(bestRoute.polyline),
-      distance_meters: bestRoute.distance,
-      duration_seconds: bestRoute.duration,
+      distance_meters: Math.round(bestRoute.distance),
+      duration_seconds: Math.round(bestRoute.duration),
       encoded_polyline: bestRoute.polyline,
       steps: bestRoute.steps,
       estimated_cost: this.getCostEstimateForVehicle(bestRoute, vehicleType),
