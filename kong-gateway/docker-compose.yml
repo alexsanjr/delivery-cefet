@@ -216,7 +216,7 @@ services:
       GRPC_PORT: 50052
     volumes:
       - ../mscustomers/src/grpc/customers.proto:/app/dist/grpc/customers.proto:ro
-      - ../msnotifications/src/grpc/notifications.proto:/app/dist/grpc/notifications.proto:ro
+      - ../msnotifications/src/presentation/grpc/notifications.proto:/app/dist/presentation/grpc/notifications.proto:ro
       - ../msrouting/src/grpc/routing.proto:/app/dist/grpc/routing.proto:ro
       - ../mstracking/src/grpc/tracking.proto:/app/dist/grpc/tracking.proto:ro
     command: ["node", "dist/main"]
@@ -299,9 +299,12 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV}
       REDIS_URL: redis://redis-notifications:6379
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672
       GRPC_PORT: 50053
     depends_on:
       redis-notifications:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - kong-net
@@ -321,6 +324,24 @@ services:
       - kong-net
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - kong-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -439,7 +460,7 @@ services:
       GRPC_PORT: 50055
       PORT: 3005
     volumes:
-      - ../msnotifications/src/grpc/notifications.proto:/app/dist/grpc/notifications.proto:ro
+      - ../msnotifications/src/presentation/grpc/notifications.proto:/app/dist/presentation/grpc/notifications.proto:ro
       - ../msorders/src/grpc/orders.proto:/app/dist/grpc/orders.proto:ro
       - ../msrouting/src/grpc/routing.proto:/app/dist/grpc/routing.proto:ro
     command: ["node", "dist/main"]
@@ -488,6 +509,7 @@ volumes:
   postgres_delivery_data:
   redis_notifications_data:
   redis_routing_data:
+  rabbitmq_data:
 
 networks:
   kong-net:
