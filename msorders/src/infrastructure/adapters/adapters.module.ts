@@ -18,7 +18,7 @@ import { CustomersClient } from '../../grpc/customers.client';
         transport: Transport.GRPC,
         options: {
           package: 'customers',
-          protoPath: join(__dirname, '../../../grpc/customers.proto'),
+          protoPath: join(__dirname, '../../../src/grpc/customers.proto'),
           url: process.env.CUSTOMERS_GRPC_URL || 'localhost:50051',
         },
       },

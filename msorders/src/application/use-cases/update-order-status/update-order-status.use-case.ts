@@ -75,6 +75,7 @@ export class UpdateOrderStatusUseCase {
       id: order.id,
       customerId: order.customerId,
       status: order.status.value,
+      paymentMethod: order.paymentMethod.value,
       deliveryAddress: order.deliveryAddress.toString(),
       deliveryFee: order.deliveryFee.amount,
       total: order.total.amount,

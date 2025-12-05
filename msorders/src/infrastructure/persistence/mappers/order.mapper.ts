@@ -3,7 +3,7 @@ import type {
   OrderItem as PrismaOrderItem,
   OrderStatus as PrismaOrderStatus,
   PaymentMethod as PrismaPaymentMethod,
-} from '../../../generated/prisma';
+} from '../../../../generated/prisma';
 import { Order } from '../../../domain/aggregates/order/order.aggregate';
 import { OrderItem } from '../../../domain/entities/order-item.entity';
 import { Money } from '../../../domain/value-objects/money.vo';
@@ -71,7 +71,9 @@ export class OrderMapper {
       customerId: prismaOrder.customerId,
       items,
       deliveryAddress: address,
-      paymentMethod: PaymentMethod.create(paymentMethodMap[prismaOrder.paymentMethod]),
+      paymentMethod: PaymentMethod.create(
+        paymentMethodMap[prismaOrder.paymentMethod],
+      ),
       deliveryFee: Money.create(Number(prismaOrder.deliveryFee), 'BRL'),
       total: Money.create(Number(prismaOrder.total), 'BRL'),
       status: OrderStatus.create(statusMap[prismaOrder.status]),

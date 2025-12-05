@@ -62,9 +62,7 @@ export class PaymentMethod extends ValueObject<PaymentMethodProps> {
   }
 
   requiresOnlinePayment(): boolean {
-    return (
-      this.isCreditCard() || this.isDebitCard() || this.isPix()
-    );
+    return this.isCreditCard() || this.isDebitCard() || this.isPix();
   }
 
   toString(): string {

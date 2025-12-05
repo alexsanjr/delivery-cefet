@@ -60,7 +60,7 @@ export class CreateOrderUseCase {
 
     // 3. Calcular taxa de entrega usando Domain Service
     let deliveryFeeMoney: Money;
-    
+
     if (dto.deliveryFee !== undefined) {
       deliveryFeeMoney = Money.create(dto.deliveryFee, 'BRL');
     } else {

@@ -29,7 +29,7 @@ export class DeliveryFeeCalculator {
    * Calcula a taxa de entrega baseada no endereço
    * Se o endereço tiver coordenadas, pode ser usado para cálculo de rota
    * Por enquanto, retorna taxa base se não houver coordenadas
-   * 
+   *
    * @param address - Endereço de entrega
    * @param restaurantLatitude - Latitude do restaurante (opcional)
    * @param restaurantLongitude - Longitude do restaurante (opcional)
@@ -41,7 +41,11 @@ export class DeliveryFeeCalculator {
     restaurantLongitude?: number,
   ): Money {
     // Se não tiver coordenadas, usar taxa base
-    if (!address.hasCoordinates() || !restaurantLatitude || !restaurantLongitude) {
+    if (
+      !address.hasCoordinates() ||
+      !restaurantLatitude ||
+      !restaurantLongitude
+    ) {
       return Money.create(this.BASE_FEE, 'BRL');
     }
 
