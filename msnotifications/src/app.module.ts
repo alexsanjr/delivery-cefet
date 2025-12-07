@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
-import { RedisModule } from '@nestjs-modules/ioredis';
 import { NotificationsModule } from './application/application.module';
 import { GrpcModule } from './presentation/grpc/grpc.module';
 import { GraphQLNotificationsModule } from './presentation/graphql/graphql.module';
@@ -15,10 +14,6 @@ import { GraphQLNotificationsModule } from './presentation/graphql/graphql.modul
             introspection: true,
             csrfPrevention: false,
             sortSchema: true,
-        }),
-        RedisModule.forRoot({
-            type: 'single',
-            url: process.env.REDIS_URL || 'redis://localhost:6379',
         }),
         NotificationsModule,
         GrpcModule,
