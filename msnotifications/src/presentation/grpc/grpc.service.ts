@@ -1,7 +1,7 @@
 import { Controller } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
-import { NotificationsService } from '../notifications/notifications.service';
-import { CreateNotificationDto } from '../notifications/dto/notifications-create.dto';
+import { NotificationApplicationService } from '../../application/services/notification-application.service';
+import { CreateNotificationDto } from '../../application/dtos/notifications-create.dto';
 
 interface NotificationRequest {
     userId: string;
@@ -42,7 +42,7 @@ interface DisconnectClientResponse {
 
 @Controller()
 export class GrpcNotificationsService {
-    constructor(private readonly notificationsService: NotificationsService) {}
+    constructor(private readonly notificationApplicationService: NotificationApplicationService) {}
 
     @GrpcMethod('NotificationsService', 'SendNotification')
     async sendNotification(data: NotificationRequest): Promise<NotificationResponse> {
@@ -55,7 +55,7 @@ export class GrpcNotificationsService {
                 message: data.message,
             };
 
-            const notification = await this.notificationsService.createNotification(createDto);
+            const notification = await this.notificationApplicationService.sendNotification(createDto);
 
             return {
                 id: notification.id,
@@ -74,7 +74,7 @@ export class GrpcNotificationsService {
     @GrpcMethod('NotificationsService', 'ConnectClient')
     async connectClient(data: ConnectClientRequest): Promise<ConnectClientResponse> {
         try {
-            this.notificationsService.connectClient(data.userId);
+            this.notificationApplicationService.connectClient(data.userId);
             return {
                 success: true,
                 message: `Cliente ${data.userId} conectado com sucesso`,
@@ -90,7 +90,7 @@ export class GrpcNotificationsService {
     @GrpcMethod('NotificationsService', 'DisconnectClient')
     async disconnectClient(data: DisconnectClientRequest): Promise<DisconnectClientResponse> {
         try {
-            this.notificationsService.disconnectClient(data.userId);
+            this.notificationApplicationService.disconnectClient(data.userId);
             return {
                 success: true,
                 message: `Cliente ${data.userId} desconectado com sucesso`,

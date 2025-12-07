@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { GrpcNotificationsService } from './grpc.service';
-import { NotificationsModule } from '../notifications/notifications.module';
+import { NotificationsModule } from '../../application/application.module';
 
 @Module({
     imports: [NotificationsModule],
