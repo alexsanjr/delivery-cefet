@@ -9,6 +9,9 @@ export class FastestRouteStrategy implements RouteStrategy {
   constructor(private mapsClient: ExternalMapsClient) {}
 
   async calculateRoute(origin: Point, destination: Point, waypoints: Point[] = []): Promise<RouteResponse> {
+    console.log('🟦 FASTEST STRATEGY EXECUTANDO');
+    
+    // FASTEST: Usa qualquer via, incluindo rodovias, para chegar mais rápido
     const route = await this.mapsClient.getDirections(origin, destination, { mode: 'driving' });
 
     const fastestSteps = route.steps.map((step, index) => {
@@ -47,7 +50,8 @@ export class FastestRouteStrategy implements RouteStrategy {
   getCostEstimate(route: RouteResponse): number {
     const km = route.distance_meters / 1000;
     const hours = route.duration_seconds / 3600;
-    return km * 0.5 + hours * 12;
+    // FASTEST: Custo mais alto (usa rodovias, mais rápido mas mais caro)
+    return km * 1.00 + hours * 15;
   }
 
   private getCostEstimateFromResponse(route: any): number {
