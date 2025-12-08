@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { CustomersModule } from './customers/customers.module';
-import { PrismaModule } from './prisma/prisma.module';
-import { GrpcModule } from './grpc/grpc.module';
-import { GrpcCustomersService } from './grpc/customers.grpc.service';
+import { PrismaModule } from './infrastructure/prisma/prisma.module';
+import { GraphqlModule } from './presentation/graphql/graphql.module';
+import { GrpcModule } from './presentation/grpc.module';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
 
+// Módulo raiz: integra GraphQL, gRPC e configurações gerais
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -16,17 +16,17 @@ import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin
     }),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
+      autoSchemaFile: true,
       playground: false,
       introspection: true,
       sortSchema: true,
       plugins: [ApolloServerPluginLandingPageLocalDefault()],
-      typePaths: ['./**/*.graphql'],
     }),
     PrismaModule,
-    CustomersModule,
+    GraphqlModule,
     GrpcModule,
   ],
-  controllers: [GrpcCustomersService],
+  controllers: [],
   providers: [],
 })
 export class AppModule {}
