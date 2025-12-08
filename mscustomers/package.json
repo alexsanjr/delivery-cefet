@@ -18,14 +18,14 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "prisma:generate": "npx prisma generate --schema ./src/prisma/schema.prisma",
-    "prisma:migrate": "npx prisma migrate dev --schema ./src/prisma/schema.prisma",
-    "prisma:reset": "npx prisma migrate reset --force --schema ./src/prisma/schema.prisma",
-    "prisma:seed": "npx prisma db seed --schema ./src/prisma/schema.prisma",
-    "prisma:studio": "npx prisma studio --schema ./src/prisma/schema.prisma"
+    "prisma:generate": "npx prisma generate --schema ./src/infrastructure/prisma/schema.prisma",
+    "prisma:migrate": "npx prisma migrate dev --schema ./src/infrastructure/prisma/schema.prisma",
+    "prisma:reset": "npx prisma migrate reset --force --schema ./src/infrastructure/prisma/schema.prisma",
+    "prisma:seed": "npx prisma db seed --schema ./src/infrastructure/prisma/schema.prisma",
+    "prisma:studio": "npx prisma studio --schema ./src/infrastructure/prisma/schema.prisma"
   },
   "prisma": {
-    "seed": "ts-node src/prisma/seed.ts"
+    "seed": "ts-node src/infrastructure/prisma/seed.ts"
   },
   "dependencies": {
     "@apollo/server": "^5.0.0",
