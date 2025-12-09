@@ -2,7 +2,10 @@ import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { join } from 'path';
 import { DeliveryResolver } from './delivery.resolver';
+import { AsyncDeliveryResolver } from './async-delivery.resolver';
+import { DeliveryFieldResolver } from './delivery-field.resolver';
 import { DeliveryServiceImpl } from './delivery.service';
+import { DataLoadersModule } from '../dataloaders/dataloaders.module';
 
 @Module({
   imports: [
@@ -20,10 +23,14 @@ import { DeliveryServiceImpl } from './delivery.service';
         },
       },
     ]),
+    DataLoadersModule,
   ],
   providers: [
-    DeliveryResolver, 
+    DeliveryResolver,
+    AsyncDeliveryResolver,
+    DeliveryFieldResolver,
     { provide: 'DeliveryService', useClass: DeliveryServiceImpl },
   ],
+  exports: ['DeliveryService'],
 })
 export class DeliveryModule {}
