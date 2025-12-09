@@ -1,15 +1,11 @@
 import { Module } from '@nestjs/common';
-import { PrismaModule } from './prisma/prisma.module';
-import { DeliveryPersonsModule } from './delivery-persons/delivery-persons.module';
-import { DeliveriesModule } from './deliveries/deliveries.module';
-import { GrpcModule } from './grpc/grpc.module';
+import { DeliveryPersonModule } from './infrastructure/modules/delivery-person.module';
+import { DeliveryModule } from './infrastructure/modules/delivery.module';
 
 @Module({
   imports: [
-    PrismaModule,
-    GrpcModule,
-    DeliveryPersonsModule,
-    DeliveriesModule,
+    DeliveryPersonModule,
+    DeliveryModule,
   ],
 })
 export class AppModule {}

@@ -9,4 +9,3 @@ README.md
 *.log
 coverage
 .nyc_output
-bff-delivery
