@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../infrastructure/prisma/prisma.module';
+import { RabbitMQModule } from '../../infrastructure/messaging/rabbitmq.module';
 
 // Resolvers
 import { CustomersResolver } from './resolvers/customers.resolver';
@@ -19,9 +20,13 @@ import { RepositorioPrismaCliente } from '../../infrastructure/persistence/repos
 import { RepositorioPrismaEndereco } from '../../infrastructure/persistence/repositories/prisma-address.repository';
 import { TOKEN_REPOSITORIO_CLIENTE, TOKEN_REPOSITORIO_ENDERECO } from '../../domain/repositories/injection-tokens';
 
+// Events
+import { ClienteEventPublisher } from '../../domain/events/customer-event.publisher';
+import { CustomerEventsConsumer } from '../../infrastructure/messaging/consumers/customer-events.consumer';
+
 // Módulo GraphQL: configura DI e conecta todas as camadas
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, RabbitMQModule],
   providers: [
     // Resolvers
     CustomersResolver,
@@ -35,6 +40,10 @@ import { TOKEN_REPOSITORIO_CLIENTE, TOKEN_REPOSITORIO_ENDERECO } from '../../dom
     AdicionarEnderecoCasoDeUso,
     AtualizarEnderecoCasoDeUso,
     RemoverEnderecoCasoDeUso,
+
+    // Events - Domain Layer
+    ClienteEventPublisher,
+    CustomerEventsConsumer,
 
     // Repositories - Infrastructure Layer (Adaptadores)
     {
