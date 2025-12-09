@@ -1,0 +1,106 @@
+syntax = "proto3";
+
+package delivery.events;
+
+// ========== Delivery Events ==========
+
+message DeliveryCreatedEvent {
+  int32 delivery_id = 1;
+  int32 order_id = 2;
+  double customer_latitude = 3;
+  double customer_longitude = 4;
+  string customer_address = 5;
+  string status = 6;
+  string created_at = 7;
+}
+
+message DeliveryAssignedEvent {
+  int32 delivery_id = 1;
+  int32 order_id = 2;
+  int32 delivery_person_id = 3;
+  string delivery_person_name = 4;
+  string delivery_person_phone = 5;
+  string vehicle_type = 6;
+  int32 estimated_delivery_time = 7;
+  string assigned_at = 8;
+}
+
+message DeliveryStatusUpdatedEvent {
+  int32 delivery_id = 1;
+  int32 order_id = 2;
+  string previous_status = 3;
+  string new_status = 4;
+  string updated_at = 5;
+  optional int32 delivery_person_id = 6;
+}
+
+message DeliveryCompletedEvent {
+  int32 delivery_id = 1;
+  int32 order_id = 2;
+  int32 delivery_person_id = 3;
+  string delivered_at = 4;
+  int32 actual_delivery_time = 5;
+}
+
+// ========== Delivery Person Events ==========
+
+message DeliveryPersonCreatedEvent {
+  int32 delivery_person_id = 1;
+  string name = 2;
+  string cpf = 3;
+  string email = 4;
+  string phone = 5;
+  string vehicle_type = 6;
+  string status = 7;
+  string created_at = 8;
+}
+
+message DeliveryPersonStatusUpdatedEvent {
+  int32 delivery_person_id = 1;
+  string previous_status = 2;
+  string new_status = 3;
+  string updated_at = 4;
+}
+
+message DeliveryPersonLocationUpdatedEvent {
+  int32 delivery_person_id = 1;
+  double latitude = 2;
+  double longitude = 3;
+  string updated_at = 4;
+}
+
+// ========== Command Messages (for async processing) ==========
+
+message AssignDeliveryCommand {
+  int32 order_id = 1;
+  int32 delivery_person_id = 2;
+  string correlation_id = 3;
+  string timestamp = 4;
+}
+
+message CreateDeliveryCommand {
+  int32 order_id = 1;
+  double customer_latitude = 2;
+  double customer_longitude = 3;
+  string customer_address = 4;
+  string correlation_id = 5;
+  string timestamp = 6;
+}
+
+message UpdateDeliveryStatusCommand {
+  int32 delivery_id = 1;
+  string status = 2;
+  string correlation_id = 3;
+  string timestamp = 4;
+}
+
+// ========== Wrapper for Queue Messages ==========
+
+message QueueMessage {
+  string message_id = 1;
+  string correlation_id = 2;
+  string event_type = 3;
+  bytes payload = 4;
+  string timestamp = 5;
+  int32 retry_count = 6;
+}
