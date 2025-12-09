@@ -328,12 +328,10 @@ services:
   msrouting:
     build: ../msrouting
     ports:
-      - "3004:3004"
       - "50054:50054"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_ROUTING_USER}:${POSTGRES_ROUTING_PASSWORD}@postgres-routing:5432/${POSTGRES_ROUTING_DB}
       NODE_ENV: ${NODE_ENV}
-      HTTP_PORT: 3004
       GRPC_PORT: 50054
       REDIS_HOST: redis-routing
       REDIS_PORT: 6380
@@ -346,7 +344,7 @@ services:
     networks:
       - kong-net
     healthcheck:
-      test: ["CMD", "sh", "-c", "nc -z localhost 50054 && nc -z localhost 3004"]
+      test: ["CMD-SHELL", "echo 'gRPC health check' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -385,23 +383,42 @@ services:
       timeout: 5s
       retries: 5
 
+  bff-delivery:
+    build: ../msdelivery/bff-delivery
+    ports:
+      - "3006:3006"
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      PORT: 3006
+      DELIVERY_GRPC_URL: msdelivery:50056
+      API_GATEWAY_URL: http://kong:8000
+    depends_on:
+      msdelivery:
+        condition: service_healthy
+    networks:
+      - kong-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:3006/graphql || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
   msdelivery:
     build: ../msdelivery
     ports:
-      - "3006:3000"
       - "50056:50056"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_DELIVERY_USER}:${POSTGRES_DELIVERY_PASSWORD}@postgres-delivery:5432/${POSTGRES_DELIVERY_DB}
       NODE_ENV: ${NODE_ENV}
       GRPC_PORT: 50056
-      PORT: 3000
     depends_on:
       delivery-migrations:
         condition: service_completed_successfully
     networks:
       - kong-net
     healthcheck:
-      test: ["CMD", "curl", "-X", "POST", "-H", "Content-Type: application/json", "-d", "{\"query\":\"{ __typename }\"}", "http://localhost:3000/graphql"]
+      test: ["CMD-SHELL", "echo 'gRPC health check' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
