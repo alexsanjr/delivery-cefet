@@ -392,8 +392,11 @@ services:
       PORT: 3006
       DELIVERY_GRPC_URL: msdelivery:50056
       API_GATEWAY_URL: http://kong:8000
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672
     depends_on:
       msdelivery:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - kong-net
@@ -412,9 +415,12 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_DELIVERY_USER}:${POSTGRES_DELIVERY_PASSWORD}@postgres-delivery:5432/${POSTGRES_DELIVERY_DB}
       NODE_ENV: ${NODE_ENV}
       GRPC_PORT: 50056
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672
     depends_on:
       delivery-migrations:
         condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
     networks:
       - kong-net
     healthcheck:
@@ -496,6 +502,25 @@ services:
       timeout: 5s
       retries: 10
 
+  # RabbitMQ para comunicação assíncrona entre microsserviços
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"   # AMQP protocol
+      - "15672:15672" # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - kong-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   kong-config:
   postgres_orders_data:
@@ -505,6 +530,7 @@ volumes:
   postgres_delivery_data:
   redis_notifications_data:
   redis_routing_data:
+  rabbitmq_data:
 
 networks:
   kong-net:
