@@ -3,10 +3,27 @@ syntax = "proto3";
 package deliveryperson;
 
 service DeliveryPersonService {
+  // Queries
   rpc GetDeliveryPerson (GetDeliveryPersonRequest) returns (GetDeliveryPersonResponse);
+  rpc ListAllDeliveryPersons (ListAllRequest) returns (DeliveryPersonsList);
   rpc FindAvailableDeliveryPersons (FindAvailableRequest) returns (DeliveryPersonsList);
-  rpc UpdateDeliveryPersonStatus (UpdateStatusRequest) returns (UpdateResponse);
-  rpc UpdateDeliveryPersonLocation (UpdateLocationRequest) returns (UpdateResponse);
+  
+  // Mutations - CRUD
+  rpc CreateDeliveryPerson (CreateDeliveryPersonRequest) returns (DeliveryPersonResponse);
+  rpc UpdateDeliveryPerson (UpdateDeliveryPersonRequest) returns (DeliveryPersonResponse);
+  rpc DeleteDeliveryPerson (DeleteDeliveryPersonRequest) returns (DeliveryPersonResponse);
+  
+  // Mutations - Status e Localização
+  rpc UpdateDeliveryPersonStatus (UpdateStatusRequest) returns (DeliveryPersonResponse);
+  rpc UpdateDeliveryPersonLocation (UpdateLocationRequest) returns (DeliveryPersonResponse);
+  
+  // Mutations - Ativar/Desativar
+  rpc ActivateDeliveryPerson (ActivateDeliveryPersonRequest) returns (DeliveryPersonResponse);
+  rpc DeactivateDeliveryPerson (DeactivateDeliveryPersonRequest) returns (DeliveryPersonResponse);
+}
+
+message ListAllRequest {
+  string status = 1;
 }
 
 message GetDeliveryPersonRequest {
@@ -16,6 +33,42 @@ message GetDeliveryPersonRequest {
 message GetDeliveryPersonResponse {
   bool success = 1;
   DeliveryPersonInfo deliveryPerson = 2;
+}
+
+message DeliveryPersonResponse {
+  bool success = 1;
+  string message = 2;
+  DeliveryPersonInfo deliveryPerson = 3;
+}
+
+message CreateDeliveryPersonRequest {
+  string name = 1;
+  string email = 2;
+  string phone = 3;
+  string cpf = 4;
+  string vehicleType = 5;
+  string licensePlate = 6;
+}
+
+message UpdateDeliveryPersonRequest {
+  int32 id = 1;
+  string name = 2;
+  string email = 3;
+  string phone = 4;
+  string vehicleType = 5;
+  string licensePlate = 6;
+}
+
+message DeleteDeliveryPersonRequest {
+  int32 id = 1;
+}
+
+message ActivateDeliveryPersonRequest {
+  int32 id = 1;
+}
+
+message DeactivateDeliveryPersonRequest {
+  int32 id = 1;
 }
 
 message FindAvailableRequest {
@@ -34,15 +87,18 @@ message DeliveryPersonInfo {
   string name = 2;
   string email = 3;
   string phone = 4;
-  string vehicleType = 5;
-  string licensePlate = 6;
-  string status = 7;
-  double rating = 8;
-  int32 totalDeliveries = 9;
-  double currentLatitude = 10;
-  double currentLongitude = 11;
-  string lastLocationUpdate = 12;
-  bool isActive = 13;
+  string cpf = 5;
+  string vehicleType = 6;
+  string licensePlate = 7;
+  string status = 8;
+  double rating = 9;
+  int32 totalDeliveries = 10;
+  double currentLatitude = 11;
+  double currentLongitude = 12;
+  string lastLocationUpdate = 13;
+  bool isActive = 14;
+  string createdAt = 15;
+  string updatedAt = 16;
 }
 
 message UpdateStatusRequest {
@@ -54,6 +110,9 @@ message UpdateLocationRequest {
   int32 deliveryPersonId = 1;
   double latitude = 2;
   double longitude = 3;
+  double speed = 4;
+  double heading = 5;
+  double accuracy = 6;
 }
 
 message UpdateResponse {
