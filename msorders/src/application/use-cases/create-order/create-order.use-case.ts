@@ -15,6 +15,7 @@ import type { IRoutingCalculator } from '../../ports/routing-calculator.port';
 import { ROUTING_CALCULATOR } from '../../ports/routing-calculator.port';
 import { CreateOrderDto } from '../../dto/create-order.dto';
 import { OrderResponseDto } from '../../dto/order-response.dto';
+import { OrderEventsPublisher } from '../../../rabbitmq/events/order-events.publisher';
 
 @Injectable()
 export class CreateOrderUseCase {
@@ -32,6 +33,8 @@ export class CreateOrderUseCase {
     private readonly routingCalculator: IRoutingCalculator,
 
     private readonly deliveryFeeCalculator: DeliveryFeeCalculator,
+
+    private readonly orderEventsPublisher: OrderEventsPublisher,
   ) {}
 
   async execute(dto: CreateOrderDto): Promise<OrderResponseDto> {
@@ -94,6 +97,24 @@ export class CreateOrderUseCase {
     const events = savedOrder.getUncommittedEvents();
     for (const event of events) {
       if (event.eventName === 'OrderCreated') {
+        // Publicar evento no RabbitMQ com Protobuf (assíncrono)
+        await this.orderEventsPublisher.publishOrderCreated({
+          orderId: savedOrder.id,
+          customerId: savedOrder.customerId,
+          total: savedOrder.total.amount,
+          status: savedOrder.status.value,
+          paymentMethod: savedOrder.paymentMethod.value,
+          items: savedOrder.items.map((item) => ({
+            productId: item.productId,
+            productName: item.productName,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice.amount,
+            subtotal: item.subtotal.amount,
+          })),
+          createdAt: savedOrder.createdAt.toISOString(),
+        });
+
+        // Manter notificação síncrona (fallback)
         await this.notificationSender.sendOrderCreatedNotification(
           savedOrder.id,
           savedOrder.customerId,

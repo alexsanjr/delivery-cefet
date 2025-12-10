@@ -14,6 +14,9 @@ import type { INotificationSender } from '../../ports/notification-sender.port';
 import { NOTIFICATION_SENDER } from '../../ports/notification-sender.port';
 import { UpdateOrderStatusDto } from '../../dto/update-order-status.dto';
 import { OrderResponseDto } from '../../dto/order-response.dto';
+import { OrderEventsPublisher } from '../../../rabbitmq/events/order-events.publisher';
+import { OrderStatusChangedEvent } from '../../../domain/aggregates/order/events/order-status-changed.event';
+import { OrderCancelledEvent } from '../../../domain/aggregates/order/events/order-cancelled.event';
 
 @Injectable()
 export class UpdateOrderStatusUseCase {
@@ -23,6 +26,8 @@ export class UpdateOrderStatusUseCase {
 
     @Inject(NOTIFICATION_SENDER)
     private readonly notificationSender: INotificationSender,
+
+    private readonly orderEventsPublisher: OrderEventsPublisher,
   ) {}
 
   async execute(dto: UpdateOrderStatusDto): Promise<OrderResponseDto> {
@@ -54,11 +59,32 @@ export class UpdateOrderStatusUseCase {
     const events = updatedOrder.getUncommittedEvents();
     for (const event of events) {
       if (event.eventName === 'OrderStatusChanged') {
+        const statusEvent = event as OrderStatusChangedEvent;
+        // Publicar evento no RabbitMQ com Protobuf (assíncrono)
+        await this.orderEventsPublisher.publishOrderStatusChanged({
+          orderId: updatedOrder.id,
+          customerId: updatedOrder.customerId,
+          previousStatus: statusEvent.payload.previousStatus,
+          newStatus: updatedOrder.status.value,
+          changedAt: new Date().toISOString(),
+        });
+
+        // Manter notificação síncrona (fallback)
         await this.notificationSender.sendOrderStatusChangedNotification(
           updatedOrder.id,
           updatedOrder.status.value,
         );
       } else if (event.eventName === 'OrderCancelled') {
+        const cancelEvent = event as OrderCancelledEvent;
+        // Publicar evento de cancelamento no RabbitMQ com Protobuf
+        await this.orderEventsPublisher.publishOrderCancelled({
+          orderId: updatedOrder.id,
+          customerId: updatedOrder.customerId,
+          reason: cancelEvent.payload.reason || 'No reason provided',
+          cancelledAt: new Date().toISOString(),
+        });
+
+        // Manter notificação síncrona (fallback)
         await this.notificationSender.sendOrderCancelledNotification(
           updatedOrder.id,
         );
