@@ -9,6 +9,8 @@ import { ProductModule } from './product/product.module';
 import { GrpcOrdersModule } from './grpc/grpc-orders.module';
 // Hexagonal Architecture Modules
 import { GraphQLModule as HexagonalGraphQLModule } from './infrastructure/graphql/graphql.module';
+// RabbitMQ Module
+import { RabbitMQModule } from './rabbitmq/rabbitmq.module';
 
 @Module({
   imports: [
@@ -19,6 +21,21 @@ import { GraphQLModule as HexagonalGraphQLModule } from './infrastructure/graphq
       sortSchema: true,
       plugins: [ApolloServerPluginLandingPageLocalDefault()],
       typePaths: ['./**/*.graphql'],
+    }),
+    // RabbitMQ with Protobuf serialization
+    RabbitMQModule.forRoot({
+      url: process.env.RABBITMQ_URL || 'amqp://rabbitmq:5672',
+      exchanges: [
+        { name: 'orders.events', type: 'topic', options: { durable: true } },
+      ],
+      queues: [
+        {
+          name: 'notifications.queue',
+          exchange: 'orders.events',
+          routingKey: 'order.*',
+          options: { durable: true },
+        },
+      ],
     }),
     OrdersModule,
     ProductModule,
