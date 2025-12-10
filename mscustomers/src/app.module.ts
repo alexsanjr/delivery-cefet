@@ -3,7 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './infrastructure/prisma/prisma.module';
 import { RabbitMQModule } from './infrastructure/messaging/rabbitmq.module';
 import { GraphqlModule } from './presentation/graphql/graphql.module';
-import { GrpcModule } from './presentation/grpc.module';
+import { GrpcModule } from './presentation/grpc/grpc.module';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
