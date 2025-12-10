@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package orders.events;
+
+// Evento: Pedido Criado
+message OrderCreatedEvent {
+  int32 order_id = 1;
+  int32 customer_id = 2;
+  double total = 3;
+  string status = 4;
+  string payment_method = 5;
+  repeated OrderItemEvent items = 6;
+  string created_at = 7;
+}
+
+message OrderItemEvent {
+  int32 product_id = 1;
+  string product_name = 2;
+  int32 quantity = 3;
+  double unit_price = 4;
+}
+
+// Evento: Status do Pedido Alterado
+message OrderStatusChangedEvent {
+  int32 order_id = 1;
+  int32 customer_id = 2;
+  string previous_status = 3;
+  string new_status = 4;
+  string changed_at = 5;
+}
+
+// Evento: Pedido Cancelado
+message OrderCancelledEvent {
+  int32 order_id = 1;
+  int32 customer_id = 2;
+  string reason = 3;
+  string cancelled_at = 4;
+}
+
+// Mensagem de Notificação
+message NotificationMessage {
+  string user_id = 1;
+  string order_id = 2;
+  string type = 3;
+  string message = 4;
+  string timestamp = 5;
+}
