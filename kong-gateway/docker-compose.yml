@@ -261,9 +261,12 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_CUSTOMERS_USER}:${POSTGRES_CUSTOMERS_PASSWORD}@postgres-customers:5432/${POSTGRES_CUSTOMERS_DB}
       NODE_ENV: ${NODE_ENV}
       GRPC_PORT: 50051
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672
     depends_on:
       customers-migrations:
         condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
     networks:
       - kong-net
     healthcheck:
