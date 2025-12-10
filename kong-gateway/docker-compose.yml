@@ -212,18 +212,16 @@ services:
       NOTIFICATIONS_GRPC_URL: msnotifications:50053
       ROUTING_GRPC_URL: msrouting:50054
       TRACKING_GRPC_URL: mstracking:50055
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672
       NODE_ENV: ${NODE_ENV}
       GRPC_PORT: 50052
-    volumes:
-      - ../mscustomers/src/grpc/customers.proto:/app/dist/grpc/customers.proto:ro
-      - ../msnotifications/src/presentation/grpc/notifications.proto:/app/dist/presentation/grpc/notifications.proto:ro
-      - ../msrouting/src/grpc/routing.proto:/app/dist/grpc/routing.proto:ro
-      - ../mstracking/src/grpc/tracking.proto:/app/dist/grpc/tracking.proto:ro
     command: ["node", "dist/main"]
     depends_on:
       orders-migrations:
         condition: service_completed_successfully
       mscustomers:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - kong-net
@@ -525,25 +523,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-
-  # RabbitMQ para comunicação assíncrona entre microsserviços
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
-    ports:
-      - "5672:5672"   # AMQP protocol
-      - "15672:15672" # Management UI
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    networks:
-      - kong-net
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
 volumes:
   kong-config:
