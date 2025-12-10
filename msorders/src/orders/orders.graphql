@@ -67,6 +67,7 @@ type Query {
 type Mutation {
   createOrder(createOrderInput: CreateOrderInput!): Order!
   updateOrder(updateOrderInput: UpdateOrderInput!): Order!
+  updateOrderStatus(orderId: Int!, newStatus: OrderStatus!): Order!
 }
 
 
