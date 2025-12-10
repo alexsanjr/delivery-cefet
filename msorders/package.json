@@ -7,6 +7,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
+    "build:clean": "rm -rf dist && nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -36,10 +37,14 @@
     "@nestjs/microservices": "^11.1.8",
     "@nestjs/platform-express": "^11.0.1",
     "@prisma/client": "^6.17.1",
+    "@types/amqplib": "^0.10.8",
+    "amqp-connection-manager": "^5.0.0",
+    "amqplib": "^0.10.9",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
     "dataloader": "^2.2.3",
     "graphql": "^16.11.0",
+    "protobufjs": "^7.5.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
