@@ -5,7 +5,7 @@ import { DeliveryPersonValidationService } from './services/delivery-person-vali
 import { DeliveryPersonValidators } from './utils/validators';
 import { calculateDistance } from './utils/distance.helper';
 import { CreateDeliveryPersonInput } from './dto/create-delivery-person.input';
-import { UpdateDeliveryPersonInput } from './dto/update-delivery-person.input';
+import { UpdateDeliveryPersonGrpcDto } from './dto/update-delivery-person-grpc.dto';
 import { UpdateStatusInput } from './dto/update-status.input';
 import { UpdateLocationInput } from './dto/update-location.input';
 import { DeliveryPersonStatus } from './models/delivery-person-status.enum';
@@ -58,15 +58,11 @@ export class DeliveryPersonsService {
     return deliveryPerson;
   }
 
-  async update(id: number, updateDeliveryPersonInput: UpdateDeliveryPersonInput): Promise<DeliveryPerson> {
+  async update(id: number, updateDeliveryPersonInput: UpdateDeliveryPersonGrpcDto): Promise<DeliveryPerson> {
     await this.findOne(id);
 
     if (updateDeliveryPersonInput.email) {
       await this.validationService.validateEmailUniqueness(updateDeliveryPersonInput.email, id);
-    }
-
-    if (updateDeliveryPersonInput.cpf) {
-      await this.validationService.validateCpfUniqueness(updateDeliveryPersonInput.cpf, id);
     }
 
     if (updateDeliveryPersonInput.phone) {
