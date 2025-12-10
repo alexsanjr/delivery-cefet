@@ -21,7 +21,7 @@ WORKDIR /app
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/src/grpc/*.proto ./dist/grpc/
+COPY src/presentation/grpc/*.proto ./dist/presentation/grpc/
 
 EXPOSE 3000 50051
 

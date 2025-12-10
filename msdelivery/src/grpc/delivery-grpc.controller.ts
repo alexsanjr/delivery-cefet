@@ -40,7 +40,24 @@ export class DeliveryGrpcController {
   @GrpcMethod('DeliveryService', 'GetActiveDeliveries')
   async getActiveDeliveries(data: { statuses: string[] }) {
     try {
-      const deliveries = await this.deliveriesService.findByStatuses(data.statuses);
+      const deliveries = await this.deliveriesService.findByStatuses(data.statuses || []);
+
+      return {
+        success: true,
+        deliveries: deliveries.map(d => this.mapDeliveryToProto(d)),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        deliveries: [],
+      };
+    }
+  }
+
+  @GrpcMethod('DeliveryService', 'GetDeliveriesByDeliveryPerson')
+  async getDeliveriesByDeliveryPerson(data: { deliveryPersonId: number }) {
+    try {
+      const deliveries = await this.deliveriesService.findByDeliveryPersonId(data.deliveryPersonId);
 
       return {
         success: true,
@@ -96,6 +113,52 @@ export class DeliveryGrpcController {
       return {
         success: true,
         message: 'Status atualizado com sucesso',
+        delivery: this.mapDeliveryToProto(delivery),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+        delivery: null,
+      };
+    }
+  }
+
+  @GrpcMethod('DeliveryService', 'AssignDelivery')
+  async assignDelivery(data: { orderId: number; deliveryPersonId?: number }) {
+    try {
+      const delivery = await this.deliveriesService.assignDelivery(
+        data.orderId,
+        data.deliveryPersonId,
+      );
+
+      return {
+        success: true,
+        message: 'Entrega atribuída com sucesso',
+        delivery: this.mapDeliveryToProto(delivery),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+        delivery: null,
+      };
+    }
+  }
+
+  @GrpcMethod('DeliveryService', 'CreateDelivery')
+  async createDelivery(data: { 
+    orderId: number; 
+    customerLatitude: number;
+    customerLongitude: number;
+    customerAddress: string;
+  }) {
+    try {
+      const delivery = await this.deliveriesService.create(data);
+
+      return {
+        success: true,
+        message: 'Entrega criada com sucesso',
         delivery: this.mapDeliveryToProto(delivery),
       };
     } catch (error) {

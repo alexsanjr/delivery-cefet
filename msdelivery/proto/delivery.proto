@@ -5,8 +5,11 @@ package delivery;
 service DeliveryService {
   rpc GetDeliveryByOrder (GetDeliveryByOrderRequest) returns (DeliveryResponse);
   rpc GetActiveDeliveries (GetActiveDeliveriesRequest) returns (DeliveriesListResponse);
+  rpc GetDeliveriesByDeliveryPerson (GetDeliveriesByDeliveryPersonRequest) returns (DeliveriesListResponse);
   rpc GetDeliveryPersonLocation (GetDeliveryPersonLocationRequest) returns (DeliveryPersonLocationResponse);
   rpc UpdateDeliveryStatus (UpdateDeliveryStatusRequest) returns (DeliveryResponse);
+  rpc AssignDelivery (AssignDeliveryRequest) returns (DeliveryResponse);
+  rpc CreateDelivery (CreateDeliveryRequest) returns (DeliveryResponse);
 }
 
 message GetDeliveryByOrderRequest {
@@ -15,6 +18,10 @@ message GetDeliveryByOrderRequest {
 
 message GetActiveDeliveriesRequest {
   repeated string statuses = 1;
+}
+
+message GetDeliveriesByDeliveryPersonRequest {
+  int32 deliveryPersonId = 1;
 }
 
 message GetDeliveryPersonLocationRequest {
@@ -75,4 +82,16 @@ message DeliveryPersonLocation {
   double currentLongitude = 4;
   string lastLocationUpdate = 5;
   string status = 6;
+}
+
+message AssignDeliveryRequest {
+  int32 orderId = 1;
+  int32 deliveryPersonId = 2;
+}
+
+message CreateDeliveryRequest {
+  int32 orderId = 1;
+  double customerLatitude = 2;
+  double customerLongitude = 3;
+  string customerAddress = 4;
 }

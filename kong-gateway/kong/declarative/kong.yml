@@ -33,6 +33,53 @@ services:
           credentials: true
           max_age: 3600
 
+  - name: bff-delivery
+    url: http://bff-delivery:3006
+    tags:
+      - delivery
+      - graphql
+      - bff
+    routes:
+      - name: bff-delivery-graphql
+        paths:
+          - /delivery
+        methods:
+          - GET
+          - POST
+          - OPTIONS
+        strip_path: true
+        preserve_host: false
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - OPTIONS
+          headers:
+            - Accept
+            - Content-Type
+            - Authorization
+          credentials: true
+          max_age: 3600
+      - name: jwt
+        config:
+          uri_param_names:
+            - jwt
+          cookie_names: []
+          header_names:
+            - Authorization
+          claims_to_verify:
+            - exp
+          run_on_preflight: false
+      - name: rate-limiting
+        config:
+          minute: 100
+          hour: 1000
+          policy: local
+
   - name: msorders
     url: http://msorders:3000
     tags:
@@ -215,59 +262,6 @@ services:
         config:
           minute: 200
           hour: 2000
-          policy: local
-
-  - name: msdelivery
-    url: http://msdelivery:3000
-    tags:
-      - delivery
-      - rest
-      - graphql
-    routes:
-      - name: msdelivery-api
-        paths:
-          - /delivery
-        methods:
-          - GET
-          - POST
-          - PUT
-          - DELETE
-          - PATCH
-          - OPTIONS
-        strip_path: true
-        preserve_host: false
-    plugins:
-      - name: cors
-        config:
-          origins:
-            - "*"
-          methods:
-            - GET
-            - POST
-            - PUT
-            - DELETE
-            - PATCH
-            - OPTIONS
-          headers:
-            - Accept
-            - Content-Type
-            - Authorization
-          credentials: true
-          max_age: 3600
-      - name: jwt
-        config:
-          uri_param_names:
-            - jwt
-          cookie_names: []
-          header_names:
-            - Authorization
-          claims_to_verify:
-            - exp
-          run_on_preflight: false
-      - name: rate-limiting
-        config:
-          minute: 150
-          hour: 1500
           policy: local
 
   - name: mstracking
