@@ -7,6 +7,8 @@ import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
 import { ProductModule } from './product/product.module';
 import { GrpcOrdersModule } from './grpc/grpc-orders.module';
+// Hexagonal Architecture Modules
+import { GraphQLModule as HexagonalGraphQLModule } from './infrastructure/graphql/graphql.module';
 
 @Module({
   imports: [
@@ -21,6 +23,8 @@ import { GrpcOrdersModule } from './grpc/grpc-orders.module';
     OrdersModule,
     ProductModule,
     GrpcOrdersModule,
+    // Hexagonal Architecture
+    HexagonalGraphQLModule,
   ],
   controllers: [AppController],
   providers: [AppService],
