@@ -49,7 +49,7 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
 
     private async loadProtoDefinitions(): Promise<void> {
         try {
-            const protoPath = join(__dirname, './messaging/tracking-events.proto');
+            const protoPath = join(process.cwd(), 'src/infrastructure/messaging/tracking-events.proto');
             this.root = await protobuf.load(protoPath);
             
             this.PositionUpdateType = this.root.lookupType('tracking.PositionUpdate');
@@ -178,23 +178,33 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
     async consumeOrderEvents(callback: (message: any) => Promise<void>): Promise<void> {
         if (!this.channel) throw new Error('Channel not initialized');
 
-        const queueName = 'tracking.orders.queue';
-        
-        await this.channel.assertQueue(queueName, { durable: true });
-        await this.channel.bindQueue(queueName, 'delivery.orders', 'order.*');
+        try {
+            const exchangeName = 'delivery.orders';
+            const queueName = 'tracking.orders.queue';
+            
+            // Criar o exchange se não existir
+            await this.channel.assertExchange(exchangeName, 'topic', { durable: true });
+            await this.channel.assertQueue(queueName, { durable: true });
+            await this.channel.bindQueue(queueName, exchangeName, 'order.*');
 
-        await this.channel.consume(queueName, async (msg) => {
-            if (msg) {
-                try {
-                    const decoded = this.deserializeProtobuf(this.TrackingStartedType, msg.content);
-                    await callback(decoded);
-                    this.channel!.ack(msg);
-                    console.log(`Consumed order event (Protobuf - ${msg.content.length} bytes)`);
-                } catch (error) {
-                    console.error('Failed to process order event:', error);
-                    this.channel!.nack(msg, false, false);
+            await this.channel.consume(queueName, async (msg) => {
+                if (msg) {
+                    try {
+                        const decoded = this.deserializeProtobuf(this.TrackingStartedType, msg.content);
+                        await callback(decoded);
+                        this.channel!.ack(msg);
+                        console.log(`Consumed order event (Protobuf - ${msg.content.length} bytes)`);
+                    } catch (error) {
+                        console.error('Failed to process order event:', error);
+                        this.channel!.nack(msg, false, false);
+                    }
                 }
-            }
-        });
+            });
+
+            console.log('RabbitMQ consumer for order events started successfully');
+        } catch (error) {
+            console.error('Failed to setup order events consumer:', error);
+            throw error;
+        }
     }
 }

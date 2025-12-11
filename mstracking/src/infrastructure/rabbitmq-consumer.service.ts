@@ -12,6 +12,7 @@ export class RabbitMQConsumerService implements OnModuleInit {
     ) {}
 
     async onModuleInit() {
+        await new Promise(resolve => setTimeout(resolve, 2000));
         await this.startConsuming();
     }
 
@@ -32,8 +33,9 @@ export class RabbitMQConsumerService implements OnModuleInit {
             await this.startTrackingUseCase.execute({
                 deliveryId: message.delivery_id,
                 orderId: message.order_id,
-                originLat: 0,
-                originLng: 0,
+                latitude: 0,
+                longitude: 0,
+                deliveryPersonId: message.delivery_person_id || 'unknown',
                 destinationLat: message.destination_lat,
                 destinationLng: message.destination_lng,
             });
