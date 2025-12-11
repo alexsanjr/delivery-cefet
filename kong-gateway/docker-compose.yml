@@ -357,11 +357,14 @@ services:
       GRPC_PORT: 50054
       REDIS_HOST: redis-routing
       REDIS_PORT: 6380
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672
       MAPS_SERVICE: osrm
     depends_on:
       postgres-routing:
         condition: service_healthy
       redis-routing:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - kong-net

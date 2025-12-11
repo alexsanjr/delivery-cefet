@@ -2,6 +2,10 @@
 
 Microserviço responsável pelo cálculo de rotas otimizadas para entregas.
 
+## Sobre o Projeto
+
+Este serviço foi desenvolvido aplicando **Domain-Driven Design (DDD)** e **Arquitetura Hexagonal**, garantindo código limpo, manutenível e testável.
+
 ## Responsabilidades
 
 - Cálculo de rotas entre dois pontos
@@ -20,33 +24,85 @@ Microserviço responsável pelo cálculo de rotas otimizadas para entregas.
 - **Axios**: Cliente HTTP para APIs de mapas
 - **IORedis**: Cliente Redis
 
+## Arquitetura
+
+O projeto segue uma estrutura em camadas bem definida:
+
+### Domain (Domínio)
+Contém toda a lógica de negócio e regras do sistema. É independente de frameworks e tecnologias.
+
+- **Entities**: Rota (aggregate root), Ponto, PassoRota
+- **Value Objects**: Coordenada, Distancia, Duracao com validações integradas
+- **Repository Interfaces**: Contratos para persistência e APIs externas
+- **Domain Services**: CalculadorCustos para lógica de negócio complexa
+
+### Application (Aplicação)
+Orquestra a lógica de negócio através de casos de uso específicos.
+
+- **Use Cases**: CalcularRotaCasoDeUso, CalcularETACasoDeUso
+- **DTOs**: Objetos para transferência de dados entre camadas
+- **Mappers**: Conversão entre entidades de domínio e DTOs
+
+### Infrastructure (Infraestrutura)
+Implementações concretas de tecnologias e frameworks.
+
+- **Persistence**: Repositório Redis para cache de rotas
+- **External**: Adapter para Geoapify API (com fallback mock)
+
+### Presentation (Apresentação)
+Adapters que expõem a aplicação para o mundo externo.
+
+- **gRPC**: Controller que expõe os use cases via gRPC
+
 ## Estrutura do Projeto
 
 ```
 msrouting/
 ├── src/
-│   ├── routing/
-│   │   ├── dto/
-│   │   │   ├── calculate-route.dto.ts
-│   │   │   └── route-response.dto.ts
-│   │   ├── strategies/          # Strategy Pattern
-│   │   │   ├── route.strategy.ts
-│   │   │   ├── fastest-route.strategy.ts
-│   │   │   ├── shortest-route.strategy.ts
-│   │   │   ├── economical-route.strategy.ts
-│   │   │   └── eco-friendly.strategy.ts
-│   │   ├── services/
-│   │   │   ├── routing.service.ts
-│   │   │   └── maps-api.service.ts
-│   │   ├── utils/
-│   │   │   └── distance-calculator.ts
-│   │   └── routing.module.ts
-│   ├── grpc/
-│   │   ├── routing-grpc.service.ts
-│   │   └── grpc.module.ts
-│   ├── redis/
+│   ├── domain/                     # Camada de Domínio (Core)
+│   │   ├── entities/
+│   │   │   ├── rota.entity.ts     # Aggregate Root
+│   │   │   └── ponto.entity.ts
+│   │   ├── value-objects/
+│   │   │   ├── coordenada.vo.ts
+│   │   │   ├── distancia.vo.ts
+│   │   │   └── duracao.vo.ts
+│   │   ├── repositories/           # Ports (Interfaces)
+│   │   │   ├── rota.repository.interface.ts
+│   │   │   ├── api-mapas.interface.ts
+│   │   │   └── injection-tokens.ts
+│   │   └── services/
+│   │       └── calculador-custos.service.ts
+│   │
+│   ├── application/                # Camada de Aplicação
+│   │   ├── use-cases/
+│   │   │   ├── calcular-rota.use-case.ts
+│   │   │   └── calcular-eta.use-case.ts
+│   │   ├── dtos/
+│   │   │   └── rota.dto.ts
+│   │   ├── mappers/
+│   │   │   └── rota.mapper.ts
+│   │   └── application.module.ts
+│   │
+│   ├── infrastructure/             # Camada de Infraestrutura (Adapters)
+│   │   ├── persistence/
+│   │   │   └── redis-rota.repository.ts
+│   │   ├── external/
+│   │   │   └── geoapify-api.adapter.ts
+│   │   └── infrastructure.module.ts
+│   │
+│   ├── presentation/               # Camada de Apresentação (Adapters)
+│   │   └── grpc/
+│   │       ├── routing-grpc.controller.ts
+│   │       └── presentation-grpc.module.ts
+│   │
+│   ├── redis/                      # Módulos auxiliares
+│   │   ├── redis.service.ts
 │   │   └── redis.module.ts
+│   │
+│   ├── app.module.ts              # Módulo raiz
 │   └── main.ts
+│
 ├── proto/
 │   └── routing.proto
 └── package.json

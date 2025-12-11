@@ -1,0 +1,14 @@
+node_modules
+npm-debug.log
+dist
+.git
+.gitignore
+.env
+.env.local
+.vscode
+*.md
+.eslintrc.js
+.prettierrc
+test
+coverage
+.docker

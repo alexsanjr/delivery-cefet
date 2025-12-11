@@ -5,14 +5,15 @@ RUN apk add --no-cache netcat-openbsd
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 COPY . .
-# MSRouting não usa Prisma, então removemos esta linha
 RUN npm run build
 
-# Usar portas corretas para msrouting
+# Copiar proto file para dist
+RUN mkdir -p dist/presentation/grpc && \
+    cp src/presentation/grpc/routing.proto dist/presentation/grpc/
+
 EXPOSE 50054 3004
 
-# Comando de produção
 CMD ["npm", "run", "start:prod"]

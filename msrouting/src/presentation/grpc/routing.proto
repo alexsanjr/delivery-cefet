@@ -1,0 +1,122 @@
+// src/presentation/grpc/routing.proto
+syntax = "proto3";
+
+package routing.v1;
+
+option go_package = "github.com/yourorg/msrouting/proto/routing";
+
+service RoutingService {
+  // Health check do serviço
+  rpc HealthCheck (HealthCheckRequest) returns (HealthCheckResponse);
+
+  // Calcula rota ponto a ponto com estratégia
+  rpc CalculateRoute (RouteRequest) returns (RouteResponse);
+
+  // Calcula ETA com tráfego
+  rpc CalculateETA (ETARequest) returns (ETAResponse);
+
+  // Otimiza múltiplas entregas (VRP - Vehicle Routing Problem)
+  rpc OptimizeDeliveryRoute (DeliveryOptimizationRequest) returns (OptimizedRouteResponse);
+}
+
+// --- Mensagens de Entrada ---
+message RouteRequest {
+  Point origin = 1;
+  Point destination = 2;
+  RouteStrategy strategy = 3;
+  repeated Point waypoints = 4;
+}
+
+message ETARequest {
+  Point origin = 1;
+  Point destination = 2;
+  RouteStrategy strategy = 3;
+  TrafficLevel traffic_level = 4;
+}
+
+message DeliveryOptimizationRequest {
+  Point depot = 1;
+  repeated DeliveryPoint deliveries = 2;
+  repeated Vehicle vehicles = 3;
+}
+
+// --- Entidades ---
+message Point {
+  double latitude = 1;
+  double longitude = 2;
+}
+
+message DeliveryPoint {
+  string delivery_id = 1;
+  Point location = 2;
+  int32 service_time_seconds = 3;
+}
+
+message Vehicle {
+  string vehicle_id = 1;
+  string type = 2;
+  double capacity_kg = 3;
+  double max_speed_kph = 4;
+}
+
+// --- Enums ---
+enum RouteStrategy {
+  STRATEGY_UNSPECIFIED = 0;
+  FASTEST = 1;
+  SHORTEST = 2;
+  ECONOMICAL = 3;
+  ECO_FRIENDLY = 4;
+}
+
+enum TrafficLevel {
+  TRAFFIC_UNSPECIFIED = 0;
+  LIGHT = 1;
+  MODERATE = 2;
+  HEAVY = 3;
+  EXTREME = 4;
+}
+
+// --- Respostas ---
+message RouteResponse {
+  repeated Point path = 1;
+  int32 distance_meters = 2;
+  int32 duration_seconds = 3;
+  string encoded_polyline = 4;
+  repeated RouteStep steps = 5;
+  double estimated_cost = 6;
+}
+
+message OptimizedRouteResponse {
+  repeated VehicleRoute vehicle_routes = 1;
+  double total_cost = 2;
+  int32 total_distance_meters = 3;
+  int32 total_duration_seconds = 4;
+}
+
+message VehicleRoute {
+  Vehicle vehicle = 1;
+  repeated DeliveryPoint assigned_deliveries = 2;
+  RouteResponse route = 3;
+}
+
+message RouteStep {
+  string instruction = 1;
+  int32 distance_meters = 2;
+  int32 duration_seconds = 3;
+  Point start_location = 4;
+  Point end_location = 5;
+}
+
+message ETAResponse {
+  int32 eta_minutes = 1;
+  int32 distance_meters = 2;
+  TrafficLevel current_traffic = 3;
+}
+
+// --- Health Check ---
+message HealthCheckRequest {}
+
+message HealthCheckResponse {
+  string status = 1;
+  string message = 2;
+}

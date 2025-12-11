@@ -10,7 +10,7 @@ async function bootstrap() {
   logger.log('🚀 Starting MSRouting service...');
 
   // Verifique se o proto file existe
-  const protoPath = join(process.cwd(), 'src/grpc/routing.proto');
+  const protoPath = join(process.cwd(), 'src/presentation/grpc/routing.proto');
   logger.log(`🔍 Checking proto file: ${protoPath}`);
   logger.log(`📄 Proto exists: ${existsSync(protoPath)}`);
 
