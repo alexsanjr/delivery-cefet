@@ -487,10 +487,6 @@ services:
       NODE_ENV: ${NODE_ENV}
       GRPC_PORT: 50055
       PORT: 3005
-    volumes:
-      - ../msnotifications/src/presentation/grpc/notifications.proto:/app/dist/presentation/grpc/notifications.proto:ro
-      - ../msorders/src/grpc/orders.proto:/app/dist/grpc/orders.proto:ro
-      - ../msrouting/src/grpc/routing.proto:/app/dist/grpc/routing.proto:ro
     command: ["node", "dist/main"]
     depends_on:
       postgres-tracking:

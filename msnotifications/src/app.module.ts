@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
-import { NotificationsModule } from './application/application.module';
+import { NotificationsApplicationModule } from './application/application.module';
 import { GrpcModule } from './presentation/grpc/grpc.module';
 import { GraphQLNotificationsModule } from './presentation/graphql/graphql.module';
 
@@ -15,7 +15,7 @@ import { GraphQLNotificationsModule } from './presentation/graphql/graphql.modul
             csrfPrevention: false,
             sortSchema: true,
         }),
-        NotificationsModule,
+        NotificationsApplicationModule,
         GrpcModule,
         GraphQLNotificationsModule,
     ],
