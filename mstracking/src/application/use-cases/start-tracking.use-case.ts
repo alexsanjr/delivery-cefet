@@ -1,18 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import type { TrackingRepositoryPort } from '../../domain/ports/tracking-repository.port';
-import type { DeliveryTrackingRepositoryPort } from '../../domain/ports/delivery-tracking-repository.port';
 import { TrackingPosition } from '../../domain/tracking-position.entity';
 import { DeliveryTracking } from '../../domain/delivery-tracking.entity';
-import type { OrderServicePort } from '../../domain/ports/external-services.port';
 import { TypeORMTrackingRepository } from '../../infrastructure/persistence/typeorm-tracking.repository';
 import { TypeORMDeliveryTrackingRepository } from '../../infrastructure/persistence/typeorm-delivery-tracking.repository';
-import { OrdersGrpcAdapter } from '../../infrastructure/adapters/orders-grpc.adapter';
+import { RabbitMQService } from '../../infrastructure/rabbitmq.service';
+import { PositionSubjectAdapter } from '../../infrastructure/adapters/position-subject.adapter';
 
 export interface StartTrackingInput {
     deliveryId: string;
     orderId: string;
-    originLat: number;
-    originLng: number;
+    latitude: number;
+    longitude: number;
+    deliveryPersonId: string;
     destinationLat: number;
     destinationLng: number;
 }
@@ -22,32 +21,17 @@ export class StartTrackingUseCase {
     constructor(
         private readonly trackingRepository: TypeORMTrackingRepository,
         private readonly deliveryTrackingRepository: TypeORMDeliveryTrackingRepository,
-        private readonly orderService: OrdersGrpcAdapter,
+        private readonly messaging: RabbitMQService,
+        private readonly positionSubject: PositionSubjectAdapter,
     ) {}
 
     async execute(input: StartTrackingInput): Promise<TrackingPosition> {
-        const existingDelivery = await this.deliveryTrackingRepository.findByDeliveryId(input.deliveryId);
-        if (existingDelivery) {
-            throw new Error(`Tracking already exists for delivery_id: ${input.deliveryId}`);
-        }
-
-        const existingTracking = await this.deliveryTrackingRepository.findByOrderId(input.orderId);
+        const existingTracking = await this.deliveryTrackingRepository.findByDeliveryId(input.deliveryId);
         if (existingTracking) {
-            throw new Error(`Order ${input.orderId} already has tracking started`);
+            throw new Error(`Tracking already exists for delivery: ${input.deliveryId}`);
         }
 
-        const order = await this.orderService.getOrder(parseInt(input.orderId));
-        if (!order) {
-            throw new Error(`Order not found: ${input.orderId}`);
-        }
-
-        if (order.status !== 'OUT_FOR_DELIVERY') {
-            throw new Error(
-                `Order ${input.orderId} must be OUT_FOR_DELIVERY to start tracking. Current status: ${order.status}`
-            );
-        }
-
-        const tracking = new DeliveryTracking(
+        const deliveryTracking = new DeliveryTracking(
             crypto.randomUUID(),
             input.deliveryId,
             input.orderId,
@@ -58,20 +42,29 @@ export class StartTrackingUseCase {
             input.destinationLng,
         );
 
-        tracking.startDelivery();
-        await this.deliveryTrackingRepository.save(tracking);
+        await this.deliveryTrackingRepository.save(deliveryTracking);
 
         const position = new TrackingPosition(
             crypto.randomUUID(),
             input.deliveryId,
             input.orderId,
-            input.originLat,
-            input.originLng,
-            'system',
+            input.latitude,
+            input.longitude,
+            input.deliveryPersonId,
             new Date(),
             'active',
         );
 
-        return await this.trackingRepository.save(position);
+        const savedPosition = await this.trackingRepository.save(position);
+
+        this.positionSubject.notify(savedPosition);
+
+        await this.messaging.publishTrackingStarted({
+            deliveryId: input.deliveryId,
+            orderId: input.orderId,
+            destinationLat: input.destinationLat,
+            destinationLng: input.destinationLng,
+        });
+        return savedPosition;
     }
 }

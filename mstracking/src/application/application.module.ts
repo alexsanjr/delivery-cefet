@@ -1,7 +1,5 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ClientsModule, Transport } from '@nestjs/microservices';
-import { join } from 'path';
 import { StartTrackingUseCase } from './use-cases/start-tracking.use-case';
 import { UpdatePositionUseCase } from './use-cases/update-position.use-case';
 import { GetTrackingDataUseCase } from './use-cases/get-tracking-data.use-case';
@@ -14,61 +12,31 @@ import { TrackingPositionORM } from '../infrastructure/persistence/tracking-posi
 import { DeliveryTrackingORM } from '../infrastructure/persistence/delivery-tracking.orm';
 import { RabbitMQService } from '../infrastructure/rabbitmq.service';
 import { RabbitMQConsumerService } from '../infrastructure/rabbitmq-consumer.service';
-import { OrdersGrpcAdapter } from '../infrastructure/adapters/orders-grpc.adapter';
-import { NotificationsGrpcAdapter } from '../infrastructure/adapters/notifications-grpc.adapter';
-import { RoutingGrpcAdapter } from '../infrastructure/adapters/routing-grpc.adapter';
-import { PositionSubjectAdapter } from '../infrastructure/adapters/position-subject.adapter';
 import { PositionLoggerObserver } from '../infrastructure/adapters/position-logger.observer';
+import { PositionSubjectAdapter } from '../infrastructure/adapters/position-subject.adapter';
+import { AdaptersModule } from '../infrastructure/adapters/adapters.module';
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([TrackingPositionORM, DeliveryTrackingORM]),
-        ClientsModule.register([
-            {
-                name: 'ORDERS_PACKAGE',
-                transport: Transport.GRPC,
-                options: {
-                    package: 'orders',
-                    protoPath: join(__dirname, '../grpc/orders.proto'),
-                    url: process.env.ORDERS_GRPC_URL || 'localhost:50052',
-                },
-            },
-            {
-                name: 'NOTIFICATIONS_PACKAGE',
-                transport: Transport.GRPC,
-                options: {
-                    package: 'notifications',
-                    protoPath: join(__dirname, '../presentation/grpc/notifications.proto'),
-                    url: process.env.NOTIFICATIONS_GRPC_URL || 'localhost:50053',
-                },
-            },
-            {
-                name: 'ROUTING_PACKAGE',
-                transport: Transport.GRPC,
-                options: {
-                    package: 'routing.v1',
-                    protoPath: join(__dirname, '../grpc/routing.proto'),
-                    url: process.env.ROUTING_GRPC_URL || 'localhost:50054',
-                },
-            },
-        ]),
+        AdaptersModule,
     ],
     providers: [
+        PositionLoggerObserver,
+        PositionSubjectAdapter,
+        TypeORMTrackingRepository,
+        TypeORMDeliveryTrackingRepository,
+        RabbitMQService,
+        RabbitMQConsumerService,
+        { provide: 'TrackingRepositoryPort', useExisting: TypeORMTrackingRepository },
+        { provide: 'DeliveryTrackingRepositoryPort', useExisting: TypeORMDeliveryTrackingRepository },
+        { provide: 'PositionSubjectPort', useExisting: PositionSubjectAdapter },
         StartTrackingUseCase,
         UpdatePositionUseCase,
         GetTrackingDataUseCase,
         GetActiveDeliveriesUseCase,
         MarkAsDeliveredUseCase,
         TrackingApplicationService,
-        TypeORMTrackingRepository,
-        TypeORMDeliveryTrackingRepository,
-        RabbitMQService,
-        RabbitMQConsumerService,
-        OrdersGrpcAdapter,
-        NotificationsGrpcAdapter,
-        RoutingGrpcAdapter,
-        PositionSubjectAdapter,
-        PositionLoggerObserver,
     ],
     exports: [
         StartTrackingUseCase,
