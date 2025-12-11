@@ -18,17 +18,21 @@ import { TerminalNotifierObserver, NotificationLoggerObserver, NotificationSubje
         }),
     ],
     providers: [
+        TerminalNotifierObserver,
+        NotificationLoggerObserver,
+        RabbitMQService,
+        NotificationSubjectAdapter,
+        RedisNotificationRepository,
+        RabbitMQConsumerService,
+        { provide: 'NotificationRepositoryPort', useExisting: RedisNotificationRepository },
+        { provide: 'NotificationSubjectPort', useExisting: NotificationSubjectAdapter },
+        { provide: 'MessagingPort', useExisting: RabbitMQService },
+        { provide: 'ClientConnectionPort', useExisting: TerminalNotifierObserver },
         SendNotificationUseCase,
         GetNotificationsUseCase,
         MarkNotificationAsReadUseCase,
         ManageClientConnectionUseCase,
         NotificationApplicationService,
-        RedisNotificationRepository,
-        NotificationSubjectAdapter,
-        TerminalNotifierObserver,
-        NotificationLoggerObserver,
-        RabbitMQService,
-        RabbitMQConsumerService,
     ],
     exports: [
         SendNotificationUseCase,
@@ -38,4 +42,4 @@ import { TerminalNotifierObserver, NotificationLoggerObserver, NotificationSubje
         NotificationApplicationService,
     ],
 })
-export class NotificationsModule {}
+export class NotificationsApplicationModule {}
