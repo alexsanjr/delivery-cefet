@@ -11,7 +11,7 @@ export class EnderecoType {
   @Field()
   numero: string;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   complemento?: string | null;
 
   @Field()
