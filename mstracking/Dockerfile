@@ -1,17 +1,31 @@
-FROM node:18-alpine
-
-# curl p/ healthcheck
-RUN apk add --no-cache curl
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
 COPY package*.json ./
+COPY tsconfig*.json ./
+
 RUN npm ci
 
-COPY . .
+COPY src ./src
+COPY proto ./proto
+
 RUN npm run build
 
-EXPOSE 3005
-EXPOSE 50055
+FROM node:20-alpine
 
-CMD ["npm", "run", "start:prod"]
+# Instalar curl para healthcheck
+RUN apk add --no-cache curl
+
+WORKDIR /app
+
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
+COPY proto ./proto
+COPY src/presentation/grpc/*.proto ./dist/presentation/grpc/
+COPY src/infrastructure/messaging/*.proto ./src/infrastructure/messaging/
+
+EXPOSE 3005 50055
+
+CMD ["node", "dist/main"]
