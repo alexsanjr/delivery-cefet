@@ -182,7 +182,6 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
             const exchangeName = 'delivery.orders';
             const queueName = 'tracking.orders.queue';
             
-            // Criar o exchange se não existir
             await this.channel.assertExchange(exchangeName, 'topic', { durable: true });
             await this.channel.assertQueue(queueName, { durable: true });
             await this.channel.bindQueue(queueName, exchangeName, 'order.*');
