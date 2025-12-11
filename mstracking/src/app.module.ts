@@ -2,8 +2,6 @@ import { Module } from '@nestjs/common';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { join } from 'path';
-import { TrackingInfrastructureModule } from './infrastructure/infrastructure.module';
 import { TrackingApplicationModule } from './application/application.module';
 import { GrpcPresentationModule } from './presentation/grpc/grpc.module';
 import { GraphQLPresentationModule } from './presentation/graphql/graphql.module';
@@ -18,16 +16,16 @@ import { GraphQLPresentationModule } from './presentation/graphql/graphql.module
         }),
         GraphQLModule.forRoot<ApolloDriverConfig>({
             driver: ApolloDriver,
-            autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
+            autoSchemaFile: true,
             playground: true,
             introspection: true,
             csrfPrevention: false,
+            sortSchema: true,
             installSubscriptionHandlers: true,
             subscriptions: {
                 'graphql-ws': true,
             },
         }),
-        TrackingInfrastructureModule,
         TrackingApplicationModule,
         GrpcPresentationModule,
         GraphQLPresentationModule,
