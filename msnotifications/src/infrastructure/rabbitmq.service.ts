@@ -3,6 +3,7 @@ import * as amqp from 'amqplib';
 import * as protobuf from 'protobufjs';
 import { join } from 'path';
 import type { NotificationEntity } from '../domain/notification.entity';
+import type { MessagingPort } from '../domain/ports/messaging.port';
 
 export interface RabbitMQMessage {
     id: string;
@@ -15,7 +16,7 @@ export interface RabbitMQMessage {
 }
 
 @Injectable()
-export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
+export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDestroy {
     private readonly logger = new Logger(RabbitMQService.name);
     private connection: amqp.Connection | null = null;
     private channel: amqp.Channel | null = null;

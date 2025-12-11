@@ -1,17 +1,17 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import type { NotificationRepositoryPort } from '../../domain/ports/notification-repository.port';
 import type { NotificationSubjectPort } from '../../domain/ports/notification-observer.port';
+import type { MessagingPort } from '../../domain/ports/messaging.port';
 import type { CreateNotificationDto } from '../dtos/notifications-create.dto';
 import type { NotificationEntity } from '../../domain/notification.entity';
 import type { NotificationData } from '../../domain/interfaces/notification-data.interface';
-import { RabbitMQService } from '../../infrastructure/rabbitmq.service';
 
 @Injectable()
 export class SendNotificationUseCase {
     constructor(
-        private readonly notificationRepository: NotificationRepositoryPort,
-        private readonly notificationSubject: NotificationSubjectPort,
-        private readonly rabbitmqService: RabbitMQService,
+        @Inject('NotificationRepositoryPort') private readonly notificationRepository: NotificationRepositoryPort,
+        @Inject('NotificationSubjectPort') private readonly notificationSubject: NotificationSubjectPort,
+        @Inject('MessagingPort') private readonly messagingService: MessagingPort,
     ) {}
 
     async execute(createDto: CreateNotificationDto): Promise<NotificationEntity> {
@@ -29,7 +29,7 @@ export class SendNotificationUseCase {
             serviceOrigin: notification.serviceOrigin,
         };
         await this.notificationSubject.notify(notificationData);
-        await this.rabbitmqService.publishNotification(notification);
+        await this.messagingService.publishNotification(notification);
 
         return notification;
     }
