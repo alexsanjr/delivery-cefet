@@ -13,6 +13,7 @@ export class RabbitMQConsumerService implements OnModuleInit {
     ) {}
 
     async onModuleInit() {
+        await new Promise(resolve => setTimeout(resolve, 2000));
         await this.startConsuming();
     }
 
