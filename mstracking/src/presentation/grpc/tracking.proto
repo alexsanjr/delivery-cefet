@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package tracking;
+
+service TrackingService {
+  rpc UpdatePosition (PositionUpdateRequest) returns (TrackingResponse);
+  rpc GetTrackingData (GetTrackingRequest) returns (TrackingDataResponse);
+  rpc StartTracking (StartTrackingRequest) returns (TrackingResponse);
+}
+
+message PositionUpdateRequest {
+  string delivery_id = 1;
+  double latitude = 2;
+  double longitude = 3;
+  string delivery_person_id = 4;
+  int64 timestamp = 5;
+}
+
+message GetTrackingRequest {
+  string delivery_id = 1;
+}
+
+message StartTrackingRequest {
+  string delivery_id = 1;
+  string order_id = 2;
+  double destination_lat = 3;
+  double destination_lng = 4;
+}
+
+message TrackingDataResponse {
+  string delivery_id = 1;
+  repeated Position positions = 2;
+  string status = 3;
+  string estimated_arrival = 4;
+}
+
+message Position {
+  double latitude = 1;
+  double longitude = 2;
+  int64 timestamp = 3;
+}
+
+message TrackingResponse {
+  bool success = 1;
+  string message = 2;
+  string tracking_id = 3;
+}
