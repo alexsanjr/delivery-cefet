@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { NotificationsResolver } from './notifications.resolver';
-import { NotificationsModule } from '../../application/application.module';
+import { NotificationsApplicationModule } from '../../application/application.module';
 
 @Module({
-    imports: [NotificationsModule],
+    imports: [NotificationsApplicationModule],
     providers: [NotificationsResolver],
     exports: [NotificationsResolver],
 })
