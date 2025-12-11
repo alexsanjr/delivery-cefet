@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Controller } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import { TrackingApplicationService } from '../../application/services/tracking-application.service';
 
-@Injectable()
+@Controller()
 export class TrackingGrpcController {
     constructor(private readonly trackingService: TrackingApplicationService) {}
 
@@ -17,8 +17,9 @@ export class TrackingGrpcController {
             const position = await this.trackingService.startTracking({
                 deliveryId: data.delivery_id,
                 orderId: data.order_id,
-                originLat: 0,
-                originLng: 0,
+                latitude: 0,
+                longitude: 0,
+                deliveryPersonId: 'unknown',
                 destinationLat: data.destination_lat,
                 destinationLng: data.destination_lng,
             });

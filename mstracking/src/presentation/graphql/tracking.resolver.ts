@@ -60,8 +60,9 @@ export class TrackingResolver {
         await this.trackingService.startTracking({
             deliveryId: input.deliveryId,
             orderId: input.orderId,
-            originLat: input.originLat,
-            originLng: input.originLng,
+            latitude: input.originLat,
+            longitude: input.originLng,
+            deliveryPersonId: 'unknown',
             destinationLat: input.destinationLat,
             destinationLng: input.destinationLng,
         });
