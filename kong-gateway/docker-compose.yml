@@ -480,6 +480,7 @@ services:
       NOTIFICATIONS_GRPC_URL: msnotifications:50053
       ORDERS_GRPC_URL: msorders:50052
       ROUTING_GRPC_URL: msrouting:50054
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672
       NODE_ENV: ${NODE_ENV}
       GRPC_PORT: 50055
       PORT: 3005
@@ -496,6 +497,8 @@ services:
       msorders:
         condition: service_healthy
       msrouting:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - kong-net

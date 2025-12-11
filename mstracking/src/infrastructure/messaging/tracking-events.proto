@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package tracking;
+
+message PositionUpdate {
+  string delivery_id = 1;
+  string order_id = 2;
+  double latitude = 3;
+  double longitude = 4;
+  string delivery_person_id = 5;
+  int64 timestamp = 6;
+}
+
+message TrackingStarted {
+  string delivery_id = 1;
+  string order_id = 2;
+  double destination_lat = 3;
+  double destination_lng = 4;
+  int64 started_at = 5;
+}
+
+message DeliveryCompleted {
+  string delivery_id = 1;
+  string order_id = 2;
+  int64 completed_at = 3;
+}

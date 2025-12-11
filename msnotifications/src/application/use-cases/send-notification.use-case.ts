@@ -29,8 +29,6 @@ export class SendNotificationUseCase {
             serviceOrigin: notification.serviceOrigin,
         };
         await this.notificationSubject.notify(notificationData);
-
-        // 3. Publicar no RabbitMQ com Protobuf - Assíncrono (outros microserviços)
         await this.rabbitmqService.publishNotification(notification);
 
         return notification;
