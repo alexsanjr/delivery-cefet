@@ -16,27 +16,75 @@ O modelo C4 é uma técnica de visualização de arquitetura de software que div
 
 Mostra o sistema de delivery como uma caixa preta, focando nos usuários e sistemas externos com os quais ele interage.
 
-**Elementos principais:**
-- Clientes e Entregadores como usuários
-- Sistema de Delivery central
-- Integrações externas: Pagamentos, Mapas, Email, SMS
+**Atores/Usuários:**
+- **Clientes**: Fazem pedidos e acompanham entregas via aplicativo mobile/web
+- **Entregadores**: Recebem e realizam entregas, atualizam status
+- **Administradores**: Gerenciam sistema, visualizam relatórios
+
+**Sistema Central:**
+- **Sistema de Delivery**: Plataforma completa de gerenciamento de entregas
+
+**Sistemas Externos (Integrações):**
+- **Serviço de Pagamentos** (ex: Stripe, PagSeguro): Processa pagamentos de pedidos
+- **API de Mapas** (ex: Google Maps, Mapbox): Fornece cálculo de rotas e geocodificação
+- **Serviço de Email** (SMTP): Envia notificações por email
+- **Serviço de SMS** (ex: Twilio): Envia notificações por SMS
+- **Banco de Dados PostgreSQL**: Armazenamento persistente (separado por microserviço)
+- **Redis**: Cache e mensageria
+
+**Fluxos principais:**
+1. Cliente faz pedido → Sistema processa → Gateway de Pagamento
+2. Sistema calcula rota → API de Mapas → Retorna melhor caminho
+3. Sistema envia notificações → Email/SMS → Usuários recebem atualizações
+4. Entregador atualiza posição → Sistema rastreia → Cliente visualiza em tempo real
 
 ### 2. Diagrama de Containers 
 
-Detalha os containers (aplicações e bancos) que compõem o sistema.
+Detalha os containers (aplicações, bancos de dados e sistemas externos) que compõem o sistema.
 
-**Elementos principais:**
-- Kong Gateway como ponto de entrada
-- 6 microserviços independentes
-- 4 bancos de dados PostgreSQL isolados
-- Redis para cache e filas
-- Comunicação GraphQL e gRPC
+**Ponto de Entrada:**
+- **Kong Gateway** (Porta 8000): API Gateway com autenticação JWT, rate limiting, CORS
+- **Auth Service** (Node.js): Serviço de autenticação integrado ao Kong
+
+**Microserviços (Backend):**
+- **mscustomers** (NestJS - Porta 3001): Gerencia clientes e endereços
+- **msorders** (NestJS - Porta 3000): Gerencia pedidos e produtos
+- **msdelivery** (NestJS - Porta 3003): Gerencia entregas e entregadores
+- **msnotifications** (NestJS - Porta 3002): Envia notificações multicanal
+- **msrouting** (NestJS - Porta 3004): Calcula rotas otimizadas
+- **mstracking** (NestJS - Porta 3005): Rastreamento em tempo real
+
+**Armazenamento de Dados:**
+- **db_customers** (PostgreSQL): Banco isolado do mscustomers
+- **db_orders** (PostgreSQL): Banco isolado do msorders
+- **db_delivery** (PostgreSQL): Banco isolado do msdelivery
+- **db_tracking** (PostgreSQL): Banco isolado do mstracking
+- **Redis**: Cache compartilhado (notificações, rotas)
+
+**Aplicações Cliente:**
+- **Web Application** (React/Angular): Interface web para clientes
+- **Admin Panel** (React/Angular): Painel administrativo
+- **Mobile App** (React Native/Flutter): Aplicativo móvel
+
+**Sistemas Externos Integrados:**
+- **API Google Maps/Mapbox**: msrouting chama para cálculo de rotas
+- **SMTP Server** (Gmail/SendGrid): msnotifications envia emails
+- **SMS Gateway** (Twilio): msnotifications envia SMS
+- **Payment Gateway** (Stripe/PagSeguro): msorders processa pagamentos
+
+**Protocolos de Comunicação:**
+- **Cliente → Kong**: HTTPS/GraphQL
+- **Kong → Microserviços**: HTTP/GraphQL
+- **Microserviços ↔ Microserviços**: gRPC (binário, alta performance)
+- **Microserviços → Sistemas Externos**: HTTPS/REST
+- **mstracking → Clientes**: WebSocket (tempo real)
 
 **Observações técnicas:**
-- Cada microserviço tem seu próprio banco de dados
-- gRPC usado para comunicação síncrona entre serviços
-- GraphQL usado para interface com clientes
-- Redis compartilhado para cache
+- Database per Service pattern: cada microserviço tem banco isolado
+- gRPC para comunicação inter-serviços (performance)
+- GraphQL para interface com clientes (flexibilidade)
+- Redis compartilhado apenas para cache, não para dados críticos
+- Kong como single point of entry (segurança centralizada)
 
 ### 3. Diagramas de Componentes
 

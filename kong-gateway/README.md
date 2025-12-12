@@ -78,7 +78,7 @@ curl http://localhost:8001/routes
 curl http://localhost:8000/api/novo/
 ```
 
-> **⚠️ IMPORTANTE**: O parâmetro `strip_path=true` é **crucial** para que os microsserviços funcionem! Ele remove o prefixo da rota (`/api/orders`, `/api/customers`) antes de enviar para o microsserviço, que espera apenas `/graphql`.
+> **IMPORTANTE**: O parâmetro `strip_path=true` é **crucial** para que os microserviços funcionem! Ele remove o prefixo da rota (`/api/orders`, `/api/customers`) antes de enviar para o microserviço, que espera apenas `/graphql`.
 
 ## 🗃️ Bancos de Dados
 
@@ -206,7 +206,7 @@ docker system prune -a
 docker volume prune
 ```
 
-## 📊 Health Checks
+## Health Checks
 
 ### Verificar Status dos Serviços
 
