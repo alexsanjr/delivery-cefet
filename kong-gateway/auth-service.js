@@ -18,7 +18,7 @@ app.post('/auth/login', (req, res) => {
       iss: key,
       sub: 'test-user',
       iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + (60 * 60),
+      exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24),
     },
     secret,
     { algorithm: 'HS256' }
@@ -26,7 +26,7 @@ app.post('/auth/login', (req, res) => {
 
   res.json({
     token,
-    expires_in: 3600,
+    expires_in: 86400,
     token_type: 'Bearer',
     issuer: key
   });
