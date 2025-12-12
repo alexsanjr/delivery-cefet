@@ -32,7 +32,12 @@ export class OrdersResolver {
   @Query('orders')
   async getOrders() {
     try {
-      return this.ordersService.findAll();
+      const orders = await this.ordersService.findAll();
+      console.log(
+        'DEBUG orders from service:',
+        JSON.stringify(orders[0], null, 2),
+      );
+      return orders;
     } catch (error) {
       throw new Error(
         `Ocorreu um erro ao buscar os pedidos: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
@@ -148,6 +153,22 @@ export class OrdersResolver {
   @ResolveField('items')
   getItems(@Parent() order: OrderWithItems) {
     return order.items || [];
+  }
+
+  @ResolveField('subtotal')
+  getSubtotal(@Parent() order: Order): number | null {
+    console.log('DEBUG subtotal:', order.subtotal, typeof order.subtotal);
+    return order.subtotal ? Number(order.subtotal) : null;
+  }
+
+  @ResolveField('estimatedDeliveryTime')
+  getEstimatedDeliveryTime(@Parent() order: Order): number | null {
+    console.log(
+      'DEBUG estimatedDeliveryTime:',
+      order.estimatedDeliveryTime,
+      typeof order.estimatedDeliveryTime,
+    );
+    return order.estimatedDeliveryTime || null;
   }
 
   @ResolveField('customerName')
