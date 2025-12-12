@@ -25,14 +25,39 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
     private NotificationResponseType: protobuf.Type | null = null;
 
     async onModuleInit() {
-        try {
-            await this.loadProtoDefinitions();
-            await this.connect();
-            await this.setupExchangeAndQueue();
-            this.logger.log('RabbitMQ connected and configured with Protobuf serialization');
-        } catch (error) {
-            this.logger.error('Failed to initialize RabbitMQ', error);
+        await this.connectWithRetry();
+    }
+
+    private async connectWithRetry(maxRetries = 10, delayMs = 3000): Promise<void> {
+        let attempt = 0;
+        
+        while (attempt < maxRetries) {
+            try {
+                this.logger.log(`Tentando conectar ao RabbitMQ (tentativa ${attempt + 1}/${maxRetries})...`);
+                
+                await this.loadProtoDefinitions();
+                await this.connect();
+                await this.setupExchangeAndQueue();
+                
+                this.logger.log('✅ RabbitMQ conectado e configurado com sucesso!');
+                return;
+            } catch (error) {
+                attempt++;
+                
+                if (attempt >= maxRetries) {
+                    this.logger.error(`❌ Falha ao conectar ao RabbitMQ após ${maxRetries} tentativas`, error);
+                    throw error;
+                }
+                
+                const waitTime = delayMs * attempt; // Exponential backoff
+                this.logger.warn(`⚠️ Falha na conexão. Aguardando ${waitTime}ms antes de tentar novamente...`);
+                await this.sleep(waitTime);
+            }
         }
+    }
+
+    private sleep(ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 
     private async loadProtoDefinitions(): Promise<void> {

@@ -10,23 +10,46 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
   private proto: protobuf.Root | null = null;
 
   async onModuleInit() {
-    try {
-      // Conectar ao RabbitMQ
-      this.connection = await amqp.connect(
-        process.env.RABBITMQ_URL || 'amqp://localhost:5672',
-      );
-      this.channel = await this.connection.createChannel();
+    await this.connectWithRetry();
+  }
 
-      // Carregar os schemas protobuf
-      this.proto = await protobuf.load(
-        'src/presentation/grpc/routing.proto',
-      );
+  private async connectWithRetry(maxRetries = 10, delayMs = 3000): Promise<void> {
+    let attempt = 0;
+    
+    while (attempt < maxRetries) {
+      try {
+        this.logger.log(`Tentando conectar ao RabbitMQ (tentativa ${attempt + 1}/${maxRetries})...`);
+        
+        // Conectar ao RabbitMQ
+        this.connection = await amqp.connect(
+          process.env.RABBITMQ_URL || 'amqp://localhost:5672',
+        );
+        this.channel = await this.connection.createChannel();
 
-      this.logger.log('✅ RabbitMQ conectado e Protobuf carregado');
-    } catch (error) {
-      this.logger.error('❌ Erro ao conectar RabbitMQ:', error);
-      throw error;
+        // Carregar os schemas protobuf
+        this.proto = await protobuf.load(
+          'src/presentation/grpc/routing.proto',
+        );
+
+        this.logger.log('✅ RabbitMQ conectado e Protobuf carregado com sucesso!');
+        return;
+      } catch (error) {
+        attempt++;
+        
+        if (attempt >= maxRetries) {
+          this.logger.error(`❌ Falha ao conectar ao RabbitMQ após ${maxRetries} tentativas`, error);
+          throw error;
+        }
+        
+        const waitTime = delayMs * attempt; // Exponential backoff
+        this.logger.warn(`⚠️ Falha na conexão. Aguardando ${waitTime}ms antes de tentar novamente...`);
+        await this.sleep(waitTime);
+      }
     }
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   async onModuleDestroy() {
