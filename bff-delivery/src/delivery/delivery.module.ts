@@ -29,8 +29,9 @@ import { DataLoadersModule } from '../dataloaders/dataloaders.module';
     DeliveryResolver,
     AsyncDeliveryResolver,
     DeliveryFieldResolver,
-    { provide: 'DeliveryService', useClass: DeliveryServiceImpl },
+    DeliveryServiceImpl,
+    { provide: 'DeliveryService', useExisting: DeliveryServiceImpl },
   ],
-  exports: ['DeliveryService'],
+  exports: ['DeliveryService', DeliveryServiceImpl],
 })
 export class DeliveryModule {}

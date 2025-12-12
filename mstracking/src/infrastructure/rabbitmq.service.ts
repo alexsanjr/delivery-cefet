@@ -176,12 +176,13 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
     }
 
     async consumeOrderEvents(callback: (message: any) => Promise<void>): Promise<void> {
-        if (!this.channel) throw new Error('Channel not initialized');
+        try {
+            if (!this.channel) throw new Error('Channel not initialized');
 
-        const queueName = 'tracking.orders.queue';
-        
-        await this.channel.assertQueue(queueName, { durable: true });
-        await this.channel.bindQueue(queueName, 'orders.events', 'order.*');
+            const queueName = 'tracking.orders.queue';
+            
+            await this.channel.assertQueue(queueName, { durable: true });
+            await this.channel.bindQueue(queueName, 'orders.events', 'order.*');
 
             await this.channel.consume(queueName, async (msg) => {
                 if (msg) {

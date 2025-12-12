@@ -6,7 +6,6 @@ import { DeliveryModule } from '../delivery/delivery.module';
 @Module({
   imports: [forwardRef(() => DeliveryModule)],
   providers: [
-    DeliveryServiceImpl,
     {
       provide: DeliveryPersonLoader,
       useFactory: (deliveryService: DeliveryServiceImpl) => {
