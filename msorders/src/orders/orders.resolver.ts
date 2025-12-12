@@ -29,14 +29,11 @@ export class OrdersResolver {
     private readonly notificationsClient: NotificationsClient,
   ) {}
 
+/*
   @Query('orders')
   async getOrders() {
     try {
       const orders = await this.ordersService.findAll();
-      console.log(
-        'DEBUG orders from service:',
-        JSON.stringify(orders[0], null, 2),
-      );
       return orders;
     } catch (error) {
       throw new Error(
@@ -55,6 +52,7 @@ export class OrdersResolver {
       );
     }
   }
+  */
 
   @Query('customerOrders')
   async getCustomerOrders(@Args('customerId') customerId: number) {
@@ -109,6 +107,7 @@ export class OrdersResolver {
     }
   }
 
+/*
   @Mutation('updateOrder')
   async updateOrder(
     @Args('updateOrderInput') updateOrderInput: UpdateOrderInput,
@@ -135,6 +134,7 @@ export class OrdersResolver {
       );
     }
   }
+  */
 
   @ResolveField('createdAt')
   getCreatedAt(@Parent() order: Order): string {
@@ -156,18 +156,17 @@ export class OrdersResolver {
   }
 
   @ResolveField('subtotal')
-  getSubtotal(@Parent() order: Order): number | null {
-    console.log('DEBUG subtotal:', order.subtotal, typeof order.subtotal);
-    return order.subtotal ? Number(order.subtotal) : null;
+  getSubtotal(@Parent() order: any): number | null {
+    if (order.subtotal === null || order.subtotal === undefined) return null;
+    // Handle Prisma Decimal
+    if (typeof order.subtotal === 'object' && 'toNumber' in order.subtotal) {
+      return order.subtotal.toNumber();
+    }
+    return Number(order.subtotal);
   }
 
   @ResolveField('estimatedDeliveryTime')
-  getEstimatedDeliveryTime(@Parent() order: Order): number | null {
-    console.log(
-      'DEBUG estimatedDeliveryTime:',
-      order.estimatedDeliveryTime,
-      typeof order.estimatedDeliveryTime,
-    );
+  getEstimatedDeliveryTime(@Parent() order: any): number | null {
     return order.estimatedDeliveryTime || null;
   }
 
