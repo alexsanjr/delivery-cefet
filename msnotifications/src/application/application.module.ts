@@ -9,6 +9,7 @@ import { RedisNotificationRepository } from '../infrastructure/redis-notificatio
 import { RabbitMQService } from '../infrastructure/rabbitmq.service';
 import { RabbitMQConsumerService } from '../infrastructure/rabbitmq-consumer.service';
 import { TerminalNotifierObserver, NotificationLoggerObserver, NotificationSubjectAdapter } from '../infrastructure/adapters';
+import { OrderEventsAdapter } from '../infrastructure/adapters/order-events.adapter';
 
 @Module({
     imports: [
@@ -22,6 +23,7 @@ import { TerminalNotifierObserver, NotificationLoggerObserver, NotificationSubje
         NotificationLoggerObserver,
         RabbitMQService,
         NotificationSubjectAdapter,
+        OrderEventsAdapter,
         RedisNotificationRepository,
         RabbitMQConsumerService,
         { provide: 'NotificationRepositoryPort', useExisting: RedisNotificationRepository },
