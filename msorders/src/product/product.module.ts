@@ -11,5 +11,6 @@ import { PrismaService } from '../prisma/prisma.service';
     ProductDatasource,
     PrismaService,
   ],
+  exports: [ProductService],
 })
 export class ProductModule {}

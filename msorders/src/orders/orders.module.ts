@@ -25,6 +25,6 @@ import { CustomersDataloaderService } from './customers-dataloader.service';
     PriceCalculatorContext,
     CustomersDataloaderService,
   ],
-  exports: [OrdersService, OrdersDatasource],
+  exports: [OrdersService, OrdersDatasource, CustomersDataloaderService],
 })
 export class OrdersModule {}
