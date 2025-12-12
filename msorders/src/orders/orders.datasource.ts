@@ -62,8 +62,27 @@ export class OrdersDatasource implements IOrderDatasource {
 
   async findAll() {
     return this.prisma.order.findMany({
-      include: {
-        items: true,
+      select: {
+        id: true,
+        customerId: true,
+        status: true,
+        subtotal: true,
+        deliveryFee: true,
+        total: true,
+        paymentMethod: true,
+        estimatedDeliveryTime: true,
+        createdAt: true,
+        updatedAt: true,
+        items: {
+          select: {
+            id: true,
+            productId: true,
+            name: true,
+            description: true,
+            quantity: true,
+            price: true,
+          },
+        },
       },
       orderBy: {
         id: 'asc',
@@ -72,12 +91,36 @@ export class OrdersDatasource implements IOrderDatasource {
   }
 
   async findById(id: number) {
-    return this.prisma.order.findUnique({
+    const order = await this.prisma.order.findUnique({
       where: { id },
-      include: {
-        items: true,
+      select: {
+        id: true,
+        customerId: true,
+        status: true,
+        subtotal: true,
+        deliveryFee: true,
+        total: true,
+        paymentMethod: true,
+        estimatedDeliveryTime: true,
+        createdAt: true,
+        updatedAt: true,
+        items: {
+          select: {
+            id: true,
+            productId: true,
+            name: true,
+            description: true,
+            quantity: true,
+            price: true,
+          },
+        },
       },
     });
+    console.log(
+      'DATASOURCE findById - order.items:',
+      JSON.stringify(order?.items),
+    );
+    return order;
   }
 
   async findByCustomer(customerId: number) {
