@@ -1,10 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import type { ClientConnectionPort } from '../../domain/ports/client-connection.port';
 
 @Injectable()
 export class ManageClientConnectionUseCase {
     constructor(
-        private readonly clientConnection: ClientConnectionPort,
+        @Inject('ClientConnectionPort') private readonly clientConnection: ClientConnectionPort,
     ) {}
 
     connectClient(userId: string): void {

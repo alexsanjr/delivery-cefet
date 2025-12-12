@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Controller } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import { TrackingApplicationService } from '../../application/services/tracking-application.service';
 
-@Injectable()
+@Controller()
 export class TrackingGrpcController {
     constructor(private readonly trackingService: TrackingApplicationService) {}
 

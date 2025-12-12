@@ -23,6 +23,18 @@ import { TerminalNotifierObserver, NotificationLoggerObserver, NotificationSubje
         MarkNotificationAsReadUseCase,
         ManageClientConnectionUseCase,
         NotificationApplicationService,
+        {
+            provide: 'NotificationRepositoryPort',
+            useClass: RedisNotificationRepository,
+        },
+        {
+            provide: 'NotificationSubjectPort',
+            useClass: NotificationSubjectAdapter,
+        },
+        {
+            provide: 'ClientConnectionPort',
+            useExisting: TerminalNotifierObserver,
+        },
         RedisNotificationRepository,
         NotificationSubjectAdapter,
         TerminalNotifierObserver,

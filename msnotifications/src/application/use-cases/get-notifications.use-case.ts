@@ -1,11 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import type { NotificationRepositoryPort } from '../../domain/ports/notification-repository.port';
 import type { NotificationEntity } from '../../domain/notification.entity';
 
 @Injectable()
 export class GetNotificationsUseCase {
     constructor(
-        private readonly notificationRepository: NotificationRepositoryPort,
+        @Inject('NotificationRepositoryPort') private readonly notificationRepository: NotificationRepositoryPort,
     ) {}
 
     async getByUserId(userId: string): Promise<NotificationEntity[]> {

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import type { NotificationRepositoryPort } from '../../domain/ports/notification-repository.port';
 import type { NotificationSubjectPort } from '../../domain/ports/notification-observer.port';
 import type { CreateNotificationDto } from '../dtos/notifications-create.dto';
@@ -9,8 +9,8 @@ import { RabbitMQService } from '../../infrastructure/rabbitmq.service';
 @Injectable()
 export class SendNotificationUseCase {
     constructor(
-        private readonly notificationRepository: NotificationRepositoryPort,
-        private readonly notificationSubject: NotificationSubjectPort,
+        @Inject('NotificationRepositoryPort') private readonly notificationRepository: NotificationRepositoryPort,
+        @Inject('NotificationSubjectPort') private readonly notificationSubject: NotificationSubjectPort,
         private readonly rabbitmqService: RabbitMQService,
     ) {}
 

@@ -9,7 +9,7 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
-RUN npx prisma generate --schema ./src/prisma/schema.prisma
+RUN npx prisma generate --schema ./src/infrastructure/prisma/schema.prisma
 RUN npm run build
 
 # Copiar e dar permissão ao entrypoint separadamente

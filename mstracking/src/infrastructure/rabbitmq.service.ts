@@ -181,7 +181,7 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
         const queueName = 'tracking.orders.queue';
         
         await this.channel.assertQueue(queueName, { durable: true });
-        await this.channel.bindQueue(queueName, 'delivery.orders', 'order.*');
+        await this.channel.bindQueue(queueName, 'orders.events', 'order.*');
 
         await this.channel.consume(queueName, async (msg) => {
             if (msg) {

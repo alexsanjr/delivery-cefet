@@ -11,8 +11,8 @@ export class EnderecoType {
   @Field()
   numero: string;
 
-  @Field({ nullable: true })
-  complemento?: string | null;
+  @Field(() => String, { nullable: true })
+  complemento?: string;
 
   @Field()
   bairro: string;
