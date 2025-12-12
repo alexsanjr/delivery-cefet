@@ -41,11 +41,11 @@ services:
           PGPASSWORD=${POSTGRES_CUSTOMERS_PASSWORD} psql -h postgres-customers -U ${POSTGRES_CUSTOMERS_USER} -d ${POSTGRES_CUSTOMERS_DB} -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
         }
         echo "Running Prisma migrations for customers..."
-        npx prisma migrate deploy --schema=./src/prisma/schema.prisma
+        npx prisma migrate deploy --schema=./src/infrastructure/prisma/schema.prisma
         echo "Generating Prisma Client..."
-        npx prisma generate --schema=./src/prisma/schema.prisma
+        npx prisma generate --schema=./src/infrastructure/prisma/schema.prisma
         echo "Seeding database for customers..."
-        npx prisma db seed --schema=./src/prisma/schema.prisma || true
+        npx prisma db seed --schema=./src/infrastructure/prisma/schema.prisma || true
         echo "Customers database ready"
     depends_on:
       postgres-customers:
