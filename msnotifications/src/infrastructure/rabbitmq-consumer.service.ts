@@ -3,7 +3,7 @@ import { RabbitMQService } from './rabbitmq.service';
 import { OrderEventsAdapter } from './adapters/order-events.adapter';
 
 @Injectable()
-export class RabbitMQConsumerService implements OnModuleInit {
+export class RabbitMQConsumerService implements OnApplicationBootstrap {
     private readonly logger = new Logger(RabbitMQConsumerService.name);
 
     constructor(

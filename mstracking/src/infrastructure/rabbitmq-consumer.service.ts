@@ -1,9 +1,9 @@
-import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import { Injectable, OnApplicationBootstrap, Logger } from '@nestjs/common';
 import { RabbitMQService } from './rabbitmq.service';
 import { StartTrackingUseCase } from '../application/use-cases/start-tracking.use-case';
 
 @Injectable()
-export class RabbitMQConsumerService implements OnModuleInit {
+export class RabbitMQConsumerService implements OnApplicationBootstrap {
     private readonly logger = new Logger(RabbitMQConsumerService.name);
 
     constructor(
@@ -11,8 +11,7 @@ export class RabbitMQConsumerService implements OnModuleInit {
         private readonly startTrackingUseCase: StartTrackingUseCase,
     ) {}
 
-    async onModuleInit() {
-        await new Promise(resolve => setTimeout(resolve, 2000));
+    async onApplicationBootstrap() {
         await this.startConsuming();
     }
 

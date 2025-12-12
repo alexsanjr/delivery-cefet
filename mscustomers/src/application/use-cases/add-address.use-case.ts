@@ -1,7 +1,10 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { IRepositorioCliente } from '../../domain/repositories/customer.repository.interface';
 import type { IRepositorioEndereco } from '../../domain/repositories/address.repository.interface';
-import { TOKEN_REPOSITORIO_CLIENTE, TOKEN_REPOSITORIO_ENDERECO } from '../../domain/repositories/injection-tokens';
+import {
+  TOKEN_REPOSITORIO_CLIENTE,
+  TOKEN_REPOSITORIO_ENDERECO,
+} from '../../domain/repositories/injection-tokens';
 import { Endereco } from '../../domain/entities/address';
 
 /**

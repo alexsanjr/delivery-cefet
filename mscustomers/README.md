@@ -2,24 +2,31 @@
 
 Microserviço responsável pelo gerenciamento completo de clientes e endereços no sistema de delivery.
 
-## Sobre o Projeto
-
-Este serviço foi desenvolvido aplicando Domain-Driven Design (DDD) e Arquitetura Hexagonal, garantindo código limpo, manutenível e testável. A escolha por manter os nomes de métodos e variáveis em português busca facilitar o entendimento e manutenção por equipes brasileiras.
-
 ## Responsabilidades
 
-- Cadastro e atualização de dados de clientes
+- Cadastro e atualização de dados de clientes (Aggregate Root)
 - Gerenciamento de múltiplos endereços de entrega
 - Controle de clientes premium
-- Validação de dados (email, telefone, CPF, CEP)
-- Comunicação com outros serviços via gRPC
+- Validação de dados com Value Objects (Email, Telefone, CPF, CEP)
+- Comunicação via gRPC e RabbitMQ
 - API GraphQL para consultas e mutações
 
-## Arquitetura
+## Arquitetura: DDD + Hexagonal
+
+Este serviço implementa **Domain-Driven Design (DDD)** com **Arquitetura Hexagonal (Ports & Adapters)**.
+
+**Destaques arquiteturais:**
+- **Aggregate Root**: Cliente com Endereços
+- **Value Objects**: Email, Telefone, CPF, CEP (validações encapsuladas)
+- **Repository Pattern**: Interfaces no domínio, implementação com Prisma
+- **Messaging**: RabbitMQ + Protobuf para eventos assíncronos
+- **SOLID**: Decorator Pattern para logging de repositórios
+
+### Estrutura em Camadas
 
 O projeto segue uma estrutura em camadas bem definida:
 
-### Domain (Domínio)
+#### Domain (Domínio)
 Contém toda a lógica de negócio e regras do sistema. É independente de frameworks e tecnologias.
 
 - **Entities**: Cliente (aggregate root) e Endereço
@@ -181,10 +188,10 @@ Porta: `5672` (AMQP) | `15672` (Management UI)
 
 #### Vantagens
 
-- ✅ **Alta Performance**: Protobuf é binário e compacto (~3-10x menor que JSON)
-- ✅ **Tipagem Forte**: Schema validado em tempo de compilação
-- ✅ **Compatibilidade**: Mesmos `.proto` files do gRPC
-- ✅ **Desacoplamento**: Comunicação assíncrona entre microserviços
+- **Alta Performance**: Protobuf é binário e compacto (~3-10x menor que JSON)
+- **Tipagem Forte**: Schema validado em tempo de compilação
+- **Compatibilidade**: Mesmos `.proto` files do gRPC
+- **Desacoplamento**: Comunicação assíncrona entre microserviços
 
 #### Configuração
 
@@ -574,19 +581,145 @@ query {
 }
 ```
 
-## Padrões de Projeto
+## Padrões de Projet Implementados
+
+### Decorator Pattern (Estrutural - GoF)
+
+**Categoria**: Padrão Estrutural do Gang of Four
+
+**Problema resolvido**: Precisamos adicionar funcionalidades transversais (cross-cutting concerns) como logging, métricas e auditoria aos repositórios sem modificar o código original. Modificar diretamente o `CustomerRepository` violaria o princípio Open/Closed e poluiria a classe com responsabilidades que não são dela.
+
+**Solução**: O Decorator Pattern permite anexar responsabilidades adicionais a um objeto dinamicamente. Decorators fornecem uma alternativa flexível ao uso de subclasses para estender funcionalidades.
+
+**Localização**: `src/customers/repositories/`
+
+**Estrutura**:
+
+```typescript
+// Interface base
+interface ICustomerRepository {
+  findAll(): Promise<Customer[]>;
+  findById(id: number): Promise<Customer | null>;
+  create(data: CreateCustomerInput): Promise<Customer>;
+  update(id: number, data: UpdateCustomerInput): Promise<Customer>;
+  delete(id: number): Promise<boolean>;
+}
+
+// Implementação base (foca apenas em persistência)
+@Injectable()
+class CustomerRepository implements ICustomerRepository {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async findAll(): Promise<Customer[]> {
+    return this.prisma.customer.findMany();
+  }
+
+  async findById(id: number): Promise<Customer | null> {
+    return this.prisma.customer.findById(id);
+  }
+
+  // ... outras operações
+}
+
+// Decorator - adiciona logging SEM modificar CustomerRepository
+@Injectable()
+class CustomerRepositoryLogger implements ICustomerRepository {
+  private readonly logger = new Logger('CustomerRepository');
+
+  constructor(
+    @Inject('CustomerRepository')
+    private readonly repository: ICustomerRepository
+  ) {}
+
+  async findAll(): Promise<Customer[]> {
+    this.logger.log('Buscando todos os clientes');
+    const startTime = Date.now();
+    
+    const result = await this.repository.findAll(); // Delega para original
+    
+    const duration = Date.now() - startTime;
+    this.logger.log(`${result.length} clientes encontrados em ${duration}ms`);
+    
+    return result;
+  }
+
+  async findById(id: number): Promise<Customer | null> {
+    this.logger.log(`Buscando cliente com ID: ${id}`);
+    const result = await this.repository.findById(id);
+    this.logger.log(result ? 'Cliente encontrado' : 'Cliente não encontrado');
+    return result;
+  }
+
+  // Delega e adiciona logging para todas as operações
+}
+
+// Similar decorator para Address
+@Injectable()
+class AddressRepositoryLogger implements IAddressRepository {
+  // Mesma estrutura, adiciona logging para operações de endereço
+}
+```
+
+**Configuração no módulo**:
+
+```typescript
+@Module({
+  providers: [
+    CustomerRepository,
+    AddressRepository,
+    {
+      provide: 'ICustomerRepository',
+      useClass: CustomerRepositoryLogger, // Usa o decorator
+    },
+    {
+      provide: 'IAddressRepository',
+      useClass: AddressRepositoryLogger,
+    },
+  ],
+})
+export class CustomersModule {}
+```
+
+**Benefícios**:
+- **Open/Closed Principle**: Funcionalidade de logging adicionada sem modificar código original
+- **Single Responsibility**: Logging separado da lógica de persistência
+- **Composição**: Múltiplos decorators podem ser empilhados (ex: LoggingDecorator → CacheDecorator → Repository)
+- **Flexibilidade**: Fácil adicionar/remover decorators via configuração de módulo
+- **Testabilidade**: Repository original testado sem logging; Decorator testado separadamente
+
+**Justificativa de uso**:
+Logging, métricas, auditoria e cache são concerns transversais que não devem poluir a lógica de negócio. O Decorator Pattern permite adicionar essas funcionalidades de forma limpa e desacoplada, mantendo o repository original focado apenas em persistência. Isso também facilita ativar/desativar logging em diferentes ambientes (dev, staging, prod) apenas mudando a configuração do módulo.
+
+**Princípios SOLID aplicados**:
+- **S - Single Responsibility**: Cada classe tem uma única responsabilidade
+- **O - Open/Closed**: Aberto para extensão (via decorator), fechado para modificação
+- **L - Liskov Substitution**: Decorator pode substituir repository original mantendo contrato
+- **I - Interface Segregation**: Interface `ICustomerRepository` bem definida
+- **D - Dependency Inversion**: Ambos dependem da abstração `ICustomerRepository`
+
+## Padrões Arquiteturais (Não-GoF)
+
+Além do padrão GoF, o microserviço utiliza padrões arquiteturais:
 
 ### Repository Pattern
-O `PrismaService` atua como repository, abstraindo o acesso ao banco de dados.
-
-### Module Pattern
-Código organizado em módulos coesos (CustomersModule, GrpcModule, PrismaModule).
+- **Tipo**: Padrão DDD, não GoF
+- **Uso**: `PrismaService` abstrai acesso ao banco
+- **Nota**: Amplamente usado desde programação web básica
 
 ### Dependency Injection
-Todas as dependências são injetadas via constructor do NestJS.
+- **Tipo**: Princípio SOLID + NestJS nativo
+- **Uso**: Todas as dependências injetadas via constructor
+- **Nota**: É um princípio (Dependency Inversion), não um padrão GoF
 
 ### DTO Pattern
-Validação de entrada usando DTOs com decorators class-validator.
+- **Tipo**: Padrão arquitetural
+- **Uso**: Validação de entrada com class-validator
+- **Nota**: Padrão de integração, não comportamental GoF
+
+### Module Pattern (NestJS)
+- **Tipo**: Padrão arquitetural do NestJS
+- **Uso**: Organização de código em módulos coesos
+- **Nota**: Não é o Module Pattern clássico do GoF
 
 ## Regras de Negócio
 

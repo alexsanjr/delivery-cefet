@@ -2,7 +2,7 @@ import { Cep } from '../value-objects/postal-code';
 
 /**
  * Representa um endereço de entrega do cliente.
- * 
+ *
  * Cada endereço possui identidade única e pode ser marcado como principal.
  */
 export class Endereco {
@@ -137,12 +137,13 @@ export class Endereco {
   }): void {
     if (propriedades.rua !== undefined) this._rua = propriedades.rua;
     if (propriedades.numero !== undefined) this._numero = propriedades.numero;
-    if (propriedades.complemento !== undefined) this._complemento = propriedades.complemento;
+    if (propriedades.complemento !== undefined)
+      this._complemento = propriedades.complemento;
     if (propriedades.bairro !== undefined) this._bairro = propriedades.bairro;
     if (propriedades.cidade !== undefined) this._cidade = propriedades.cidade;
     if (propriedades.estado !== undefined) this._estado = propriedades.estado;
     if (propriedades.cep !== undefined) this._cep = new Cep(propriedades.cep);
-    
+
     this._atualizadoEm = new Date();
   }
 

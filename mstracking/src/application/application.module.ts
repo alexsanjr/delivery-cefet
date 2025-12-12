@@ -13,8 +13,13 @@ import { DeliveryTrackingORM } from '../infrastructure/persistence/delivery-trac
 import { RabbitMQService } from '../infrastructure/rabbitmq.service';
 import { RabbitMQConsumerService } from '../infrastructure/rabbitmq-consumer.service';
 import { PositionLoggerObserver } from '../infrastructure/adapters/position-logger.observer';
+<<<<<<< HEAD
 import { PositionSubjectAdapter } from '../infrastructure/adapters/position-subject.adapter';
 import { AdaptersModule } from '../infrastructure/adapters/adapters.module';
+=======
+import { EmailNotificationFactory } from '../infrastructure/notifications/email-notification.factory';
+import { SmsNotificationFactory } from '../infrastructure/notifications/sms-notification.factory';
+>>>>>>> 2ae6e1968ab7acb46a5cec6272d92945823535bc
 
 @Module({
     imports: [
@@ -37,6 +42,24 @@ import { AdaptersModule } from '../infrastructure/adapters/adapters.module';
         GetActiveDeliveriesUseCase,
         MarkAsDeliveredUseCase,
         TrackingApplicationService,
+        TypeORMTrackingRepository,
+        TypeORMDeliveryTrackingRepository,
+        RabbitMQService,
+        RabbitMQConsumerService,
+        OrdersGrpcAdapter,
+        NotificationsGrpcAdapter,
+        RoutingGrpcAdapter,
+        PositionSubjectAdapter,
+        PositionLoggerObserver,
+        // Factory Method Pattern: Registra as factories de notificação
+        {
+            provide: 'EMAIL_NOTIFICATION_FACTORY',
+            useClass: EmailNotificationFactory,
+        },
+        {
+            provide: 'SMS_NOTIFICATION_FACTORY',
+            useClass: SmsNotificationFactory,
+        },
     ],
     exports: [
         StartTrackingUseCase,

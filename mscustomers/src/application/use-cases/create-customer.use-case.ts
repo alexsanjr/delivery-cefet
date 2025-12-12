@@ -6,7 +6,7 @@ import { ClienteEventPublisher } from '../../domain/events/customer-event.publis
 
 /**
  * Cria um novo cliente no sistema.
- * 
+ *
  * Valida se o email já está cadastrado antes de criar o cliente.
  * Publica evento via RabbitMQ após criação.
  */
@@ -24,7 +24,9 @@ export class CriarClienteCasoDeUso {
     telefone: string;
   }): Promise<Cliente> {
     // Validar se email já existe
-    const emailExiste = await this.repositorioCliente.existePorEmail(dados.email);
+    const emailExiste = await this.repositorioCliente.existePorEmail(
+      dados.email,
+    );
     if (emailExiste) {
       throw new ConflictException('Email já cadastrado no sistema');
     }

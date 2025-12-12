@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { join } from 'path';
 import { DeliveryResolver } from './delivery.resolver';
@@ -23,7 +23,7 @@ import { DataLoadersModule } from '../dataloaders/dataloaders.module';
         },
       },
     ]),
-    DataLoadersModule,
+    forwardRef(() => DataLoadersModule),
   ],
   providers: [
     DeliveryResolver,

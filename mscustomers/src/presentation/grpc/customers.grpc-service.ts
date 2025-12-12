@@ -17,7 +17,7 @@ export class CustomersGrpcService {
   @GrpcMethod('CustomersService', 'GetCustomer')
   async obterCliente(data: { id: number }) {
     console.log('[gRPC] GetCustomer chamado com id:', data.id);
-    
+
     try {
       const cliente = await this.buscarClientePorIdCasoDeUso.executar(data.id);
 

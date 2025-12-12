@@ -2,36 +2,65 @@
 
 Esta pasta contém a documentação detalhada de cada microserviço do sistema de delivery.
 
+## Visão Geral da Arquitetura
+
+O projeto utiliza duas abordagens arquiteturais dependendo da complexidade do domínio:
+
+| Microserviço | Arquitetura | Padrões GoF | Descrição |
+|-------------|-------------|-------------|-----------|
+| **mscustomers** |  DDD + Hexagonal | Decorator | Gerenciamento de clientes e endereços |
+| **msorders** |  DDD + Hexagonal | Strategy, Adapter | Pedidos e cálculo de preços |
+| **msdelivery** |  DDD + Hexagonal | - | Entregas e entregadores |
+| **msrouting** |  DDD + Hexagonal | Strategy | Cálculo de rotas otimizadas |
+| **msnotifications** | DDD + Hexagonal | Observer | Notificações multi-canal |
+| **mstracking** | DDD + Hexagonal | Factory Method, Observer | Rastreamento em tempo real |
+
+> **DDD + Hexagonal**: Aggregate Roots, Value Objects, Use Cases, Repository Interfaces, Domain Events  
+> Todos os 6 microserviços implementam DDD + Arquitetura Hexagonal com domain/, application/, infrastructure/ e presentation/
+
+Para detalhes completos sobre DDD e Arquitetura Hexagonal, veja: [docs/architecture/ddd-hexagonal.md](../architecture/ddd-hexagonal.md)
+
 ## Microserviços do Sistema
 
-### [MS Customers](mscustomers.md)
+### [MS Customers](mscustomers.md) 
 **Porta**: 3001 | **Banco**: db_customers | **APIs**: GraphQL + gRPC
 
 Gerenciamento de clientes e endereços de entrega.
+
+**Arquitetura DDD**:
+- **Aggregate Root**: Cliente (com Endereços)
+- **Value Objects**: Email, Telefone, CPF, CEP
+- **Use Cases**: CriarCliente, AtualizarCliente, AdicionarEndereco
+- **Padrão GoF**: Decorator (logging de repositórios)
 
 **Principais funcionalidades**:
 - Cadastro e autenticação de clientes
 - Gerenciamento de múltiplos endereços
 - Suporte a clientes premium
 - Fornecimento de dados via gRPC para outros serviços
+- RabbitMQ + Protobuf para mensageria
 
-**Tecnologias**: NestJS, Prisma, GraphQL, gRPC
+**Tecnologias**: NestJS, Prisma, GraphQL, gRPC, RabbitMQ
 
 ---
 
-### [MS Orders](msorders.md)
+### [MS Orders](msorders.md) 
 **Porta**: 3000 | **Banco**: db_orders | **APIs**: GraphQL + gRPC
 
 Gestão de pedidos e catálogo de produtos.
 
+**Arquitetura DDD**:
+- **Aggregate Root**: Order (Pedido com OrderItems)
+- **Domain Events**: OrderCreated, OrderStatusChanged
+- **Use Cases**: CreateOrder, UpdateOrderStatus
+- **Padrões GoF**: Strategy (cálculo de preços), Adapter (Hexagonal)
+
 **Principais funcionalidades**:
 - Criação e acompanhamento de pedidos
 - Catálogo de produtos
-- Cálculo dinâmico de preços (Strategy Pattern)
+- Cálculo dinâmico de preços com múltiplas estratégias
 - Estimativa de tempo de entrega
-- DataLoader para otimização
-
-**Padrões implementados**: Strategy (preços), Datasource, DataLoader
+- DataLoader para otimização de queries N+1
 
 **Tecnologias**: NestJS, Prisma, GraphQL, gRPC, DataLoader
 
@@ -41,6 +70,12 @@ Gestão de pedidos e catálogo de produtos.
 **Porta**: 3003 | **Banco**: db_delivery | **APIs**: GraphQL + gRPC
 
 Coordenação de entregas e gerenciamento de entregadores.
+
+**Arquitetura DDD**:
+- **Entities**: DeliveryEntity, DeliveryPersonEntity
+- **Value Objects**: Location, Email, Phone, CPF
+- **Use Cases**: AssignDelivery, UpdateDeliveryStatus, UpdateLocation
+- **Repository Interfaces**: IDeliveryRepository, IDeliveryPersonRepository
 
 **Principais funcionalidades**:
 - Cadastro de entregadores
@@ -53,39 +88,49 @@ Coordenação de entregas e gerenciamento de entregadores.
 
 ---
 
-### [MS Notifications](msnotifications.md)
-**Porta**: 3002 | **Banco**: db_notifications | **APIs**: GraphQL + gRPC
-
-Sistema de notificações assíncronas multi-canal.
-
-**Principais funcionalidades**:
-- Envio de notificações por email, SMS e push
-- Sistema de templates personalizáveis
-- Retry automático para falhas
-- Cache de notificações recentes (Redis)
-- Histórico de notificações
-
-**Tecnologias**: NestJS, TypeORM, GraphQL, gRPC, Redis
-
----
-
 ### [MS Routing](msrouting.md)
 **Porta**: 3004 | **APIs**: gRPC apenas
 
 Cálculo de rotas otimizadas para entregas.
 
+**Arquitetura DDD** (Exemplo mais completo):
+- **Aggregate Root**: Rota
+- **Value Objects**: Coordenada, Distancia, Duracao
+- **Domain Services**: CalculadorCustos
+- **Use Cases**: CalcularRotaCasoDeUso, CalcularETACasoDeUso
+- **Padrão GoF**: Strategy (algoritmos de roteamento)
+
 **Principais funcionalidades**:
-- Múltiplos algoritmos de roteamento (Strategy Pattern)
-- Cache de rotas calculadas (Redis)
+- Múltiplos algoritmos de roteamento com Strategy Pattern
+- Cache inteligente de rotas calculadas (Redis)
 - Estimativa de tempo, distância e custo
-- Integração com APIs externas de mapas
+- Integração com APIs externas de mapas (Geoapify)
 - Consideração de tipo de veículo
 
 **Estratégias disponíveis**: Fastest, Shortest, Economical, Eco-Friendly
 
-**Padrões implementados**: Strategy (rotas), Cache
+**Tecnologias**: NestJS, gRPC, Redis, Axios
 
-**Tecnologias**: NestJS, gRPC, Redis
+---
+
+### [MS Notifications](msnotifications.md)
+**Porta**: 3002 | **APIs**: GraphQL + gRPC
+
+Envio de notificações multi-canal.
+
+**Arquitetura DDD**:
+- **Entities**: NotificationEntity
+- **Use Cases**: SendNotification, GetNotificationHistory
+- **Padrão GoF**: Observer (notificação de múltiplos canais)
+- **Repository Interfaces**: INotificationRepository
+
+**Principais funcionalidades**:
+- Notificações por email, SMS, push, terminal
+- Cache de notificações enviadas (Redis)
+- Observer Pattern para desacoplar canais
+- Comunicação assíncrona
+
+**Tecnologias**: NestJS, GraphQL, gRPC, Redis
 
 ---
 
@@ -93,6 +138,12 @@ Cálculo de rotas otimizadas para entregas.
 **Porta**: 3005 | **Banco**: db_tracking | **APIs**: GraphQL + WebSocket
 
 Rastreamento em tempo real de entregas.
+
+**Arquitetura DDD**:
+- **Entities**: TrackingPointEntity, DeliveryTrackingEntity
+- **Use Cases**: CreateTrackingPoint, GetTrackingHistory
+- **Padrões GoF**: Factory Method (criação de entidades), Observer (atualizações em tempo real)
+- **Repository Interfaces**: ITrackingRepository
 
 **Principais funcionalidades**:
 - Rastreamento de posição em tempo real
@@ -107,16 +158,63 @@ Rastreamento em tempo real de entregas.
 
 ## Comunicação Entre Serviços
 
-### Fluxo de Criação de Pedido
+### Comunicação Síncrona (gRPC)
+
+Usada quando precisamos de resposta imediata:
 
 ```
 1. Cliente → Kong → MS Orders (GraphQL)
 2. MS Orders → MS Customers (gRPC) - Busca dados do cliente
-3. MS Orders → MS Delivery (gRPC) - Cria entrega
-4. MS Delivery → MS Routing (gRPC) - Calcula rota
-5. MS Delivery → MS Tracking (gRPC) - Inicia rastreamento
-6. MS Orders → MS Notifications (gRPC) - Notifica cliente
+3. MS Orders → MS Routing (gRPC) - Calcula rota
+4. MS Delivery → MS Routing (gRPC) - Calcula tempo de entrega
 ```
+
+**Características:**
+- Baixa latência (< 50ms típico)
+- Tipagem forte com Protocol Buffers
+- Requisição/resposta imediata
+- Ideal para: buscar dados, validações síncronas
+
+### Comunicação Assíncrona (RabbitMQ + Protobuf)
+
+Usada para desacoplar serviços e garantir entrega confiável:
+
+```
+Saga Coreografado - Criação de Pedido:
+
+msorders
+   │ Publica: OrderCreatedEvent
+   ▼
+RabbitMQ Exchange (events)
+   │
+   ├──> Queue: orders.created ──> msdelivery
+   │    └─> Cria entrega automaticamente
+   │
+   ├──> Queue: orders.created ──> msnotifications
+   │    └─> Notifica cliente por email/SMS
+   │
+   └──> Queue: orders.created ──> mstracking
+        └─> Inicia rastreamento
+```
+
+**Eventos implementados:**
+
+| Evento | Publisher | Consumers | Protobuf |
+|--------|-----------|-----------|----------|
+| `order.created` | msorders | msdelivery, msnotifications, mstracking | Sim |
+| `order.status.changed` | msorders | msnotifications, mstracking | Sim |
+| `delivery.assigned` | msdelivery | msnotifications, mstracking | Sim |
+| `delivery.delivered` | msdelivery | msorders, msnotifications | Sim |
+| `customer.created` | mscustomers | msnotifications | Sim |
+
+**Características:**
+- Entrega garantida (durabilidade + ack)
+- Desacoplamento total (serviços não se conhecem)
+- Retry automático em falhas
+- Dead Letter Queue para erros
+- Serialização eficiente com Protobuf
+
+Veja [ADR #13](../architecture/adr.md) para implementação completa.
 
 ### Protocolos por Caso de Uso
 
@@ -124,7 +222,9 @@ Rastreamento em tempo real de entregas.
 |---------|-----------|--------|
 | Cliente consultando pedidos | GraphQL | Flexibilidade, escolha de campos |
 | Orders buscar dados de cliente | gRPC | Performance, tipagem forte |
+| Pedido criado → criar entrega | RabbitMQ | Desacoplamento, garantia de entrega |
 | Delivery calcular rota | gRPC | Comunicação servidor-servidor |
+| Status mudou → notificar | RabbitMQ | Assíncrono, múltiplos consumidores |
 | Cliente acompanhando entrega | WebSocket | Tempo real, push de atualizações |
 
 ## Portas e Endpoints
@@ -253,7 +353,10 @@ cd mscustomers
 npm run prisma:seed
 ```
 
+
 ## Testes
+
+### Testes Unitários e de Integração
 
 Cada microserviço possui:
 

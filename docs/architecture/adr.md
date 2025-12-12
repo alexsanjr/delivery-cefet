@@ -107,32 +107,8 @@ Essa foi uma decisão importante: ao invés de ter um banco compartilhado, cada 
 
 ---
 
-## 8. Strategy Pattern para Cálculos
 
-Estudamos vários design patterns e percebemos que precisávamos de algo para lidar com múltiplos algoritmos de cálculo. O Strategy Pattern foi uma ótima solução.
-
-**Onde usamos:**
-
-1. **Cálculo de Preços (msorders):**
-   - Preço básico
-   - Preço premium (com desconto)
-   - Preço expresso (mais caro, mais rápido)
-
-2. **Cálculo de Rotas (msrouting):**
-   - Rota mais rápida
-   - Rota mais curta
-   - Rota econômica
-   - Rota eco-friendly
-
-**Por que funcionou:**
-- Fácil adicionar novos tipos de cálculo
-- Cada estratégia é testável sozinha
-- Código fica mais limpo e organizado
-- Cliente escolhe qual estratégia usar
-
----
-
-## 9. Redis para Cache
+## 8. Redis para Cache
 
 Percebemos que algumas operações eram muito pesadas:
 - Calcular rotas chamando API externa toda hora
@@ -151,7 +127,7 @@ A solução foi usar Redis como cache. É super rápido porque guarda tudo em me
 
 ---
 
-## 10. NestJS como Framework
+## 9. NestJS como Framework
 
 Precisávamos escolher um framework Node.js. Poderíamos usar Express puro, mas queríamos algo mais estruturado.
 
@@ -164,25 +140,315 @@ Precisávamos escolher um framework Node.js. Poderíamos usar Express puro, mas 
 
 ---
 
-## 11. DataLoader para Resolver o Problema N+1
-
-Esse foi um problema que só descobrimos depois que implementamos o GraphQL. Quando buscávamos uma lista de pedidos, o sistema fazia uma chamada gRPC para cada pedido buscar o cliente. Muito ineficiente!
-
-**O problema:**
-```
-Busca 10 pedidos
-Cada pedido precisa buscar o cliente via gRPC
-= 10 chamadas gRPC (sendo que alguns clientes se repetem!)
-```
-
-**A solução (DataLoader):**
-```
-Busca 10 pedidos
-DataLoader agrupa as buscas de clientes
-= 1 chamada gRPC buscando todos os clientes únicos de uma vez
-```
-
-É um pattern bem conhecido na comunidade GraphQL. Além de agrupar requisições, também faz cache durante a mesma requisição (se buscar o mesmo cliente duas vezes, usa o cache).
 
 ---
+
+## 10. Domain-Driven Design (DDD) e Arquitetura Hexagonal
+
+**Contexto do problema:**
+
+No início do projeto, os microserviços tinham uma arquitetura mais simples, com camadas tradicionais (controller, service, repository). À medida que a complexidade da lógica de negócio cresceu, identificamos alguns problemas:
+- Lógica de negócio misturada com código de infraestrutura
+- Dificuldade para testar regras de domínio isoladamente
+- Acoplamento forte com frameworks e tecnologias
+- Falta de expressividade nas regras de negócio
+
+**Por que DDD e Arquitetura Hexagonal:**
+
+Refatoramos os microserviços principais para seguir DDD e Arquitetura Hexagonal.
+
+**Estrutura implementada:**
+
+```
+src/
+├── domain/                    # Núcleo - Lógica de negócio pura
+│   ├── entities/             # Entidades de domínio
+│   ├── value-objects/        # Objetos de valor imutáveis
+│   ├── aggregates/           # Agregados (Order, Rota)
+│   ├── repositories/         # Interfaces (ports)
+│   └── services/             # Serviços de domínio
+├── application/              # Casos de uso
+│   ├── use-cases/           # Lógica de aplicação
+│   ├── dtos/                # Transferência de dados
+│   └── mappers/             # Conversão entre camadas
+├── infrastructure/           # Adapters (implementações)
+│   ├── persistence/         # Repositórios Prisma
+│   ├── adapters/            # gRPC, REST clients
+│   └── mappers/             # Prisma ↔ Domain
+└── presentation/             # Interface externa
+    ├── graphql/             # Resolvers GraphQL
+    └── grpc/                # Controllers gRPC
+```
+
+**Conceitos DDD implementados:**
+
+1. **Entities**: Objetos com identidade (Cliente, Pedido, Entregador)
+2. **Value Objects**: Objetos imutáveis (Email, CPF, Coordenada, Distancia)
+3. **Aggregates**: Clusters de entidades (Order com OrderItems)
+4. **Domain Events**: OrderCreated, DeliveryAssigned
+5. **Use Cases**: CreateOrder, AssignDelivery, CalculateRoute
+6. **Repositories (Interfaces)**: Contratos no domínio, implementação na infraestrutura
+
+**Benefícios:**
+- **Testabilidade**: Domínio testável sem banco de dados ou frameworks
+- **Independência**: Lógica de negócio não depende de Prisma, gRPC, NestJS
+- **Expressividade**: Use Cases deixam claro o que o sistema faz
+- **Manutenibilidade**: Mudanças de tecnologia não afetam o núcleo
+- **Validações**: Value Objects garantem dados sempre válidos
+
+**Exemplo de Value Object:**
+
+```typescript
+export class Email {
+  private constructor(private readonly value: string) {}
+
+  static create(email: string): Email {
+    if (!email.includes('@')) {
+      throw new Error('Email inválido');
+    }
+    return new Email(email);
+  }
+
+  getValue(): string {
+    return this.value;
+  }
+}
+// Email sempre válido - impossível criar Email inválido
+```
+
+**Exemplo de Use Case:**
+
+```typescript
+@Injectable()
+export class CreateOrderUseCase {
+  constructor(
+    @Inject(ORDER_REPOSITORY)
+    private readonly orderRepository: IOrderRepository,
+    @Inject(CUSTOMER_VALIDATOR)
+    private readonly customerValidator: ICustomerValidator,
+  ) {}
+
+  async execute(input: CreateOrderInput): Promise<OrderDto> {
+    // Valida cliente
+    await this.customerValidator.validate(input.customerId);
+    
+    // Cria aggregate
+    const order = Order.create(input);
+    
+    // Persiste
+    await this.orderRepository.save(order);
+    
+    // Retorna DTO
+    return OrderMapper.toDto(order);
+  }
+}
+```
+
+**Trade-offs:**
+- Mais arquivos e camadas de abstração
+- Curva de aprendizado para equipe
+- Overhead inicial de desenvolvimento
+- **Mas**: Compensado pela qualidade e manutenibilidade a longo prazo
+
+---
+
+## 11. Coreografia de Microsserviços com RabbitMQ
+
+**Contexto do problema:**
+
+Com múltiplos microserviços interdependentes, surge a necessidade de comunicação assíncrona confiável. Quando um pedido é criado no msorders, vários serviços precisam reagir:
+- msdelivery precisa criar uma entrega
+- msnotifications precisa notificar o cliente
+- mstracking precisa iniciar o rastreamento
+
+Utilizar comunicação síncrona (gRPC direto) cria acoplamento forte e pontos únicos de falha.
+
+**Vantagens do modelo de Coreografia:**
+- **Desacoplamento**: Serviços não precisam conhecer uns aos outros
+- **Autonomia**: Cada serviço decide como reagir aos eventos
+- **Resiliência**: Se um serviço cai, as mensagens ficam na fila
+- **Escalabilidade**: Múltiplas instâncias podem consumir da mesma fila
+- **Auditoria**: Todas as mensagens ficam registradas
+
+**Arquitetura implementada:**
+
+```
+[msorders]
+    |
+    | Publica: OrderCreatedEvent
+    v
+[RabbitMQ Exchange: events]
+    |
+    +----> [Queue: orders.created] ----> [msdelivery] (cria entrega)
+    |
+    +----> [Queue: orders.created] ----> [msnotifications] (notifica cliente)
+    |
+    +----> [Queue: orders.created] ----> [mstracking] (inicia rastreamento)
+```
+
+**Exemplo de implementação**
+
+```typescript
+// msorders - Publicando evento
+export class OrderCreatedEvent {
+  constructor(
+    public readonly orderId: number,
+    public readonly customerId: number,
+    public readonly total: number,
+    public readonly items: OrderItem[],
+  ) {}
+}
+
+@Injectable()
+export class OrderEventsPublisher {
+  constructor(
+    @Inject('RABBITMQ_CLIENT')
+    private readonly rabbitClient: ClientProxy,
+  ) {}
+
+  async publishOrderCreated(order: Order): Promise<void> {
+    const event = new OrderCreatedEvent(
+      order.id,
+      order.customerId,
+      order.total,
+      order.items,
+    );
+
+    await this.rabbitClient.emit('order.created', event).toPromise();
+  }
+}
+
+// msdelivery - Consumindo evento
+@Controller()
+export class OrderEventsConsumer {
+  constructor(private readonly createDeliveryUseCase: CreateDeliveryUseCase) {}
+
+  @EventPattern('order.created')
+  async handleOrderCreated(data: OrderCreatedEvent): Promise<void> {
+    console.log(`Recebido evento: order.created para pedido ${data.orderId}`);
+
+    // Criar entrega automaticamente
+    await this.createDeliveryUseCase.execute({
+      orderId: data.orderId,
+      customerId: data.customerId,
+    });
+  }
+}
+```
+
+**Protobuf para serialização:**
+
+Usamos Protocol Buffers (Protobuf) para serializar as mensagens, garantindo:
+- **Eficiência**: Mensagens menores que JSON
+- **Tipagem**: Schema bem definido
+- **Versionamento**: Compatibilidade retroativa
+- **Performance**: Serialização/deserialização rápida
+
+```protobuf
+// events.proto
+syntax = "proto3";
+
+package events;
+
+message OrderCreatedEvent {
+  int32 order_id = 1;
+  int32 customer_id = 2;
+  double total = 3;
+  repeated OrderItem items = 4;
+}
+
+message OrderItem {
+  int32 product_id = 1;
+  string name = 2;
+  int32 quantity = 3;
+  double price = 4;
+}
+```
+
+**Configuração do RabbitMQ:**
+
+```typescript
+// app.module.ts
+import { ClientsModule, Transport } from '@nestjs/microservices';
+import { join } from 'path';
+
+@Module({
+  imports: [
+    ClientsModule.register([
+      {
+        name: 'RABBITMQ_CLIENT',
+        transport: Transport.RMQ,
+        options: {
+          urls: [process.env.RABBITMQ_URL || 'amqp://localhost:5672'],
+          queue: 'events_queue',
+          queueOptions: {
+            durable: true, // Mensagens persistem se RabbitMQ reiniciar
+          },
+          // Protobuf
+          serializer: new ProtobufSerializer('events.proto'),
+          deserializer: new ProtobufDeserializer('events.proto'),
+        },
+      },
+    ]),
+  ],
+})
+export class AppModule {}
+```
+
+**Padrão de eventos implementados:**
+
+| Evento | Publisher | Consumers |
+|--------|-----------|----------|
+| `order.created` | msorders | msdelivery, msnotifications, mstracking |
+| `order.status.changed` | msorders | msnotifications, mstracking |
+| `delivery.assigned` | msdelivery | msnotifications, mstracking |
+| `delivery.picked_up` | msdelivery | msnotifications, mstracking |
+| `delivery.delivered` | msdelivery | msorders, msnotifications |
+| `customer.created` | mscustomers | msnotifications |
+
+**Garantias de entrega:**
+
+1. **Durabilidade**: Filas e mensagens marcadas como `durable: true`
+2. **Acknowledgment**: Consumidor confirma processamento com `ack()`
+3. **Dead Letter Queue**: Mensagens com erro vão para DLQ para análise
+4. **Retry**: Tentativas automáticas em caso de falha temporária
+
+**Monitoramento:**
+
+- RabbitMQ Management UI (porta 15672)
+- Métricas: taxa de publicação, consumo, filas com backlog
+- Alertas: filas crescendo indefinidamente, consumidores inativos
+
+
+## 12. Testes de Performance e Escalabilidade
+
+**Contexto do problema:**
+
+Para validar que o sistema é realmente escalável e pode suportar carga de produção, precisamos:
+- Medir throughput (requisições/segundo)
+- Identificar gargalos de performance
+- Validar comportamento sob alta carga
+- Verificar se escala horizontalmente
+- Testar resiliência sob stress
+
+**Por que Apache JMeter:**
+
+Escolhemos **Apache JMeter** como ferramenta de teste de carga e performance.
+
+**Vantagens do JMeter:**
+- Open source e maduro
+- Suporta múltiplos protocolos (HTTP, WebSocket, gRPC via plugins)
+- Interface gráfica para criar testes
+- Relatórios detalhados com gráficos
+- Pode simular milhares de usuários concorrentes
+- Integração com CI/CD
+
+**Resultados dos testes:**
+
+Os testes de performance e escalabilidade estão documentados em:
+
+**[docs/Performace/](../Performace/)**
+
+
+
 
