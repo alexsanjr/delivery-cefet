@@ -181,6 +181,19 @@ export class Order extends AggregateRoot {
     return this._deliveryFee;
   }
 
+  get subtotal(): Money {
+    return this._items.reduce(
+      (sum, item) => sum.add(item.subtotal),
+      Money.zero(),
+    );
+  }
+
+  get estimatedDeliveryTime(): number {
+    // TODO: Calcular baseado na distância real quando integrar com routing
+    // Por enquanto, retorna 30-60 minutos baseado no ID
+    return 30 + (this._id % 30);
+  }
+
   get notes(): string | undefined {
     return this._notes;
   }

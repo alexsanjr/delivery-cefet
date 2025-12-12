@@ -2,6 +2,7 @@ export class OrderItemResponseDto {
   id: number;
   productId: number;
   productName: string;
+  description?: string;
   quantity: number;
   unitPrice: number;
   subtotal: number;

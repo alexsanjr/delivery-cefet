@@ -85,10 +85,10 @@ export class OrderItem extends Entity<number> {
     return {
       id: this.id,
       productName: this.productName,
-      description: this.description,
+      description: this.description ?? null,
       quantity: this.quantity,
       unitPrice: this.unitPrice.amount,
-      notes: this.notes,
+      notes: this.notes ?? null,
       subtotal: this.subtotal.amount,
     };
   }
