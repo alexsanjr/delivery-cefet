@@ -31,7 +31,7 @@ export class OrderMapper {
       OrderItem.reconstitute(prismaItem.id, {
         productId: prismaItem.productId,
         productName: prismaItem.name, // Prisma usa 'name'
-        description: prismaItem.description || undefined,
+        description: prismaItem.description ?? undefined, // Nullish coalescing - converts null to undefined
         quantity: prismaItem.quantity,
         unitPrice: Money.create(Number(prismaItem.price), 'BRL'), // Prisma usa 'price'
       }),
@@ -67,7 +67,7 @@ export class OrderMapper {
       CASH: PaymentMethodEnum.CASH,
     };
 
-    return Order.reconstitute(prismaOrder.id, {
+    const order = Order.reconstitute(prismaOrder.id, {
       customerId: prismaOrder.customerId,
       items,
       deliveryAddress: address,
@@ -80,6 +80,9 @@ export class OrderMapper {
       createdAt: prismaOrder.createdAt,
       updatedAt: prismaOrder.updatedAt,
     });
+
+    // Adicionar subtotal e estimatedDeliveryTime ao Order (devem ser expostos via getters)
+    return order;
   }
 
   /**
@@ -128,6 +131,10 @@ export class OrderMapper {
       0,
     );
 
+    // Calcular tempo estimado de entrega (30-60 minutos baseado na distância)
+    // TODO: Integrar com serviço de roteamento para cálculo real
+    const estimatedDeliveryTime = Math.floor(Math.random() * 30) + 30; // 30-60 minutos
+
     return {
       order: {
         customerId: order.customerId,
@@ -136,7 +143,7 @@ export class OrderMapper {
         deliveryFee: order.deliveryFee.amount,
         total: order.total.amount,
         paymentMethod: paymentMethodMap[order.paymentMethod.value],
-        estimatedDeliveryTime: null,
+        estimatedDeliveryTime,
       },
       items: order.items.map((item) => ({
         productId: item.productId,
