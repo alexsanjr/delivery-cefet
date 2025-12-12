@@ -15,7 +15,9 @@ export class OrderResponseDto {
   paymentMethod: string;
   deliveryAddress: string;
   deliveryFee: number;
+  subtotal: number;
   total: number;
+  estimatedDeliveryTime?: number;
   currency: string;
   items: OrderItemResponseDto[];
   createdAt: Date;

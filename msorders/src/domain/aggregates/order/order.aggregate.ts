@@ -25,6 +25,8 @@ export interface OrderProps extends CreateOrderProps {
   id?: number;
   status: OrderStatus;
   total: Money;
+  subtotal?: Money;
+  estimatedDeliveryTime?: number;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -35,6 +37,8 @@ export class Order extends AggregateRoot {
   private _items: OrderItem[];
   private _status: OrderStatus;
   private _total: Money;
+  private _subtotal: Money;
+  private _estimatedDeliveryTime?: number;
   private readonly _deliveryAddress: Address;
   private readonly _paymentMethod: PaymentMethod;
   private readonly _deliveryFee: Money;
@@ -49,6 +53,8 @@ export class Order extends AggregateRoot {
     this._items = props.items;
     this._status = props.status;
     this._total = props.total;
+    this._subtotal = props.subtotal || Money.zero();
+    this._estimatedDeliveryTime = props.estimatedDeliveryTime;
     this._deliveryAddress = props.deliveryAddress;
     this._paymentMethod = props.paymentMethod;
     this._deliveryFee = props.deliveryFee || Money.zero();
@@ -98,7 +104,16 @@ export class Order extends AggregateRoot {
       Money.zero(),
     );
 
+    this._subtotal = itemsTotal;
     this._total = itemsTotal.add(this._deliveryFee);
+  }
+
+  get subtotal(): Money {
+    return this._subtotal;
+  }
+
+  get estimatedDeliveryTime(): number | undefined {
+    return this._estimatedDeliveryTime;
   }
 
   updateStatus(newStatus: OrderStatus): void {
@@ -179,19 +194,6 @@ export class Order extends AggregateRoot {
 
   get deliveryFee(): Money {
     return this._deliveryFee;
-  }
-
-  get subtotal(): Money {
-    return this._items.reduce(
-      (sum, item) => sum.add(item.subtotal),
-      Money.zero(),
-    );
-  }
-
-  get estimatedDeliveryTime(): number {
-    // TODO: Calcular baseado na distância real quando integrar com routing
-    // Por enquanto, retorna 30-60 minutos baseado no ID
-    return 30 + (this._id % 30);
   }
 
   get notes(): string | undefined {

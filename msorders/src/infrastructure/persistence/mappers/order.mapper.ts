@@ -76,12 +76,13 @@ export class OrderMapper {
       ),
       deliveryFee: Money.create(Number(prismaOrder.deliveryFee), 'BRL'),
       total: Money.create(Number(prismaOrder.total), 'BRL'),
+      subtotal: Money.create(Number(prismaOrder.subtotal), 'BRL'),
+      estimatedDeliveryTime: prismaOrder.estimatedDeliveryTime ?? undefined,
       status: OrderStatus.create(statusMap[prismaOrder.status]),
       createdAt: prismaOrder.createdAt,
       updatedAt: prismaOrder.updatedAt,
     });
 
-    // Adicionar subtotal e estimatedDeliveryTime ao Order (devem ser expostos via getters)
     return order;
   }
 
@@ -133,7 +134,8 @@ export class OrderMapper {
 
     // Calcular tempo estimado de entrega (30-60 minutos baseado na distância)
     // TODO: Integrar com serviço de roteamento para cálculo real
-    const estimatedDeliveryTime = Math.floor(Math.random() * 30) + 30; // 30-60 minutos
+    const estimatedDeliveryTime =
+      order.estimatedDeliveryTime ?? Math.floor(Math.random() * 30) + 30; // 30-60 minutos
 
     return {
       order: {
