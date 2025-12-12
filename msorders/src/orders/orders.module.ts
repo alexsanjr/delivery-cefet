@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { OrdersResolver } from './orders.resolver';
+import { OrderItemResolver } from './order-item.resolver';
 import { OrdersDatasource } from './orders.datasource';
 import { PrismaService } from '../prisma/prisma.service';
 import { BasicPriceCalculator } from './strategies/basic-price-calculator.strategy';
@@ -14,6 +15,7 @@ import { CustomersDataloaderService } from './customers-dataloader.service';
   imports: [GrpcModule],
   providers: [
     OrdersResolver,
+    OrderItemResolver,
     OrdersService,
     OrdersDatasource,
     PrismaService,
@@ -23,6 +25,6 @@ import { CustomersDataloaderService } from './customers-dataloader.service';
     PriceCalculatorContext,
     CustomersDataloaderService,
   ],
-  exports: [OrdersService, OrdersDatasource],
+  exports: [OrdersService, OrdersDatasource, CustomersDataloaderService],
 })
 export class OrdersModule {}

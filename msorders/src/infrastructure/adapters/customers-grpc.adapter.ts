@@ -12,7 +12,7 @@ export class CustomersGrpcAdapter implements ICustomerValidator {
   async exists(customerId: number): Promise<boolean> {
     try {
       const result = await this.customersClient.validateCustomer(customerId);
-      return result.exists === true;
+      return result.isValid === true;
     } catch (error) {
       return false;
     }

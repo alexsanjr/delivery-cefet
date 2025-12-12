@@ -9,11 +9,11 @@ type Order {
   status: OrderStatus!
   items: [OrderItem!]!
   #deliveryAddress: String!
-  subtotal: Float!
+  subtotal: Float
   deliveryFee: Float!
   total: Float!
   paymentMethod: PaymentMethod!
-  estimatedDeliveryTime: Int! # em minutos
+  estimatedDeliveryTime: Int # em minutos
   createdAt: String!
   updatedAt: String!
 }

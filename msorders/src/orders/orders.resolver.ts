@@ -29,10 +29,12 @@ export class OrdersResolver {
     private readonly notificationsClient: NotificationsClient,
   ) {}
 
+/*
   @Query('orders')
   async getOrders() {
     try {
-      return this.ordersService.findAll();
+      const orders = await this.ordersService.findAll();
+      return orders;
     } catch (error) {
       throw new Error(
         `Ocorreu um erro ao buscar os pedidos: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
@@ -50,6 +52,7 @@ export class OrdersResolver {
       );
     }
   }
+  */
 
   @Query('customerOrders')
   async getCustomerOrders(@Args('customerId') customerId: number) {
@@ -104,6 +107,7 @@ export class OrdersResolver {
     }
   }
 
+/*
   @Mutation('updateOrder')
   async updateOrder(
     @Args('updateOrderInput') updateOrderInput: UpdateOrderInput,
@@ -130,6 +134,7 @@ export class OrdersResolver {
       );
     }
   }
+  */
 
   @ResolveField('createdAt')
   getCreatedAt(@Parent() order: Order): string {
@@ -148,6 +153,21 @@ export class OrdersResolver {
   @ResolveField('items')
   getItems(@Parent() order: OrderWithItems) {
     return order.items || [];
+  }
+
+  @ResolveField('subtotal')
+  getSubtotal(@Parent() order: any): number | null {
+    if (order.subtotal === null || order.subtotal === undefined) return null;
+    // Handle Prisma Decimal
+    if (typeof order.subtotal === 'object' && 'toNumber' in order.subtotal) {
+      return order.subtotal.toNumber();
+    }
+    return Number(order.subtotal);
+  }
+
+  @ResolveField('estimatedDeliveryTime')
+  getEstimatedDeliveryTime(@Parent() order: any): number | null {
+    return order.estimatedDeliveryTime || null;
   }
 
   @ResolveField('customerName')
