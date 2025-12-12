@@ -32,10 +32,6 @@ export class TerminalNotifierObserver implements NotificationObserverPort, Clien
     }
 
     async update(notification: NotificationData): Promise<void> {
-        if (!this.connectedClients.has(notification.userId)) {
-            return;
-        }
-
         const timestamp = new Date().toISOString();
         
         console.log('\n' + '='.repeat(80));

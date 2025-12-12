@@ -20,10 +20,13 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
     private readonly logger = new Logger(RabbitMQService.name);
     private connection: amqp.Connection | null = null;
     private channel: amqp.Channel | null = null;
-    private readonly exchangeName = 'delivery.notifications';
+    private readonly exchangeName = 'orders.events';
     private readonly queueName = 'notifications.service';
     private NotificationRequestType: protobuf.Type | null = null;
     private NotificationResponseType: protobuf.Type | null = null;
+    private OrderStatusChangedEventType: protobuf.Type | null = null;
+    private OrderCreatedEventType: protobuf.Type | null = null;
+    private OrderCancelledEventType: protobuf.Type | null = null;
 
     async onModuleInit() {
         try {
@@ -37,13 +40,18 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
     }
 
     private async loadProtoDefinitions(): Promise<void> {
-        const PROTO_PATH = join(__dirname, '../presentation/grpc/notifications.proto');
+        const NOTIFICATIONS_PROTO_PATH = join(__dirname, '../presentation/grpc/notifications.proto');
+        const ORDER_EVENTS_PROTO_PATH = join(__dirname, '../../proto/order-events.proto');
         
         try {
-            const root = await protobuf.load(PROTO_PATH);
-            
-            this.NotificationRequestType = root.lookupType('notifications.NotificationRequest');
-            this.NotificationResponseType = root.lookupType('notifications.NotificationResponse');
+            const notificationsRoot = await protobuf.load(NOTIFICATIONS_PROTO_PATH);
+            this.NotificationRequestType = notificationsRoot.lookupType('notifications.NotificationRequest');
+            this.NotificationResponseType = notificationsRoot.lookupType('notifications.NotificationResponse');
+
+            const orderEventsRoot = await protobuf.load(ORDER_EVENTS_PROTO_PATH);
+            this.OrderStatusChangedEventType = orderEventsRoot.lookupType('orders.events.OrderStatusChangedEvent');
+            this.OrderCreatedEventType = orderEventsRoot.lookupType('orders.events.OrderCreatedEvent');
+            this.OrderCancelledEventType = orderEventsRoot.lookupType('orders.events.OrderCancelledEvent');
             
             this.logger.log('Protobuf definitions loaded successfully for high-speed serialization');
         } catch (error) {
@@ -66,8 +74,31 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
         if (!this.channel) throw new Error('Channel not initialized');
 
         await this.channel.assertExchange(this.exchangeName, 'topic', { durable: true });
-        await this.channel.assertQueue(this.queueName, { durable: true });
-        await this.channel.bindQueue(this.queueName, this.exchangeName, 'notification.*');
+        this.logger.log(`Exchange asserted: ${this.exchangeName}`);
+        
+        const queueResult = await this.channel.assertQueue(this.queueName, { durable: true });
+        this.logger.log(`Queue asserted: ${this.queueName} (${queueResult.messageCount} messages, ${queueResult.consumerCount} consumers)`);
+        
+        await this.channel.bindQueue(this.queueName, this.exchangeName, 'order.created');
+        this.logger.log(`Binding created: ${this.queueName} <- ${this.exchangeName} [order.created]`);
+        
+        await this.channel.bindQueue(this.queueName, this.exchangeName, 'order.status.changed');
+        this.logger.log(`Binding created: ${this.queueName} <- ${this.exchangeName} [order.status.changed]`);
+        
+        await this.channel.bindQueue(this.queueName, this.exchangeName, 'order.cancelled');
+        this.logger.log(`Binding created: ${this.queueName} <- ${this.exchangeName} [order.cancelled]`);
+    }
+
+    private async waitForChannel(maxRetries = 30, delayMs = 1000): Promise<void> {
+        for (let i = 0; i < maxRetries; i++) {
+            if (this.channel) {
+                this.logger.log('Channel is ready');
+                return;
+            }
+            this.logger.log(`Waiting for channel to be ready (${i + 1}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+        throw new Error('Channel initialization timeout');
     }
 
     async publishNotification(notification: NotificationEntity): Promise<void> {
@@ -145,6 +176,64 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
             arrays: true,
             objects: true,
             oneofs: true,
+        });
+    }
+
+    private deserializeOrderEvent(buffer: Buffer, routingKey: string): any {
+        let eventType: protobuf.Type | null = null;
+
+        this.logger.debug(`Deserializing event with routing key: ${routingKey}, buffer size: ${buffer.length} bytes`);
+
+        if (routingKey === 'order.created') {
+            eventType = this.OrderCreatedEventType;
+        } else if (routingKey === 'order.status.changed') {
+            eventType = this.OrderStatusChangedEventType;
+        } else if (routingKey === 'order.cancelled') {
+            eventType = this.OrderCancelledEventType;
+        }
+
+        if (!eventType) {
+            throw new Error(`Unknown order event type for routing key: ${routingKey}`);
+        }
+
+        const decoded = eventType.decode(buffer);
+        const result = eventType.toObject(decoded, {
+            longs: String,
+            enums: String,
+            bytes: String,
+            defaults: true,
+            arrays: true,
+            objects: true,
+            oneofs: true,
+        });
+        
+        this.logger.debug(`Deserialized event: ${JSON.stringify(result)}`);
+        return result;
+    }
+
+    async consumeOrderEvents(callback: (event: any, routingKey: string) => Promise<void>): Promise<void> {
+        await this.waitForChannel();
+        
+        if (!this.channel) throw new Error('Channel not initialized');
+
+        this.logger.log(`Starting to consume from queue: ${this.queueName}`);
+
+        await this.channel.consume(this.queueName, async (msg: amqp.ConsumeMessage | null) => {
+            if (msg) {
+                try {
+                    const routingKey = msg.fields.routingKey;
+                    this.logger.log(`Received message with routing key: ${routingKey}`);
+
+                    const decodedEvent = this.deserializeOrderEvent(msg.content, routingKey);
+                    
+                    await callback(decodedEvent, routingKey);
+                    this.channel!.ack(msg);
+                    this.logger.log(`Processed order event (Protobuf): ${routingKey}`);
+                } catch (error) {
+                    this.logger.error(`Failed to process order event: ${error.message}`, error);
+                    this.channel!.nack(msg, false, false);
+                }
+            }
         });
     }
 
