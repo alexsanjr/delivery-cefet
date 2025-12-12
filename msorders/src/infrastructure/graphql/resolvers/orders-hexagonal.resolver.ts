@@ -45,6 +45,7 @@ export class OrdersHexagonalResolver {
         return {
           productId: item.productId,
           productName: product.name,
+          description: product.description,
           quantity: item.quantity,
           unitPrice: Number(product.price),
         };

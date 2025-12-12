@@ -3,6 +3,7 @@ import { PaymentMethodEnum } from '../../domain/value-objects/payment-method.vo'
 export class CreateOrderItemDto {
   productId: number;
   productName: string;
+  description?: string;
   quantity: number;
   unitPrice: number;
 }

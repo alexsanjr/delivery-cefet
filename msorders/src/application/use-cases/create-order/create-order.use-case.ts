@@ -76,6 +76,7 @@ export class CreateOrderUseCase {
       OrderItem.create({
         productId: item.productId,
         productName: item.productName,
+        description: item.description,
         quantity: item.quantity,
         unitPrice: Money.create(item.unitPrice, 'BRL'),
       }),
