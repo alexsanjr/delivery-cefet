@@ -24,10 +24,12 @@ export class RepositorioPrismaEndereco implements IRepositorioEndereco {
       orderBy: { isPrimary: 'desc' },
     });
 
-    return dados.map(end => this.paraDominio(end));
+    return dados.map((end) => this.paraDominio(end));
   }
 
-  async buscarPrincipalPorIdCliente(idCliente: number): Promise<Endereco | null> {
+  async buscarPrincipalPorIdCliente(
+    idCliente: number,
+  ): Promise<Endereco | null> {
     const dados = await this.prisma.address.findFirst({
       where: {
         customerId: idCliente,

@@ -6,7 +6,10 @@ import {
   CriarEnderecoInput,
   AtualizarEnderecoInput,
 } from '../inputs/customer.input';
-import { MapeadorCliente, MapeadorEndereco } from '../../../application/mappers/customer.mapper';
+import {
+  MapeadorCliente,
+  MapeadorEndereco,
+} from '../../../application/mappers/customer.mapper';
 import { BuscarClientePorIdCasoDeUso } from '../../../application/use-cases/find-customer-by-id.use-case';
 import { CriarClienteCasoDeUso } from '../../../application/use-cases/create-customer.use-case';
 import { AtualizarClienteCasoDeUso } from '../../../application/use-cases/update-customer.use-case';
@@ -32,7 +35,8 @@ export class CustomersResolver {
 
   @Query(() => ClienteType, { name: 'cliente' })
   async buscarCliente(@Args('id', { type: () => Int }) id: number) {
-    const clienteEncontrado = await this.buscarClientePorIdCasoDeUso.executar(id);
+    const clienteEncontrado =
+      await this.buscarClientePorIdCasoDeUso.executar(id);
     return MapeadorCliente.paraDto(clienteEncontrado);
   }
 
@@ -53,19 +57,27 @@ export class CustomersResolver {
     @Args('id', { type: () => Int }) id: number,
     @Args('dados') dados: AtualizarClienteInput,
   ) {
-    const clienteAtualizado = await this.atualizarClienteCasoDeUso.executar(id, dados);
+    const clienteAtualizado = await this.atualizarClienteCasoDeUso.executar(
+      id,
+      dados,
+    );
     return MapeadorCliente.paraDto(clienteAtualizado);
   }
 
   @Mutation(() => Boolean)
-  async excluirCliente(@Args('id', { type: () => Int }) id: number): Promise<boolean> {
+  async excluirCliente(
+    @Args('id', { type: () => Int }) id: number,
+  ): Promise<boolean> {
     await this.excluirClienteCasoDeUso.executar(id);
     return true;
   }
 
   @Mutation(() => EnderecoType)
   async adicionarEndereco(@Args('dados') dados: CriarEnderecoInput) {
-    const enderecoAdicionado = await this.adicionarEnderecoCasoDeUso.executar(dados.idCliente, dados);
+    const enderecoAdicionado = await this.adicionarEnderecoCasoDeUso.executar(
+      dados.idCliente,
+      dados,
+    );
     return MapeadorEndereco.paraDto(enderecoAdicionado);
   }
 
@@ -74,12 +86,17 @@ export class CustomersResolver {
     @Args('id', { type: () => Int }) id: number,
     @Args('dados') dados: AtualizarEnderecoInput,
   ) {
-    const enderecoAtualizado = await this.atualizarEnderecoCasoDeUso.executar(id, dados);
+    const enderecoAtualizado = await this.atualizarEnderecoCasoDeUso.executar(
+      id,
+      dados,
+    );
     return MapeadorEndereco.paraDto(enderecoAtualizado);
   }
 
   @Mutation(() => Boolean)
-  async removerEndereco(@Args('id', { type: () => Int }) id: number): Promise<boolean> {
+  async removerEndereco(
+    @Args('id', { type: () => Int }) id: number,
+  ): Promise<boolean> {
     await this.removerEnderecoCasoDeUso.executar(id);
     return true;
   }

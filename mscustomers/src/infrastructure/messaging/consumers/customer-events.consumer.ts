@@ -22,10 +22,10 @@ export class CustomerEventsConsumer implements OnModuleInit {
       'ValidateCustomerRequest',
       async (data) => {
         this.logger.log(`🔍 Validando cliente ID: ${data.id}`);
-        
+
         // Aqui você chamaria seu use case de validação
         // const resultado = await this.validarClienteCasoDeUso.executar(data.id);
-        
+
         // Responder na fila de resposta
         await this.rabbitMQ.publish(
           'customer.validation.response',
@@ -43,9 +43,9 @@ export class CustomerEventsConsumer implements OnModuleInit {
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             },
-          }
+          },
         );
-      }
+      },
     );
   }
 }

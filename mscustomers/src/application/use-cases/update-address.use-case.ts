@@ -34,7 +34,9 @@ export class AtualizarEnderecoCasoDeUso {
 
     // Se estiver marcando como principal, desmarcar outros
     if (dados.ehPrincipal && !endereco.ehPrincipal) {
-      await this.repositorioEndereco.desmarcarTodosPrincipais(endereco.idCliente);
+      await this.repositorioEndereco.desmarcarTodosPrincipais(
+        endereco.idCliente,
+      );
     }
 
     // Atualizar

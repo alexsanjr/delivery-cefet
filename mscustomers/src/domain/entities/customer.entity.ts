@@ -96,9 +96,11 @@ export class Cliente {
     telefone?: string;
   }): void {
     if (propriedades.nome !== undefined) this._nome = propriedades.nome;
-    if (propriedades.email !== undefined) this._email = new Email(propriedades.email);
-    if (propriedades.telefone !== undefined) this._telefone = new Telefone(propriedades.telefone);
-    
+    if (propriedades.email !== undefined)
+      this._email = new Email(propriedades.email);
+    if (propriedades.telefone !== undefined)
+      this._telefone = new Telefone(propriedades.telefone);
+
     this._atualizadoEm = new Date();
   }
 
@@ -108,7 +110,7 @@ export class Cliente {
     }
 
     if (endereco.ehPrincipal) {
-      this._enderecos.forEach(end => end.marcarComoSecundario());
+      this._enderecos.forEach((end) => end.marcarComoSecundario());
     }
 
     this._enderecos.push(endereco);
@@ -116,8 +118,8 @@ export class Cliente {
   }
 
   removerEndereco(idEndereco: number): void {
-    const indice = this._enderecos.findIndex(end => end.id === idEndereco);
-    
+    const indice = this._enderecos.findIndex((end) => end.id === idEndereco);
+
     if (indice === -1) {
       throw new Error('Endereço não encontrado');
     }
@@ -133,13 +135,13 @@ export class Cliente {
   }
 
   definirEnderecoPrincipal(idEndereco: number): void {
-    const endereco = this._enderecos.find(end => end.id === idEndereco);
-    
+    const endereco = this._enderecos.find((end) => end.id === idEndereco);
+
     if (!endereco) {
       throw new Error('Endereço não encontrado');
     }
 
-    this._enderecos.forEach(end => end.marcarComoSecundario());
+    this._enderecos.forEach((end) => end.marcarComoSecundario());
     endereco.marcarComoPrincipal();
     this._atualizadoEm = new Date();
   }
@@ -155,7 +157,7 @@ export class Cliente {
   }
 
   obterEnderecoPrincipal(): Endereco | null {
-    return this._enderecos.find(end => end.ehPrincipal) ?? null;
+    return this._enderecos.find((end) => end.ehPrincipal) ?? null;
   }
 
   possuiEndereco(): boolean {

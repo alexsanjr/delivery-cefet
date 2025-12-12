@@ -5,7 +5,13 @@ import { RabbitMQModule } from './messaging/rabbitmq.module';
 // Repositories
 import { RepositorioPrismaCliente } from './persistence/repositories/prisma-customer.repository';
 import { RepositorioPrismaEndereco } from './persistence/repositories/prisma-address.repository';
-import { TOKEN_REPOSITORIO_CLIENTE, TOKEN_REPOSITORIO_ENDERECO } from '../domain/repositories/injection-tokens';
+import {
+  TOKEN_REPOSITORIO_CLIENTE,
+  TOKEN_REPOSITORIO_ENDERECO,
+} from '../domain/repositories/injection-tokens';
+
+// Decorators (Design Pattern: Decorator)
+import { CustomerRepositoryLoggerDecorator } from './persistence/decorators/customer-repository-logger.decorator';
 
 // Domain Events
 import { ClienteEventPublisher } from '../domain/events/customer-event.publisher';
@@ -17,9 +23,15 @@ import { ClienteEventPublisher } from '../domain/events/customer-event.publisher
 @Module({
   imports: [PrismaModule, RabbitMQModule],
   providers: [
+    // Base repository implementation
+    {
+      provide: 'CUSTOMER_REPOSITORY_BASE',
+      useClass: RepositorioPrismaCliente,
+    },
+    // Decorator Pattern: Adiciona logging ao repositório
     {
       provide: TOKEN_REPOSITORIO_CLIENTE,
-      useClass: RepositorioPrismaCliente,
+      useClass: CustomerRepositoryLoggerDecorator,
     },
     {
       provide: TOKEN_REPOSITORIO_ENDERECO,

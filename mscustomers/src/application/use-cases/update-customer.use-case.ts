@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import type { IRepositorioCliente } from '../../domain/repositories/customer.repository.interface';
 import { TOKEN_REPOSITORIO_CLIENTE } from '../../domain/repositories/injection-tokens';
 import { Cliente } from '../../domain/entities/customer.entity';
@@ -30,7 +35,9 @@ export class AtualizarClienteCasoDeUso {
 
     // Validar se novo email já está em uso por outro cliente
     if (dados.email && dados.email !== cliente.email.obterValor()) {
-      const emailEmUso = await this.repositorioCliente.existePorEmail(dados.email);
+      const emailEmUso = await this.repositorioCliente.existePorEmail(
+        dados.email,
+      );
       if (emailEmUso) {
         throw new ConflictException('Email já está em uso por outro cliente');
       }

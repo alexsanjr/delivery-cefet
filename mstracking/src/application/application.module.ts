@@ -19,6 +19,8 @@ import { NotificationsGrpcAdapter } from '../infrastructure/adapters/notificatio
 import { RoutingGrpcAdapter } from '../infrastructure/adapters/routing-grpc.adapter';
 import { PositionSubjectAdapter } from '../infrastructure/adapters/position-subject.adapter';
 import { PositionLoggerObserver } from '../infrastructure/adapters/position-logger.observer';
+import { EmailNotificationFactory } from '../infrastructure/notifications/email-notification.factory';
+import { SmsNotificationFactory } from '../infrastructure/notifications/sms-notification.factory';
 
 @Module({
     imports: [
@@ -69,6 +71,15 @@ import { PositionLoggerObserver } from '../infrastructure/adapters/position-logg
         RoutingGrpcAdapter,
         PositionSubjectAdapter,
         PositionLoggerObserver,
+        // Factory Method Pattern: Registra as factories de notificação
+        {
+            provide: 'EMAIL_NOTIFICATION_FACTORY',
+            useClass: EmailNotificationFactory,
+        },
+        {
+            provide: 'SMS_NOTIFICATION_FACTORY',
+            useClass: SmsNotificationFactory,
+        },
     ],
     exports: [
         StartTrackingUseCase,

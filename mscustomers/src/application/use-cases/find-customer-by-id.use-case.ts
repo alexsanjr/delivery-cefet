@@ -17,7 +17,7 @@ export class BuscarClientePorIdCasoDeUso {
 
   async executar(id: number): Promise<Cliente> {
     const cliente = await this.repositorioCliente.buscarPorId(id);
-    
+
     if (!cliente) {
       throw new NotFoundException(`Cliente com ID ${id} não encontrado`);
     }

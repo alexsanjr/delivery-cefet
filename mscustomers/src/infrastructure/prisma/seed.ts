@@ -92,10 +92,10 @@ async function main() {
     },
   });
 
-  console.log('Customers seeded:', { 
-    customer1: customer1.id, 
-    customer2: customer2.id, 
-    customer3: customer3.id 
+  console.log('Customers seeded:', {
+    customer1: customer1.id,
+    customer2: customer2.id,
+    customer3: customer3.id,
   });
   console.log('Database seed completed successfully');
 }

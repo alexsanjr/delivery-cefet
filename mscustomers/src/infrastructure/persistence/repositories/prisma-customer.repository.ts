@@ -51,7 +51,7 @@ export class RepositorioPrismaCliente implements IRepositorioCliente {
       },
     });
 
-    return dados.map(cliente => this.paraDominio(cliente));
+    return dados.map((cliente) => this.paraDominio(cliente));
   }
 
   async salvar(cliente: Cliente): Promise<Cliente> {
@@ -127,7 +127,7 @@ export class RepositorioPrismaCliente implements IRepositorioCliente {
         idCliente: end.customerId,
         criadoEm: end.createdAt,
         atualizadoEm: end.updatedAt,
-      })
+      }),
     );
 
     return Cliente.reconstituir({

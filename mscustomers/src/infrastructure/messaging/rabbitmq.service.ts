@@ -1,4 +1,9 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  OnModuleDestroy,
+  Logger,
+} from '@nestjs/common';
 import * as amqp from 'amqplib';
 import * as protobuf from 'protobufjs';
 
@@ -13,13 +18,13 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
     try {
       // Conectar ao RabbitMQ
       this.connection = await amqp.connect(
-        process.env.RABBITMQ_URL || 'amqp://localhost:5672'
+        process.env.RABBITMQ_URL || 'amqp://localhost:5672',
       );
       this.channel = await this.connection.createChannel();
 
       // Carregar os schemas protobuf
       this.proto = await protobuf.load(
-        'src/presentation/grpc/proto/customers.proto'
+        'src/presentation/grpc/proto/customers.proto',
       );
 
       this.logger.log('✅ RabbitMQ conectado e Protobuf carregado');
@@ -60,14 +65,14 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
       const buffer = Buffer.from(MessageType.encode(message).finish());
 
       // Publicar na fila
-      this.channel!.sendToQueue(queue, buffer, {
+      this.channel.sendToQueue(queue, buffer, {
         persistent: true,
         contentType: 'application/x-protobuf',
         type: messageType,
       });
 
       this.logger.log(
-        `📤 Mensagem publicada na fila '${queue}' (${buffer.length} bytes)`
+        `📤 Mensagem publicada na fila '${queue}' (${buffer.length} bytes)`,
       );
     } catch (error) {
       this.logger.error(`❌ Erro ao publicar mensagem:`, error);

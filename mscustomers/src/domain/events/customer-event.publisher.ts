@@ -21,11 +21,7 @@ export class ClienteEventPublisher {
       updatedAt: cliente.atualizadoEm.toISOString(),
     };
 
-    await this.rabbitMQ.publish(
-      'customer.created',
-      'CustomerResponse',
-      evento
-    );
+    await this.rabbitMQ.publish('customer.created', 'CustomerResponse', evento);
   }
 
   /**
@@ -42,24 +38,19 @@ export class ClienteEventPublisher {
       updatedAt: cliente.atualizadoEm.toISOString(),
     };
 
-    await this.rabbitMQ.publish(
-      'customer.updated',
-      'CustomerResponse',
-      evento
-    );
+    await this.rabbitMQ.publish('customer.updated', 'CustomerResponse', evento);
   }
 
   /**
    * Publica evento quando endereço é adicionado
    */
-  async publicarEnderecoAdicionado(clienteId: number, enderecoId: number): Promise<void> {
-    await this.rabbitMQ.publish(
-      'customer.address.added',
-      'CustomerResponse',
-      {
-        id: clienteId,
-        addressId: enderecoId,
-      }
-    );
+  async publicarEnderecoAdicionado(
+    clienteId: number,
+    enderecoId: number,
+  ): Promise<void> {
+    await this.rabbitMQ.publish('customer.address.added', 'CustomerResponse', {
+      id: clienteId,
+      addressId: enderecoId,
+    });
   }
 }

@@ -19,7 +19,7 @@ export class MapeadorCliente {
   }
 
   static paraDtoLista(clientes: Cliente[]): DtoSaidaCliente[] {
-    return clientes.map(c => MapeadorCliente.paraDto(c));
+    return clientes.map((c) => MapeadorCliente.paraDto(c));
   }
 }
 
@@ -42,6 +42,6 @@ export class MapeadorEndereco {
   }
 
   static paraDtoLista(enderecos: Endereco[]): DtoSaidaEndereco[] {
-    return enderecos.map(e => MapeadorEndereco.paraDto(e));
+    return enderecos.map((e) => MapeadorEndereco.paraDto(e));
   }
 }

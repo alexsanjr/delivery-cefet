@@ -2,7 +2,7 @@ import { Cliente } from '../entities/customer.entity';
 
 /**
  * Define as operações de persistência para clientes.
- * 
+ *
  * Esta interface atua como uma porta na arquitetura hexagonal,
  * permitindo que diferentes tecnologias de banco de dados sejam utilizadas.
  */
