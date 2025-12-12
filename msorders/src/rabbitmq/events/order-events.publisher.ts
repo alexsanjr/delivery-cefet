@@ -35,23 +35,22 @@ export class OrderEventsPublisher implements OnModuleInit {
    */
   async publishOrderCreated(data: OrderCreatedMessageData): Promise<void> {
     try {
-      // Serializa com Protobuf
       const buffer = this.protobuf.serialize(
         this.protoRoot,
         'orders.events.OrderCreatedEvent',
         {
-          order_id: data.orderId,
-          customer_id: data.customerId,
+          orderId: data.orderId,
+          customerId: data.customerId,
           total: data.total,
           status: data.status,
-          payment_method: data.paymentMethod,
+          paymentMethod: data.paymentMethod,
           items: data.items.map((item) => ({
-            product_id: item.productId,
-            product_name: item.productName,
+            productId: item.productId,
+            productName: item.productName,
             quantity: item.quantity,
-            unit_price: item.unitPrice,
+            unitPrice: item.unitPrice,
           })),
-          created_at: data.createdAt,
+          createdAt: data.createdAt,
         },
       );
 
@@ -76,16 +75,20 @@ export class OrderEventsPublisher implements OnModuleInit {
     data: OrderStatusChangedMessageData,
   ): Promise<void> {
     try {
+      const eventData = {
+        orderId: data.orderId,
+        customerId: data.customerId,
+        previousStatus: data.previousStatus,
+        newStatus: data.newStatus,
+        changedAt: data.changedAt,
+      };
+      
+      this.logger.log(`Serializing event data: ${JSON.stringify(eventData)}`);
+      
       const buffer = this.protobuf.serialize(
         this.protoRoot,
         'orders.events.OrderStatusChangedEvent',
-        {
-          order_id: data.orderId,
-          customer_id: data.customerId,
-          previous_status: data.previousStatus,
-          new_status: data.newStatus,
-          changed_at: data.changedAt,
-        },
+        eventData,
       );
 
       await this.rabbitMQ.publishProtobuf(
@@ -112,10 +115,10 @@ export class OrderEventsPublisher implements OnModuleInit {
         this.protoRoot,
         'orders.events.OrderCancelledEvent',
         {
-          order_id: data.orderId,
-          customer_id: data.customerId,
+          orderId: data.orderId,
+          customerId: data.customerId,
           reason: data.reason || '',
-          cancelled_at: data.cancelledAt,
+          cancelledAt: data.cancelledAt,
         },
       );
 

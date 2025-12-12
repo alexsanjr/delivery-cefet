@@ -43,20 +43,20 @@ export class ProtobufService {
     try {
       const MessageType = root.lookupType(messageName);
 
-      // Verifica se os dados são válidos
+      this.logger.debug(`Input data: ${JSON.stringify(data)}`);
+
       const errMsg = MessageType.verify(data);
       if (errMsg) {
         throw new Error(`Validation error: ${errMsg}`);
       }
 
-      // Cria a mensagem
       const message = MessageType.create(data);
+      this.logger.debug(`Created message: ${JSON.stringify(message)}`);
 
-      // Serializa para Buffer
       const buffer = MessageType.encode(message).finish();
 
-      this.logger.debug(
-        `✅ Serialized ${messageName} (${buffer.length} bytes)`,
+      this.logger.log(
+        `Serialized ${messageName} (${buffer.length} bytes)`,
       );
 
       return Buffer.from(buffer);

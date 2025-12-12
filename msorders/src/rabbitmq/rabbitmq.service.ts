@@ -133,8 +133,8 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
         ...options,
       });
 
-      this.logger.debug(
-        `📤 Published protobuf message to ${exchange}/${routingKey} (${message.length} bytes)`,
+      this.logger.log(
+        `Published protobuf message to ${exchange}/${routingKey} (${message.length} bytes)`,
       );
     } catch (error) {
       this.logger.error(

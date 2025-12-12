@@ -1,6 +1,7 @@
 import {
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
@@ -20,6 +21,8 @@ import { OrderCancelledEvent } from '../../../domain/aggregates/order/events/ord
 
 @Injectable()
 export class UpdateOrderStatusUseCase {
+  private readonly logger = new Logger(UpdateOrderStatusUseCase.name);
+
   constructor(
     @Inject(ORDER_REPOSITORY)
     private readonly orderRepository: IOrderRepository,
@@ -31,7 +34,8 @@ export class UpdateOrderStatusUseCase {
   ) {}
 
   async execute(dto: UpdateOrderStatusDto): Promise<OrderResponseDto> {
-    // 1. Buscar pedido
+    this.logger.log(`Updating order ${dto.orderId} status to ${dto.newStatus}`);
+
     const order = await this.orderRepository.findById(dto.orderId);
     if (!order) {
       throw new NotFoundException(`Order with id ${dto.orderId} not found`);
@@ -52,47 +56,45 @@ export class UpdateOrderStatusUseCase {
       throw new BadRequestException(error.message);
     }
 
-    // 4. Persistir
-    const updatedOrder = await this.orderRepository.update(order);
+    const events = order.getUncommittedEvents();
+    this.logger.log(`Processing ${events.length} domain events`);
 
-    // 5. Processar eventos de domínio
-    const events = updatedOrder.getUncommittedEvents();
+    const updatedOrder = await this.orderRepository.update(order);
+    this.logger.log(`Order ${updatedOrder.id} persisted with status ${updatedOrder.status.value}`);
+
     for (const event of events) {
       if (event.eventName === 'OrderStatusChanged') {
         const statusEvent = event as OrderStatusChangedEvent;
-        // Publicar evento no RabbitMQ com Protobuf (assíncrono)
+        this.logger.log(`Publishing OrderStatusChanged event to RabbitMQ`);
+        
         await this.orderEventsPublisher.publishOrderStatusChanged({
-          orderId: updatedOrder.id,
-          customerId: updatedOrder.customerId,
+          orderId: order.id,
+          customerId: order.customerId,
           previousStatus: statusEvent.payload.previousStatus,
-          newStatus: updatedOrder.status.value,
+          newStatus: order.status.value,
           changedAt: new Date().toISOString(),
         });
 
-        // Manter notificação síncrona (fallback)
         await this.notificationSender.sendOrderStatusChangedNotification(
-          updatedOrder.id,
-          updatedOrder.status.value,
+          order.id,
+          order.status.value,
         );
       } else if (event.eventName === 'OrderCancelled') {
         const cancelEvent = event as OrderCancelledEvent;
-        // Publicar evento de cancelamento no RabbitMQ com Protobuf
         await this.orderEventsPublisher.publishOrderCancelled({
-          orderId: updatedOrder.id,
-          customerId: updatedOrder.customerId,
+          orderId: order.id,
+          customerId: order.customerId,
           reason: cancelEvent.payload.reason || 'No reason provided',
           cancelledAt: new Date().toISOString(),
         });
 
-        // Manter notificação síncrona (fallback)
         await this.notificationSender.sendOrderCancelledNotification(
-          updatedOrder.id,
+          order.id,
         );
       }
     }
-    updatedOrder.clearEvents();
+    order.clearEvents();
 
-    // 6. Retornar DTO
     return this.toResponseDto(updatedOrder);
   }
 
