@@ -60,6 +60,25 @@ export class OrderEventsAdapter {
         }
     }
 
+    async handleNotification(event: any): Promise<void> {
+        try {
+            this.logger.log(`Processing Notification event for order ${event.orderId}`);
+            
+            const dto: CreateNotificationDto = {
+                userId: event.userId || `order-${event.orderId}`,
+                orderId: event.orderId.toString(),
+                status: event.status,
+                serviceOrigin: event.serviceOrigin || 'tracking',
+                message: event.message,
+            };
+            
+            await this.sendNotificationUseCase.execute(dto);
+            this.logger.log(`Notification sent for order ${event.orderId}`);
+        } catch (error) {
+            this.logger.error(`Failed to process Notification event: ${error.message}`);
+        }
+    }
+
     private getStatusMessage(orderId: number, status: string): string {
         const messages: Record<string, string> = {
             'PENDING': `Pedido #${orderId} aguardando confirmação.`,
