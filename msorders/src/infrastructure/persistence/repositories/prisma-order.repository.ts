@@ -11,6 +11,9 @@ export class PrismaOrderRepository implements IOrderRepository {
   async save(order: Order): Promise<Order> {
     const { order: orderData, items } = OrderMapper.toPrisma(order);
 
+    // Preserve domain events before persisting
+    const events = order.getUncommittedEvents();
+
     const createdOrder = await this.prisma.order.create({
       data: {
         ...orderData,
@@ -23,7 +26,12 @@ export class PrismaOrderRepository implements IOrderRepository {
       },
     });
 
-    return OrderMapper.toDomain(createdOrder);
+    const domainOrder = OrderMapper.toDomain(createdOrder);
+    
+    // Restore domain events to the reconstituted order
+    events.forEach(event => (domainOrder as any).addDomainEvent(event));
+    
+    return domainOrder;
   }
 
   async findById(id: number): Promise<Order | null> {
@@ -57,6 +65,9 @@ export class PrismaOrderRepository implements IOrderRepository {
   async update(order: Order): Promise<Order> {
     const { order: orderData, items } = OrderMapper.toPrisma(order);
 
+    // Preserve domain events before persisting
+    const events = order.getUncommittedEvents();
+
     // Delete existing items and create new ones (simpler than update)
     await this.prisma.orderItem.deleteMany({
       where: { orderId: order.id },
@@ -75,7 +86,12 @@ export class PrismaOrderRepository implements IOrderRepository {
       },
     });
 
-    return OrderMapper.toDomain(updatedOrder);
+    const domainOrder = OrderMapper.toDomain(updatedOrder);
+    
+    // Restore domain events to the reconstituted order
+    events.forEach(event => (domainOrder as any).addDomainEvent(event));
+    
+    return domainOrder;
   }
 
   async delete(id: number): Promise<void> {
