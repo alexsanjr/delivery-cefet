@@ -39,6 +39,7 @@
     "@nestjs/microservices": "^10.3.0",
     "@nestjs/swagger": "^11.2.3",
     "@prisma/client": "^6.18.0",
+    "amqp-connection-manager": "^5.0.0",
     "amqplib": "^0.10.9",
     "axios": "^1.6.2",
     "class-transformer": "^0.5.1",
