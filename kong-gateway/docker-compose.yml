@@ -350,6 +350,7 @@ services:
   msrouting:
     build: ../msrouting
     ports:
+      - "3004:3000"
       - "50054:50054"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_ROUTING_USER}:${POSTGRES_ROUTING_PASSWORD}@postgres-routing:5432/${POSTGRES_ROUTING_DB}
