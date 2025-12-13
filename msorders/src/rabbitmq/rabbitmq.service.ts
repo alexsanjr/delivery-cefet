@@ -31,6 +31,11 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
   private readonly config: RabbitMQConfig;
   private consumers: Map<string, (msg: ConsumeMessage | null) => void> =
     new Map();
+  private replyConsumerSetup = false;
+  private pendingReplies: Map<
+    string,
+    { resolve: (value: Buffer) => void; reject: (error: Error) => void }
+  > = new Map();
 
   constructor(config: RabbitMQConfig) {
     this.config = config;
@@ -54,7 +59,7 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
       });
 
       this.connection.on('connect', () => {
-        this.logger.log('✅ Connected to RabbitMQ');
+        this.logger.log('Connected to RabbitMQ');
       });
 
       this.connection.on('disconnect', (err) => {
@@ -66,9 +71,8 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
       });
 
       this.channelWrapper = this.connection.createChannel({
-        json: false, // Vamos usar Protobuf, não JSON
+        json: false,
         setup: async (channel) => {
-          // Setup exchanges
           if (this.config.exchanges) {
             for (const exchange of this.config.exchanges) {
               await channel.assertExchange(
@@ -76,28 +80,21 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
                 exchange.type,
                 exchange.options || { durable: true },
               );
-              this.logger.log(`Exchange "${exchange.name}" created/verified`);
             }
           }
 
-          // Setup queues
           if (this.config.queues) {
             for (const queue of this.config.queues) {
               await channel.assertQueue(
                 queue.name,
                 queue.options || { durable: true },
               );
-              this.logger.log(`Queue "${queue.name}" created/verified`);
 
-              // Bind queue to exchange if specified
               if (queue.exchange && queue.routingKey) {
                 await channel.bindQueue(
                   queue.name,
                   queue.exchange,
                   queue.routingKey,
-                );
-                this.logger.log(
-                  `Queue "${queue.name}" bound to exchange "${queue.exchange}" with routing key "${queue.routingKey}"`,
                 );
               }
             }
@@ -106,20 +103,13 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
       });
 
       await this.channelWrapper.waitForConnect();
-      this.logger.log('✅ RabbitMQ Channel ready');
+      this.logger.log('RabbitMQ Channel ready');
     } catch (error) {
-      this.logger.error('❌ Failed to connect to RabbitMQ', error);
+      this.logger.error('Failed to connect to RabbitMQ', error);
       throw error;
     }
   }
 
-  /**
-   * Publica mensagem serializada com Protobuf
-   * @param exchange Nome da exchange
-   * @param routingKey Routing key
-   * @param message Buffer do Protobuf (já serializado)
-   * @param options Opções adicionais
-   */
   async publishProtobuf(
     exchange: string,
     routingKey: string,
@@ -133,24 +123,18 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
         ...options,
       });
 
-      this.logger.log(
+      this.logger.debug(
         `Published protobuf message to ${exchange}/${routingKey} (${message.length} bytes)`,
       );
     } catch (error) {
       this.logger.error(
-        `❌ Failed to publish message to ${exchange}/${routingKey}`,
+        `Failed to publish message to ${exchange}/${routingKey}`,
         error,
       );
       throw error;
     }
   }
 
-  /**
-   * Publica mensagem diretamente para uma fila
-   * @param queue Nome da fila
-   * @param message Buffer do Protobuf
-   * @param options Opções adicionais
-   */
   async sendToQueue(
     queue: string,
     message: Buffer,
@@ -164,19 +148,14 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
       });
 
       this.logger.debug(
-        `📤 Sent protobuf message to queue "${queue}" (${message.length} bytes)`,
+        `Sent protobuf message to queue "${queue}" (${message.length} bytes)`,
       );
     } catch (error) {
-      this.logger.error(`❌ Failed to send message to queue "${queue}"`, error);
+      this.logger.error(`Failed to send message to queue "${queue}"`, error);
       throw error;
     }
   }
 
-  /**
-   * Consome mensagens de uma fila
-   * @param queue Nome da fila
-   * @param onMessage Callback que recebe o ConsumeMessage
-   */
   async consume(
     queue: string,
     onMessage: (msg: ConsumeMessage | null) => void,
@@ -192,10 +171,10 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
                 channel.ack(msg);
               } catch (error) {
                 this.logger.error(
-                  `❌ Error processing message from queue "${queue}"`,
+                  `Error processing message from queue "${queue}"`,
                   error,
                 );
-                channel.nack(msg, false, false); // Não requeue
+                channel.nack(msg, false, false);
               }
             }
           },
@@ -204,59 +183,128 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
       });
 
       this.consumers.set(queue, onMessage);
-      this.logger.log(`📥 Started consuming from queue "${queue}"`);
+      this.logger.log(`Started consuming from queue "${queue}"`);
     } catch (error) {
-      this.logger.error(`❌ Failed to consume from queue "${queue}"`, error);
+      this.logger.error(`Failed to consume from queue "${queue}"`, error);
       throw error;
     }
   }
 
-  /**
-   * Cria um RPC pattern: envia mensagem e aguarda resposta
-   * @param queue Fila de destino
-   * @param message Buffer do Protobuf
-   * @param timeout Timeout em ms
-   */
+  async consumeRpc(
+    queue: string,
+    requestProto: any,
+    handler: (request: any) => Promise<any>,
+  ): Promise<void> {
+    try {
+      await this.channelWrapper.addSetup(async (channel) => {
+        await channel.assertQueue(queue, { durable: true });
+
+        await channel.consume(
+          queue,
+          async (msg) => {
+            if (!msg) return;
+
+            try {
+              const request = requestProto.decode(msg.content);
+              const requestObj = requestProto.toObject(request, {
+                longs: Number,
+                enums: String,
+                bytes: String,
+              });
+
+              this.logger.debug(`RPC request received on queue "${queue}"`);
+
+              const response = await handler(requestObj);
+              const responseBuffer = response.constructor.encode(response).finish();
+
+              if (msg.properties.replyTo) {
+                channel.sendToQueue(
+                  msg.properties.replyTo,
+                  Buffer.from(responseBuffer),
+                  {
+                    correlationId: msg.properties.correlationId,
+                  },
+                );
+              }
+
+              channel.ack(msg);
+            } catch (error) {
+              this.logger.error(
+                `Error processing RPC message from queue "${queue}": ${error.message}`,
+                error.stack,
+              );
+              channel.nack(msg, false, false);
+            }
+          },
+          { noAck: false },
+        );
+      });
+
+      this.logger.log(`Started RPC consumer on queue "${queue}"`);
+    } catch (error) {
+      this.logger.error(`Failed to setup RPC consumer on queue "${queue}"`, error);
+      throw error;
+    }
+  }
+
   async rpcCall(
     queue: string,
     message: Buffer,
     timeout: number = 5000,
   ): Promise<Buffer> {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       const correlationId = this.generateId();
       const replyQueue = `amq.rabbitmq.reply-to`;
 
-      let timeoutId: NodeJS.Timeout;
+      if (!this.replyConsumerSetup) {
+        await this.channelWrapper.addSetup(async (channel) => {
+          await channel.consume(
+            replyQueue,
+            (msg) => {
+              if (msg) {
+                const pending = this.pendingReplies.get(
+                  msg.properties.correlationId,
+                );
+                if (pending) {
+                  pending.resolve(msg.content);
+                  this.pendingReplies.delete(msg.properties.correlationId);
+                }
+              }
+            },
+            { noAck: true },
+          );
+        });
+        this.replyConsumerSetup = true;
+        await this.channelWrapper.waitForConnect();
+      }
 
-      const onMessage = (msg: ConsumeMessage | null) => {
-        if (msg && msg.properties.correlationId === correlationId) {
+      const timeoutId = setTimeout(() => {
+        this.pendingReplies.delete(correlationId);
+        reject(new Error(`RPC timeout after ${timeout}ms`));
+      }, timeout);
+
+      this.pendingReplies.set(correlationId, {
+        resolve: (content: Buffer) => {
           clearTimeout(timeoutId);
-          resolve(msg.content);
-        }
-      };
+          resolve(content);
+        },
+        reject: (error: Error) => {
+          clearTimeout(timeoutId);
+          reject(error);
+        },
+      });
 
-      this.channelWrapper.addSetup(async (channel) => {
-        await channel.consume(
-          replyQueue,
-          (msg) => {
-            if (msg?.properties.correlationId === correlationId) {
-              onMessage(msg);
-              channel.ack(msg);
-            }
-          },
-          { noAck: false },
-        );
-
-        await channel.sendToQueue(queue, message, {
+      try {
+        await this.channelWrapper.sendToQueue(queue, message, {
           correlationId,
           replyTo: replyQueue,
           contentType: 'application/x-protobuf',
         });
-      });
-
-      timeoutId = setTimeout(() => {
-        reject(new Error(`RPC timeout after ${timeout}ms`));
-      }, timeout);
+      } catch (error) {
+        this.pendingReplies.delete(correlationId);
+        clearTimeout(timeoutId);
+        reject(error);
+      }
     });
   }
 
@@ -268,9 +316,9 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
       if (this.connection) {
         await this.connection.close();
       }
-      this.logger.log('👋 Disconnected from RabbitMQ');
+      this.logger.log('Disconnected from RabbitMQ');
     } catch (error) {
-      this.logger.error('❌ Error disconnecting from RabbitMQ', error);
+      this.logger.error('Error disconnecting from RabbitMQ', error);
     }
   }
 

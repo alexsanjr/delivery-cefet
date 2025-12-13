@@ -3,10 +3,12 @@ import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { join } from 'path';
 import { AppModule } from './app.module';
 import * as dotenv from 'dotenv';
+import { Logger } from '@nestjs/common';
 
 dotenv.config();
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.GRPC,
@@ -20,7 +22,7 @@ async function bootstrap() {
   await app.startAllMicroservices();
 
   await app.listen(3000);
-  console.log('Application is running on: http://localhost:3000'); //TODO: VER ROTA
-  console.log('📡 mscustomers gRPC: localhost:50051');
+  logger.log('Application is running on: http://localhost:3000');
+  logger.log('mscustomers gRPC is running on: localhost:50051');
 }
 bootstrap();

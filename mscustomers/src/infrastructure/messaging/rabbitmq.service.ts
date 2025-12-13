@@ -16,20 +16,22 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit() {
     try {
-      // Conectar ao RabbitMQ
       this.connection = await amqp.connect(
         process.env.RABBITMQ_URL || 'amqp://localhost:5672',
       );
       this.channel = await this.connection.createChannel();
 
-      // Carregar os schemas protobuf
+      await this.channel.assertExchange('customer.events', 'topic', {
+        durable: true,
+      });
+
       this.proto = await protobuf.load(
         'src/presentation/grpc/proto/customers.proto',
       );
 
-      this.logger.log('✅ RabbitMQ conectado e Protobuf carregado');
+      this.logger.log('RabbitMQ connected and Protobuf loaded');
     } catch (error) {
-      this.logger.error('❌ Erro ao conectar RabbitMQ:', error);
+      this.logger.error('Failed to connect RabbitMQ:', error);
       throw error;
     }
   }
@@ -37,92 +39,99 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
   async onModuleDestroy() {
     if (this.channel) await this.channel.close();
     if (this.connection) await this.connection.close();
-    this.logger.log('🔌 RabbitMQ desconectado');
+    this.logger.log('RabbitMQ disconnected');
   }
 
-  /**
-   * Publica mensagem na fila usando Protobuf para serialização
-   */
-  async publish(queue: string, messageType: string, data: any): Promise<void> {
+  async publish(
+    routingKey: string,
+    messageType: string,
+    data: any,
+  ): Promise<void> {
     try {
       if (!this.channel || !this.proto) {
-        throw new Error('RabbitMQ não está conectado');
+        throw new Error('RabbitMQ not connected');
       }
 
-      // Garantir que a fila existe
-      await this.channel.assertQueue(queue, { durable: true });
-
-      // Obter o tipo de mensagem do Protobuf
       const MessageType = this.proto.lookupType(`customers.${messageType}`);
 
-      // Validar e serializar usando Protobuf
       const errMsg = MessageType.verify(data);
       if (errMsg) {
-        throw new Error(`Erro de validação Protobuf: ${errMsg}`);
+        throw new Error(`Protobuf validation error: ${errMsg}`);
       }
 
       const message = MessageType.create(data);
       const buffer = Buffer.from(MessageType.encode(message).finish());
 
-      // Publicar na fila
-      this.channel.sendToQueue(queue, buffer, {
+      this.channel.publish('customer.events', routingKey, buffer, {
         persistent: true,
         contentType: 'application/x-protobuf',
         type: messageType,
       });
 
-      this.logger.log(
-        `📤 Mensagem publicada na fila '${queue}' (${buffer.length} bytes)`,
+      this.logger.debug(
+        `Event published: customer.events/${routingKey} (${buffer.length} bytes)`,
       );
     } catch (error) {
-      this.logger.error(`❌ Erro ao publicar mensagem:`, error);
+      this.logger.error(`Error publishing message:`, error);
       throw error;
     }
   }
 
-  /**
-   * Consome mensagens da fila e desserializa usando Protobuf
-   */
   async consume(
     queue: string,
     messageType: string,
-    callback: (data: any) => Promise<void>,
+    callback: (data: any) => Promise<any>,
   ): Promise<void> {
     try {
       if (!this.channel || !this.proto) {
-        throw new Error('RabbitMQ não está conectado');
+        throw new Error('RabbitMQ not connected');
       }
 
       await this.channel.assertQueue(queue, { durable: true });
-      await this.channel.prefetch(1); // Processa uma mensagem por vez
+      await this.channel.prefetch(1);
 
-      const MessageType = this.proto.lookupType(`customers.${messageType}`);
+      const RequestType = this.proto.lookupType(`customers.${messageType}`);
+      
+      let ResponseType;
+      if (messageType === 'ValidateCustomerRequest') {
+        ResponseType = this.proto.lookupType('customers.ValidateCustomerResponse');
+      } else if (messageType === 'GetCustomerRequest') {
+        ResponseType = this.proto.lookupType('customers.CustomerResponse');
+      }
 
-      this.logger.log(`👂 Aguardando mensagens na fila '${queue}'...`);
+      this.logger.log(`Waiting for messages on '${queue}'...`);
 
       this.channel.consume(queue, async (msg) => {
         if (msg) {
           try {
-            // Desserializar Protobuf
-            const decoded = MessageType.decode(msg.content);
-            const data = MessageType.toObject(decoded);
+            const decoded = RequestType.decode(msg.content);
+            const data = RequestType.toObject(decoded);
 
-            this.logger.log(`📥 Mensagem recebida da fila '${queue}'`);
+            this.logger.debug(`Message received from '${queue}'`);
 
-            // Processar mensagem
-            await callback(data);
+            const responseData = await callback(data);
 
-            // Confirmar processamento
+            if (msg.properties.replyTo && ResponseType) {
+              const responseMessage = ResponseType.create(responseData);
+              const responseBuffer = Buffer.from(
+                ResponseType.encode(responseMessage).finish(),
+              );
+
+              this.channel!.sendToQueue(msg.properties.replyTo, responseBuffer, {
+                correlationId: msg.properties.correlationId,
+                contentType: 'application/x-protobuf',
+              });
+            }
+
             this.channel!.ack(msg);
           } catch (error) {
-            this.logger.error('❌ Erro ao processar mensagem:', error);
-            // Rejeitar e reenviar para fila (ou dead letter)
+            this.logger.error('Error processing message:', error);
             this.channel!.nack(msg, false, false);
           }
         }
       });
     } catch (error) {
-      this.logger.error(`❌ Erro ao consumir da fila '${queue}':`, error);
+      this.logger.error(`Error consuming from '${queue}':`, error);
       throw error;
     }
   }
