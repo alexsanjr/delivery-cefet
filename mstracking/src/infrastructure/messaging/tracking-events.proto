@@ -24,3 +24,11 @@ message DeliveryCompleted {
   string order_id = 2;
   int64 completed_at = 3;
 }
+
+message TrackingNotificationEvent {
+  string order_id = 1;
+  string user_id = 2;
+  string status = 3;
+  string service_origin = 4;
+  string message = 5;
+}

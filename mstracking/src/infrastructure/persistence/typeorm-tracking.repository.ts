@@ -62,6 +62,10 @@ export class TypeORMTrackingRepository implements TrackingRepositoryPort {
         });
     }
 
+    async countByDeliveryId(deliveryId: string): Promise<number> {
+        return this.count(deliveryId);
+    }
+
     private toDomain(orm: TrackingPositionORM): TrackingPosition {
         return new TrackingPosition(
             orm.id,

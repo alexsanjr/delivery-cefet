@@ -12,17 +12,11 @@ export class RabbitMQConsumerService implements OnApplicationBootstrap {
     ) {}
 
     async onApplicationBootstrap() {
-        await this.startConsuming();
+        this.logger.log('RabbitMQConsumerService initialized (no auto-consumption)');
     }
 
     private async startConsuming(): Promise<void> {
-        this.logger.log('Starting RabbitMQ consumer for tracking events...');
-
-        await this.rabbitmqService.consumeOrderEvents(async (message) => {
-            await this.processOrderEvent(message);
-        });
-
-        this.logger.log('RabbitMQ consumer started successfully');
+        this.logger.log('RabbitMQ auto-consumption disabled for tracking service');
     }
 
     private async processOrderEvent(message: any): Promise<void> {

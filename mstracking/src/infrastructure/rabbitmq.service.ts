@@ -12,6 +12,7 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
     private PositionUpdateType: protobuf.Type;
     private TrackingStartedType: protobuf.Type;
     private DeliveryCompletedType: protobuf.Type;
+    private TrackingNotificationEventType: protobuf.Type;
 
     async onModuleInit() {
         await this.connect();
@@ -55,6 +56,7 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
             this.PositionUpdateType = this.root.lookupType('tracking.PositionUpdate');
             this.TrackingStartedType = this.root.lookupType('tracking.TrackingStarted');
             this.DeliveryCompletedType = this.root.lookupType('tracking.DeliveryCompleted');
+            this.TrackingNotificationEventType = this.root.lookupType('tracking.TrackingNotificationEvent');
             
             console.log('Protobuf definitions loaded successfully for high-speed serialization');
         } catch (error) {
@@ -84,11 +86,11 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
         timestamp: Date;
     }): Promise<void> {
         const payload = {
-            delivery_id: data.deliveryId,
-            order_id: data.orderId,
+            deliveryId: data.deliveryId,
+            orderId: data.orderId,
             latitude: data.latitude,
             longitude: data.longitude,
-            delivery_person_id: data.deliveryPersonId,
+            deliveryPersonId: data.deliveryPersonId,
             timestamp: data.timestamp.getTime(),
         };
 
@@ -114,11 +116,11 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
         destinationLng: number;
     }): Promise<void> {
         const payload = {
-            delivery_id: data.deliveryId,
-            order_id: data.orderId,
-            destination_lat: data.destinationLat,
-            destination_lng: data.destinationLng,
-            started_at: Date.now(),
+            deliveryId: data.deliveryId,
+            orderId: data.orderId,
+            destinationLat: data.destinationLat,
+            destinationLng: data.destinationLng,
+            startedAt: Date.now(),
         };
 
         const buffer = this.serializeProtobuf(this.TrackingStartedType, payload);
@@ -142,9 +144,9 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
         completedAt: Date;
     }): Promise<void> {
         const payload = {
-            delivery_id: data.deliveryId,
-            order_id: data.orderId,
-            completed_at: data.completedAt.getTime(),
+            deliveryId: data.deliveryId,
+            orderId: data.orderId,
+            completedAt: data.completedAt.getTime(),
         };
 
         const buffer = this.serializeProtobuf(this.DeliveryCompletedType, payload);
@@ -160,6 +162,34 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
         );
 
         console.log(`Published delivery completed (Protobuf - ${buffer.length} bytes) for delivery ${data.deliveryId}`);
+    }
+
+    async publishNotification(data: {
+        orderId: string;
+        status: string;
+        message: string;
+    }): Promise<void> {
+        const payload = {
+            orderId: data.orderId,
+            userId: `order-${data.orderId}`,
+            status: data.status,
+            serviceOrigin: 'tracking',
+            message: data.message,
+        };
+
+        const buffer = this.serializeProtobuf(this.TrackingNotificationEventType, payload);
+
+        this.channel!.publish(
+            'orders.events',
+            'order.notification',
+            buffer,
+            {
+                contentType: 'application/x-protobuf',
+                persistent: true,
+            }
+        );
+
+        console.log(`Published notification (Protobuf - ${buffer.length} bytes) for order ${data.orderId}`);
     }
 
     private deserializeProtobuf(messageType: protobuf.Type, buffer: Buffer): any {
