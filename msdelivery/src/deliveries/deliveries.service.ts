@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DeliveryStatus, DeliveryPersonStatus } from '@prisma/client';
-import { OrdersClient } from '../grpc/orders.client';
+import { OrdersRabbitMQClient } from '../rabbitmq/orders-rabbitmq.client';
 
 const MAX_DELIVERY_RADIUS_KM = 15; // Raio máximo de 15km
 
@@ -9,7 +9,7 @@ const MAX_DELIVERY_RADIUS_KM = 15; // Raio máximo de 15km
 export class DeliveriesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly ordersClient: OrdersClient,
+    private readonly ordersRabbitMQClient: OrdersRabbitMQClient,
   ) {}
 
   /**
@@ -151,18 +151,18 @@ export class DeliveriesService {
     });
 
     if (!delivery) {
-      // Buscar dados do pedido do msorders via gRPC
-      console.log(`Buscando dados do pedido ${orderId} no msorders...`);
+      // Buscar dados do pedido do msorders via RabbitMQ
+      console.log(`Buscando dados do pedido ${orderId} no msorders via RabbitMQ...`);
       
       let orderData: any;
       try {
-        orderData = await this.ordersClient.getOrder(orderId);
+        orderData = await this.ordersRabbitMQClient.getOrder(orderId);
         
         if (!orderData || orderData.error) {
           throw new NotFoundException(`Pedido ${orderId} não encontrado no msorders: ${orderData?.error || 'Desconhecido'}`);
         }
         
-        console.log(`Pedido encontrado: Cliente ${orderData.customerName}, Endereço: ${orderData.deliveryAddress?.street}`);
+        console.log(`Pedido encontrado via RabbitMQ: Cliente ${orderData.customerName}, Endereço: ${orderData.deliveryAddress?.street}`);
       } catch (error) {
         throw new NotFoundException(`Erro ao buscar pedido ${orderId}: ${error.message}`);
       }

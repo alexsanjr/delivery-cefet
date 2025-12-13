@@ -5,7 +5,7 @@ import { ORDERS_CLIENT } from '../../application/ports/out/orders-client.port';
 import { GEOCODING_SERVICE } from '../../application/ports/out/geocoding-service.port';
 import { PrismaDeliveryRepository } from '../adapters/out/persistence/prisma-delivery.repository';
 import { PrismaDeliveryPersonRepository } from '../adapters/out/persistence/prisma-delivery-person.repository';
-import { GrpcOrdersClientAdapter } from '../adapters/out/grpc-clients/grpc-orders-client.adapter';
+import { RabbitMQOrdersClientAdapter } from '../adapters/out/rabbitmq-clients/rabbitmq-orders-client.adapter';
 import { NominatimGeocodingAdapter } from '../adapters/out/geocoding/nominatim-geocoding.adapter';
 import { DeliveryGrpcController } from '../adapters/in/grpc/delivery-grpc.controller';
 import { 
@@ -17,8 +17,10 @@ import {
   UpdateDeliveryStatusUseCase,
 } from '../../application/use-cases/delivery';
 import { PrismaService } from '../../prisma/prisma.service';
+import { RabbitMQModule } from '../../rabbitmq/rabbitmq.module';
 
 @Module({
+  imports: [RabbitMQModule.forRoot()],
   controllers: [DeliveryGrpcController],
   providers: [
     PrismaService,
@@ -34,7 +36,7 @@ import { PrismaService } from '../../prisma/prisma.service';
     // External Clients
     {
       provide: ORDERS_CLIENT,
-      useClass: GrpcOrdersClientAdapter,
+      useClass: RabbitMQOrdersClientAdapter,
     },
     {
       provide: GEOCODING_SERVICE,
