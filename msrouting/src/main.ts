@@ -71,6 +71,7 @@ async function bootstrap() {
 }
 
 bootstrap().catch((error) => {
-  console.error('❌ Bootstrap failed:', error);
+  const logger = new Logger('Bootstrap');
+  logger.error('Bootstrap failed:', error);
   process.exit(1);
 });
