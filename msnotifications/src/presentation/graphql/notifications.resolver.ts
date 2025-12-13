@@ -13,7 +13,8 @@ export class NotificationsResolver {
     async getNotificationsByUser(
         @Args('userId') userId: string
     ): Promise<Notification[]> {
-        return await this.notificationApplicationService.getNotificationsByUserId(userId);
+        const notifications = await this.notificationApplicationService.getNotificationsByUserId(userId);
+        return notifications.map(n => n.toPrimitives());
     }
 
     @Query(() => [Notification], { 
@@ -23,7 +24,8 @@ export class NotificationsResolver {
     async getNotificationsByOrder(
         @Args('orderId') orderId: string
     ): Promise<Notification[]> {
-        return await this.notificationApplicationService.getNotificationsByOrderId(orderId);
+        const notifications = await this.notificationApplicationService.getNotificationsByOrderId(orderId);
+        return notifications.map(n => n.toPrimitives());
     }
 
     @Query(() => [String], {

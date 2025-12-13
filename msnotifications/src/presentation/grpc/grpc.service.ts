@@ -1,7 +1,6 @@
 import { Controller } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import { NotificationApplicationService } from '../../application/services/notification-application.service';
-import { CreateNotificationDto } from '../../application/dtos/notifications-create.dto';
 
 interface NotificationRequest {
     userId: string;
@@ -47,23 +46,23 @@ export class GrpcNotificationsService {
     @GrpcMethod('NotificationsService', 'SendNotification')
     async sendNotification(data: NotificationRequest): Promise<NotificationResponse> {
         try {
-            const createDto: CreateNotificationDto = {
-                userId: data.userId,
-                orderId: data.orderId,
-                status: data.status,
-                serviceOrigin: data.serviceOrigin,
-                message: data.message,
-            };
+            const notification = await this.notificationApplicationService.sendNotification(
+                data.userId,
+                data.orderId,
+                data.status,
+                data.serviceOrigin,
+                data.message,
+            );
 
-            const notification = await this.notificationApplicationService.sendNotification(createDto);
+            const primitives = notification.toPrimitives();
 
             return {
-                id: notification.id,
-                userId: notification.userId,
-                orderId: notification.orderId,
-                status: notification.status,
-                message: notification.message,
-                serviceOrigin: notification.serviceOrigin,
+                id: primitives.id,
+                userId: primitives.userId,
+                orderId: primitives.orderId,
+                status: primitives.status,
+                message: primitives.message,
+                serviceOrigin: primitives.serviceOrigin,
                 success: true,
             };
         } catch (error) {
