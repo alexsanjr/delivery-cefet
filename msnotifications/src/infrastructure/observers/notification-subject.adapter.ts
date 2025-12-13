@@ -1,8 +1,8 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import type { NotificationSubjectPort, NotificationObserverPort } from '../../domain/ports/notification-observer.port';
-import type { NotificationData } from '../../domain/interfaces/notification-data.interface';
-import { TerminalNotifierObserver } from './notifications-terminal.observer';
-import { NotificationLoggerObserver } from './notifications-logger.observer';
+import type { NotificationData } from '../../domain/notification-data.interface';
+import { TerminalNotifierObserver } from './terminal-notifier.observer';
+import { NotificationLoggerObserver } from './notification-logger.observer';
 
 @Injectable()
 export class NotificationSubjectAdapter implements NotificationSubjectPort, OnModuleInit {

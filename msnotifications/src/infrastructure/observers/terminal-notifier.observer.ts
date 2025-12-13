@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { NotificationObserverPort } from '../../domain/ports/notification-observer.port';
 import type { ClientConnectionPort } from '../../domain/ports/client-connection.port';
-import type { NotificationData } from '../../domain/interfaces/notification-data.interface';
+import type { NotificationData } from '../../domain/notification-data.interface';
 
 interface IConnectedClient {
     userId: string;
