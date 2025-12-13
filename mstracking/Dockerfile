@@ -25,7 +25,11 @@ COPY --from=builder /app/package*.json ./
 COPY proto ./proto
 COPY src/presentation/grpc/*.proto ./dist/presentation/grpc/
 COPY src/infrastructure/messaging/*.proto ./src/infrastructure/messaging/
+COPY docker-entrypoint.sh ./
+
+RUN chmod +x docker-entrypoint.sh
 
 EXPOSE 3005 50055
 
+ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["node", "dist/main"]
