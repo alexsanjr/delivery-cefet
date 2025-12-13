@@ -10,7 +10,7 @@ export class ProtobufSerializerImpl implements ProtobufSerializer {
   private root: protobuf.Root | null = null;
   private loadPromise: Promise<void> | null = null;
 
-  constructor(private readonly protoPath: string) {}
+  constructor(private readonly protoPath: string | string[]) {}
 
   private async ensureLoaded(): Promise<void> {
     if (this.root) return;
@@ -23,11 +23,17 @@ export class ProtobufSerializerImpl implements ProtobufSerializer {
   }
 
   private async loadProto(): Promise<void> {
-    const absolutePath = path.isAbsolute(this.protoPath)
-      ? this.protoPath
-      : path.join(process.cwd(), this.protoPath);
+    const protoPaths = Array.isArray(this.protoPath) ? this.protoPath : [this.protoPath];
+    
+    this.root = new protobuf.Root();
+    
+    for (const protoPath of protoPaths) {
+      const absolutePath = path.isAbsolute(protoPath)
+        ? protoPath
+        : path.join(process.cwd(), protoPath);
 
-    this.root = await protobuf.load(absolutePath);
+      await this.root.load(absolutePath, { keepCase: true });
+    }
   }
 
   serialize<T extends object>(messageName: string, data: T): Buffer {

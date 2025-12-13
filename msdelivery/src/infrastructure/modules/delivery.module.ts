@@ -16,6 +16,8 @@ import {
   AssignDeliveryUseCase,
   UpdateDeliveryStatusUseCase,
 } from '../../application/use-cases/delivery';
+import { DeliveryApplicationService } from '../../application/services/delivery-application.service';
+import { OrderEventHandlerService } from '../../application/services/order-event-handler.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RabbitMQModule } from '../../rabbitmq/rabbitmq.module';
 
@@ -42,6 +44,9 @@ import { RabbitMQModule } from '../../rabbitmq/rabbitmq.module';
       provide: GEOCODING_SERVICE,
       useClass: NominatimGeocodingAdapter,
     },
+    // Application Services
+    DeliveryApplicationService,
+    OrderEventHandlerService,
     // Use Cases
     CreateDeliveryUseCase,
     GetDeliveryByOrderIdUseCase,

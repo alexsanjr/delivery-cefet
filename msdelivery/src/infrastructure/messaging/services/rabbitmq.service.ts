@@ -18,7 +18,10 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
   private readonly serializer: ProtobufSerializerImpl;
 
   constructor() {
-    this.serializer = new ProtobufSerializerImpl('proto/events.proto');
+    this.serializer = new ProtobufSerializerImpl([
+      'proto/events.proto',
+      'proto/order-events.proto'
+    ]);
   }
 
   async onModuleInit(): Promise<void> {
@@ -81,6 +84,11 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
     await this.channel.assertExchange(EXCHANGE_NAMES.DELIVERY_COMMANDS, 'direct', {
       durable: true,
     });
+    
+    // Setup external exchanges (from other services)
+    await this.channel.assertExchange('orders.events', 'topic', {
+      durable: true,
+    });
 
     // Setup event queues and bindings
     const eventQueues = [
@@ -109,6 +117,13 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
       await this.channel.assertQueue(queue, { durable: true });
       await this.channel.bindQueue(queue, EXCHANGE_NAMES.DELIVERY_COMMANDS, queue);
     }
+    
+    // Bind delivery.command.create to orders.events exchange to consume OrderCreated events
+    await this.channel.bindQueue(
+      QUEUE_NAMES.CREATE_DELIVERY_COMMAND,
+      'orders.events',
+      'order.created'
+    );
 
     this.logger.log('RabbitMQ exchanges and queues setup completed');
   }
