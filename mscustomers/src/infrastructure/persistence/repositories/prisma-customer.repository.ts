@@ -123,6 +123,8 @@ export class RepositorioPrismaCliente implements IRepositorioCliente {
         cidade: end.city,
         estado: end.state,
         cep: end.zipCode,
+        latitude: end.latitude,
+        longitude: end.longitude,
         ehPrincipal: end.isPrimary,
         idCliente: end.customerId,
         criadoEm: end.createdAt,

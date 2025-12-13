@@ -58,6 +58,8 @@ export interface DtoSaidaEndereco {
   cidade: string;
   estado: string;
   cep: string;
+  latitude: number | null;
+  longitude: number | null;
   ehPrincipal: boolean;
   idCliente: number;
   criadoEm: Date;

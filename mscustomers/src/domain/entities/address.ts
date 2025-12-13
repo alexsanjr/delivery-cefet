@@ -15,6 +15,8 @@ export class Endereco {
     private _cidade: string,
     private _estado: string,
     private _cep: Cep,
+    private _latitude: number | null,
+    private _longitude: number | null,
     private _ehPrincipal: boolean,
     private readonly _idCliente: number,
     private readonly _criadoEm: Date,
@@ -29,6 +31,8 @@ export class Endereco {
     cidade: string;
     estado: string;
     cep: string;
+    latitude?: number | null;
+    longitude?: number | null;
     ehPrincipal?: boolean;
     idCliente: number;
   }): Endereco {
@@ -41,6 +45,8 @@ export class Endereco {
       propriedades.cidade,
       propriedades.estado,
       new Cep(propriedades.cep),
+      propriedades.latitude ?? null,
+      propriedades.longitude ?? null,
       propriedades.ehPrincipal ?? false,
       propriedades.idCliente,
       new Date(),
@@ -57,6 +63,8 @@ export class Endereco {
     cidade: string;
     estado: string;
     cep: string;
+    latitude: number | null;
+    longitude: number | null;
     ehPrincipal: boolean;
     idCliente: number;
     criadoEm: Date;
@@ -71,6 +79,8 @@ export class Endereco {
       propriedades.cidade,
       propriedades.estado,
       new Cep(propriedades.cep),
+      propriedades.latitude,
+      propriedades.longitude,
       propriedades.ehPrincipal,
       propriedades.idCliente,
       propriedades.criadoEm,
@@ -108,6 +118,14 @@ export class Endereco {
 
   get cep(): Cep {
     return this._cep;
+  }
+
+  get latitude(): number | null {
+    return this._latitude;
+  }
+
+  get longitude(): number | null {
+    return this._longitude;
   }
 
   get ehPrincipal(): boolean {

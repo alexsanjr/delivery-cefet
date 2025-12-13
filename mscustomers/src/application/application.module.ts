@@ -11,6 +11,9 @@ import { AdicionarEnderecoCasoDeUso } from './use-cases/add-address.use-case';
 import { AtualizarEnderecoCasoDeUso } from './use-cases/update-address.use-case';
 import { RemoverEnderecoCasoDeUso } from './use-cases/remove-address.use-case';
 
+// RabbitMQ Consumers
+import { CustomersRequestConsumer } from '../infrastructure/messaging/customers-request.consumer';
+
 /**
  * Application Module: Camada de Aplicação
  * Contém todos os casos de uso que orquestram a lógica de negócio
@@ -26,6 +29,7 @@ import { RemoverEnderecoCasoDeUso } from './use-cases/remove-address.use-case';
     AdicionarEnderecoCasoDeUso,
     AtualizarEnderecoCasoDeUso,
     RemoverEnderecoCasoDeUso,
+    CustomersRequestConsumer,
   ],
   exports: [
     BuscarClientePorIdCasoDeUso,

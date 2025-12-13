@@ -53,6 +53,8 @@ export class RepositorioPrismaEndereco implements IRepositorioEndereco {
         city: endereco.cidade,
         state: endereco.estado,
         zipCode: endereco.cep.obterValor(),
+        latitude: endereco.latitude,
+        longitude: endereco.longitude,
         isPrimary: endereco.ehPrincipal,
       },
     });
@@ -71,6 +73,8 @@ export class RepositorioPrismaEndereco implements IRepositorioEndereco {
         city: endereco.cidade,
         state: endereco.estado,
         zipCode: endereco.cep.obterValor(),
+        latitude: endereco.latitude,
+        longitude: endereco.longitude,
         isPrimary: endereco.ehPrincipal,
       },
     });
@@ -116,6 +120,8 @@ export class RepositorioPrismaEndereco implements IRepositorioEndereco {
       cidade: dados.city,
       estado: dados.state,
       cep: dados.zipCode,
+      latitude: dados.latitude,
+      longitude: dados.longitude,
       ehPrincipal: dados.isPrimary,
       idCliente: dados.customerId,
       criadoEm: dados.createdAt,

@@ -34,6 +34,8 @@ export class MapeadorEndereco {
       cidade: endereco.cidade,
       estado: endereco.estado,
       cep: endereco.cep.obterValor(),
+      latitude: endereco.latitude,
+      longitude: endereco.longitude,
       ehPrincipal: endereco.ehPrincipal,
       idCliente: endereco.idCliente,
       criadoEm: endereco.criadoEm,
