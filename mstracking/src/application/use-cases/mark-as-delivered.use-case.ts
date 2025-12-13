@@ -30,11 +30,10 @@ export class MarkAsDeliveredUseCase {
             completedAt: deliveryTracking.completedAt!,
         });
 
-        try {
-            const userId = `order-${orderId}`;
-            await this.notificationService.notifyDelivered(userId, orderId);
-        } catch (error) {
-            console.error('Failed to send delivered notification:', error);
-        }
+        await this.messaging.publishNotification({
+            orderId: deliveryTracking.orderId,
+            status: 'DELIVERED',
+            message: 'Entregue! Seu pedido foi entregue com sucesso.',
+        });
     }
 }

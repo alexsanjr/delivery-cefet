@@ -56,6 +56,16 @@ export class UpdatePositionUseCase {
             timestamp: savedPosition.timestamp,
         });
 
+        const positionsCount = await this.trackingRepository.countByDeliveryId(input.deliveryId);
+
+        if (positionsCount === 2) {
+            await this.messaging.publishNotification({
+                orderId: savedPosition.orderId,
+                status: 'ARRIVING',
+                message: `Pedido #${savedPosition.orderId} está chegando!`,
+            });
+        }
+
         return savedPosition;
     }
 }

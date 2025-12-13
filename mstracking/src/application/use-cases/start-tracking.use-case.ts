@@ -65,6 +65,13 @@ export class StartTrackingUseCase {
             destinationLat: input.destinationLat,
             destinationLng: input.destinationLng,
         });
+
+        await this.messaging.publishNotification({
+            orderId: input.orderId,
+            status: 'OUT_FOR_DELIVERY',
+            message: 'Pedido confirmado! O entregador está a caminho.',
+        });
+
         return savedPosition;
     }
 }
