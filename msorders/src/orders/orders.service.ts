@@ -22,8 +22,9 @@ import {
   CustomerGrpcResponse,
 } from './interfaces';
 import { PriceCalculatorContext } from './strategies/price-calculator.context';
-import { CustomersClient } from '../grpc/customers.client';
+import { CustomersRabbitMQClient } from '../rabbitmq/customers-rabbitmq.client';
 import { NotificationsClient } from '../grpc/notifications.client';
+import { CustomersEventsConsumer } from '../infrastructure/consumers/customers-events.consumer';
 import { firstValueFrom } from 'rxjs';
 
 @Injectable()
@@ -33,8 +34,9 @@ export class OrdersService implements IOrderValidator {
   constructor(
     private readonly ordersDatasource: OrdersDatasource,
     private readonly priceCalculatorContext: PriceCalculatorContext,
-    private readonly customersClient: CustomersClient,
+    private readonly customersRabbitMQClient: CustomersRabbitMQClient,
     private readonly notificationsClient: NotificationsClient,
+    private readonly customersConsumer: CustomersEventsConsumer,
   ) {}
 
   async create(createOrderInput: CreateOrderInput) {
@@ -49,7 +51,8 @@ export class OrdersService implements IOrderValidator {
         throw new BadRequestException('ID do cliente é obrigatório');
       }
 
-      const customerData = await this.getCustomerDataViaGrpc(
+      // Tenta buscar do cache primeiro (sincronizado via RabbitMQ)
+      const customerData = await this.getCustomerData(
         createOrderInput.customerId,
       );
 
@@ -104,16 +107,42 @@ export class OrdersService implements IOrderValidator {
       throw error;
     }
   }
+  /**
+   * Busca dados do cliente:
+   * 1. Tenta do cache local (sincronizado via RabbitMQ eventos)
+   * 2. Se não existir no cache, usa RabbitMQ Request-Reply
+   */
+  private async getCustomerData(
+    customerId: number,
+  ): Promise<{ name: string; phone: string; isPremium: boolean }> {
+    // Tentar buscar do cache primeiro
+    const cachedCustomer = this.customersConsumer.getCustomerFromCache(customerId);
+    
+    if (cachedCustomer) {
+      this.logger.log(
+        `✅ Cliente obtido do cache local: ${cachedCustomer.name}, isPremium: ${cachedCustomer.isPremium}`,
+      );
+      return {
+        name: cachedCustomer.name,
+        phone: cachedCustomer.phone,
+        isPremium: cachedCustomer.isPremium,
+      };
+    }
 
-  private async getCustomerDataViaGrpc(
+    // Fallback para RabbitMQ Request-Reply se não estiver no cache
+    this.logger.warn(
+      `⚠️ Cliente ${customerId} não encontrado no cache, fazendo fallback para RabbitMQ Request-Reply`,
+    );
+    return this.getCustomerDataViaRabbitMQ(customerId);
+  }
+
+  private async getCustomerDataViaRabbitMQ(
     customerId: number,
   ): Promise<{ name: string; phone: string; isPremium: boolean }> {
     try {
-      this.logger.log(`Buscando dados do cliente via gRPC: ${customerId}`);
+      this.logger.log(`🔄 Buscando dados do cliente via RabbitMQ: ${customerId}`);
 
-      const customer = (await this.customersClient.getCustomer(
-        customerId,
-      )) as CustomerGrpcResponse;
+      const customer = await this.customersRabbitMQClient.getCustomer(customerId);
 
       if (customer.error) {
         throw new HttpException(
@@ -123,7 +152,7 @@ export class OrdersService implements IOrderValidator {
       }
 
       this.logger.log(
-        `Dados do cliente obtidos via gRPC: ${customer.name}, isPremium: ${customer.isPremium}`,
+        `📡 Dados do cliente obtidos via RabbitMQ: ${customer.name}, isPremium: ${customer.isPremium}`,
       );
 
       return {
@@ -138,7 +167,7 @@ export class OrdersService implements IOrderValidator {
 
       const errorMessage =
         error instanceof Error ? error.message : 'Erro desconhecido';
-      this.logger.error(`Erro na comunicação gRPC: ${errorMessage}`);
+      this.logger.error(`❌ Erro na comunicação RabbitMQ: ${errorMessage}`);
       throw new HttpException(
         'Erro ao buscar dados do cliente',
         HttpStatus.INTERNAL_SERVER_ERROR,

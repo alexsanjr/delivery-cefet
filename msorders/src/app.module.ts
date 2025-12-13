@@ -11,6 +11,8 @@ import { GrpcOrdersModule } from './grpc/grpc-orders.module';
 import { GraphQLModule as HexagonalGraphQLModule } from './infrastructure/graphql/graphql.module';
 // RabbitMQ Module
 import { RabbitMQModule } from './rabbitmq/rabbitmq.module';
+// Consumers Module
+import { ConsumersModule } from './infrastructure/consumers/consumers.module';
 
 @Module({
   imports: [
@@ -26,9 +28,27 @@ import { RabbitMQModule } from './rabbitmq/rabbitmq.module';
     RabbitMQModule.forRoot({
       url: process.env.RABBITMQ_URL || 'amqp://rabbitmq:5672',
       exchanges: [
+        { name: 'customer.events', type: 'topic', options: { durable: true } },
         { name: 'orders.events', type: 'topic', options: { durable: true } },
       ],
       queues: [
+        // Event-driven: Sincronização de cache
+        {
+          name: 'orders.customers.queue',
+          exchange: 'customer.events',
+          routingKey: 'customer.*',
+          options: { durable: true },
+        },
+        // Request-Reply: Validação e busca de clientes
+        {
+          name: 'customers.validate.queue',
+          options: { durable: true },
+        },
+        {
+          name: 'customers.get.queue',
+          options: { durable: true },
+        },
+        // Notificações
         {
           name: 'notifications.queue',
           exchange: 'orders.events',
@@ -42,6 +62,8 @@ import { RabbitMQModule } from './rabbitmq/rabbitmq.module';
     GrpcOrdersModule,
     // Hexagonal Architecture
     HexagonalGraphQLModule,
+    // Consumers que processam eventos
+    ConsumersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

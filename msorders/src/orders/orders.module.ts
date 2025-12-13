@@ -10,9 +10,10 @@ import { ExpressPriceCalculator } from './strategies/express-price-calculator.st
 import { PriceCalculatorContext } from './strategies/price-calculator.context';
 import { GrpcModule } from '../grpc/grpc.module';
 import { CustomersDataloaderService } from './customers-dataloader.service';
+import { ConsumersModule } from '../infrastructure/consumers/consumers.module';
 
 @Module({
-  imports: [GrpcModule],
+  imports: [GrpcModule, ConsumersModule],
   providers: [
     OrdersResolver,
     OrderItemResolver,
