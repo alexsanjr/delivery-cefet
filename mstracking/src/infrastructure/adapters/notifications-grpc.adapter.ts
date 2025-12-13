@@ -1,4 +1,4 @@
-import { Injectable, Inject, OnModuleInit } from '@nestjs/common';
+import { Injectable, Inject, OnModuleInit, Logger } from '@nestjs/common';
 import type { ClientGrpc } from '@nestjs/microservices';
 import { Observable, firstValueFrom } from 'rxjs';
 import { NotificationServicePort } from '../../domain/ports/external-services.port';
@@ -28,6 +28,7 @@ interface INotificationsService {
 
 @Injectable()
 export class NotificationsGrpcAdapter implements NotificationServicePort, OnModuleInit {
+  private readonly logger = new Logger(NotificationsGrpcAdapter.name);
   private notificationsService: INotificationsService;
 
   constructor(@Inject('NOTIFICATIONS_PACKAGE') private client: ClientGrpc) {}
@@ -80,7 +81,7 @@ export class NotificationsGrpcAdapter implements NotificationServicePort, OnModu
         })
       );
     } catch (error) {
-      console.error(`Failed to send notification for order ${orderId}:`, error);
+      this.logger.error(`Failed to send notification for order ${orderId}:`, error);
     }
   }
 }

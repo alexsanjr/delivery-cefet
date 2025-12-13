@@ -1,4 +1,4 @@
-import { Injectable, Inject, OnModuleInit } from '@nestjs/common';
+import { Injectable, Inject, OnModuleInit, Logger } from '@nestjs/common';
 import type { ClientGrpc } from '@nestjs/microservices';
 import { Observable, firstValueFrom } from 'rxjs';
 import { RoutingServicePort } from '../../domain/ports/external-services.port';
@@ -21,6 +21,7 @@ interface IRoutingService {
 
 @Injectable()
 export class RoutingGrpcAdapter implements RoutingServicePort, OnModuleInit {
+  private readonly logger = new Logger(RoutingGrpcAdapter.name);
   private routingService: IRoutingService;
 
   constructor(@Inject('ROUTING_PACKAGE') private client: ClientGrpc) {}
@@ -44,7 +45,7 @@ export class RoutingGrpcAdapter implements RoutingServicePort, OnModuleInit {
       );
       return response;
     } catch (error) {
-      console.error('Failed to calculate ETA:', error);
+      this.logger.error('Failed to calculate ETA:', error);
       throw new Error('ETA calculation unavailable');
     }
   }

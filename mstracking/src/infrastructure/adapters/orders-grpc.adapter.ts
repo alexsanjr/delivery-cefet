@@ -1,4 +1,4 @@
-import { Injectable, Inject, OnModuleInit } from '@nestjs/common';
+import { Injectable, Inject, OnModuleInit, Logger } from '@nestjs/common';
 import type { ClientGrpc } from '@nestjs/microservices';
 import { Observable, firstValueFrom } from 'rxjs';
 import { OrderServicePort } from '../../domain/ports/external-services.port';
@@ -15,6 +15,7 @@ interface IOrdersService {
 
 @Injectable()
 export class OrdersGrpcAdapter implements OrderServicePort, OnModuleInit {
+    private readonly logger = new Logger(OrdersGrpcAdapter.name);
     private ordersService: IOrdersService;
 
     constructor(@Inject('ORDERS_PACKAGE') private client: ClientGrpc) {}
@@ -30,7 +31,7 @@ export class OrdersGrpcAdapter implements OrderServicePort, OnModuleInit {
             );
             return response;
         } catch (error) {
-            console.error(`Failed to get order ${orderId}:`, error);
+            this.logger.error(`Failed to get order ${orderId}:`, error);
             return null;
         }
     }

@@ -107,7 +107,7 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
             }
         );
 
-        console.log(`Published position update (Protobuf - ${buffer.length} bytes) for delivery ${data.deliveryId}`);
+        this.logger.log(`Published position update (Protobuf - ${buffer.length} bytes) for delivery ${data.deliveryId}`);
     }
 
     async publishTrackingStarted(data: {
@@ -136,7 +136,7 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
             }
         );
 
-        console.log(`Published tracking started (Protobuf - ${buffer.length} bytes) for delivery ${data.deliveryId}`);
+        this.logger.log(`Published tracking started (Protobuf - ${buffer.length} bytes) for delivery ${data.deliveryId}`);
     }
 
     async publishDeliveryCompleted(data: {
@@ -162,7 +162,7 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
             }
         );
 
-        console.log(`Published delivery completed (Protobuf - ${buffer.length} bytes) for delivery ${data.deliveryId}`);
+        this.logger.log(`Published delivery completed (Protobuf - ${buffer.length} bytes) for delivery ${data.deliveryId}`);
     }
 
     async publishNotification(data: {
@@ -190,7 +190,7 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
             }
         );
 
-        console.log(`Published notification (Protobuf - ${buffer.length} bytes) for order ${data.orderId}`);
+        this.logger.log(`Published notification (Protobuf - ${buffer.length} bytes) for order ${data.orderId}`);
     }
 
     private deserializeProtobuf(messageType: protobuf.Type, buffer: Buffer): any {
@@ -221,17 +221,17 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
                         const decoded = this.deserializeProtobuf(this.TrackingStartedType, msg.content);
                         await callback(decoded);
                         this.channel!.ack(msg);
-                        console.log(`Consumed order event (Protobuf - ${msg.content.length} bytes)`);
+                        this.logger.log(`Consumed order event (Protobuf - ${msg.content.length} bytes)`);
                     } catch (error) {
-                        console.error('Failed to process order event:', error);
+                        this.logger.error('Failed to process order event:', error);
                         this.channel!.nack(msg, false, false);
                     }
                 }
             });
 
-            console.log('RabbitMQ consumer for order events started successfully');
+            this.logger.log('RabbitMQ consumer for order events started successfully');
         } catch (error) {
-            console.error('Failed to setup order events consumer:', error);
+            this.logger.error('Failed to setup order events consumer:', error);
             throw error;
         }
     }
