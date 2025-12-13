@@ -27,6 +27,7 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
     private OrderStatusChangedEventType: protobuf.Type | null = null;
     private OrderCreatedEventType: protobuf.Type | null = null;
     private OrderCancelledEventType: protobuf.Type | null = null;
+    private TrackingNotificationEventType: protobuf.Type | null = null;
 
     async onModuleInit() {
         try {
@@ -52,6 +53,7 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
             this.OrderStatusChangedEventType = orderEventsRoot.lookupType('orders.events.OrderStatusChangedEvent');
             this.OrderCreatedEventType = orderEventsRoot.lookupType('orders.events.OrderCreatedEvent');
             this.OrderCancelledEventType = orderEventsRoot.lookupType('orders.events.OrderCancelledEvent');
+            this.TrackingNotificationEventType = orderEventsRoot.lookupType('orders.events.TrackingNotificationEvent');
             
             this.logger.log('Protobuf definitions loaded successfully for high-speed serialization');
         } catch (error) {
@@ -87,6 +89,9 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
         
         await this.channel.bindQueue(this.queueName, this.exchangeName, 'order.cancelled');
         this.logger.log(`Binding created: ${this.queueName} <- ${this.exchangeName} [order.cancelled]`);
+        
+        await this.channel.bindQueue(this.queueName, this.exchangeName, 'order.notification');
+        this.logger.log(`Binding created: ${this.queueName} <- ${this.exchangeName} [order.notification]`);
     }
 
     private async waitForChannel(maxRetries = 30, delayMs = 1000): Promise<void> {
@@ -180,9 +185,9 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
     }
 
     private deserializeOrderEvent(buffer: Buffer, routingKey: string): any {
-        let eventType: protobuf.Type | null = null;
-
         this.logger.debug(`Deserializing event with routing key: ${routingKey}, buffer size: ${buffer.length} bytes`);
+
+        let eventType: protobuf.Type | null = null;
 
         if (routingKey === 'order.created') {
             eventType = this.OrderCreatedEventType;
@@ -190,6 +195,8 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
             eventType = this.OrderStatusChangedEventType;
         } else if (routingKey === 'order.cancelled') {
             eventType = this.OrderCancelledEventType;
+        } else if (routingKey === 'order.notification') {
+            eventType = this.TrackingNotificationEventType;
         }
 
         if (!eventType) {

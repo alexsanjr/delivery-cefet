@@ -41,6 +41,8 @@ export class RabbitMQConsumerService implements OnModuleInit {
                 await this.orderEventsAdapter.handleOrderStatusChanged(event);
             } else if (routingKey === 'order.cancelled') {
                 await this.orderEventsAdapter.handleOrderCancelled(event);
+            } else if (routingKey === 'order.notification') {
+                await this.orderEventsAdapter.handleNotification(event);
             } else {
                 this.logger.warn(`Unknown routing key: ${routingKey}`);
             }
