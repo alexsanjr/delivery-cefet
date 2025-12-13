@@ -55,7 +55,7 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
             this.OrderCancelledEventType = orderEventsRoot.lookupType('orders.events.OrderCancelledEvent');
             this.TrackingNotificationEventType = orderEventsRoot.lookupType('orders.events.TrackingNotificationEvent');
             
-            this.logger.log('Protobuf definitions loaded successfully for high-speed serialization');
+            this.logger.log('Protobuf definitions loaded');
         } catch (error) {
             this.logger.error('Failed to load Protobuf definitions', error);
             throw error;
@@ -76,28 +76,18 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
         if (!this.channel) throw new Error('Channel not initialized');
 
         await this.channel.assertExchange(this.exchangeName, 'topic', { durable: true });
-        this.logger.log(`Exchange asserted: ${this.exchangeName}`);
         
         const queueResult = await this.channel.assertQueue(this.queueName, { durable: true });
-        this.logger.log(`Queue asserted: ${this.queueName} (${queueResult.messageCount} messages, ${queueResult.consumerCount} consumers)`);
         
         await this.channel.bindQueue(this.queueName, this.exchangeName, 'order.created');
-        this.logger.log(`Binding created: ${this.queueName} <- ${this.exchangeName} [order.created]`);
-        
         await this.channel.bindQueue(this.queueName, this.exchangeName, 'order.status.changed');
-        this.logger.log(`Binding created: ${this.queueName} <- ${this.exchangeName} [order.status.changed]`);
-        
         await this.channel.bindQueue(this.queueName, this.exchangeName, 'order.cancelled');
-        this.logger.log(`Binding created: ${this.queueName} <- ${this.exchangeName} [order.cancelled]`);
-        
         await this.channel.bindQueue(this.queueName, this.exchangeName, 'order.notification');
-        this.logger.log(`Binding created: ${this.queueName} <- ${this.exchangeName} [order.notification]`);
     }
 
     private async waitForChannel(maxRetries = 30, delayMs = 1000): Promise<void> {
         for (let i = 0; i < maxRetries; i++) {
             if (this.channel) {
-                this.logger.log('Channel is ready');
                 return;
             }
             this.logger.log(`Waiting for channel to be ready (${i + 1}/${maxRetries})`);

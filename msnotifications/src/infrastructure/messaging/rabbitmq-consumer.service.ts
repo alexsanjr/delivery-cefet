@@ -12,7 +12,6 @@ export class RabbitMQConsumerService implements OnModuleInit {
     ) {}
 
     async onModuleInit() {
-        this.logger.log('RabbitMQConsumerService initializing - waiting 2s for RabbitMQ...');
         await new Promise(resolve => setTimeout(resolve, 2000));
         await this.startConsuming();
     }
@@ -24,12 +23,12 @@ export class RabbitMQConsumerService implements OnModuleInit {
             await this.processOrderEvent(event, routingKey);
         });
 
-        this.logger.log('RabbitMQ consumer started successfully - listening to orders.events exchange');
+        this.logger.log('RabbitMQ consumer started');
     }
 
     private async processOrderEvent(event: any, routingKey: string): Promise<void> {
         try {
-            this.logger.log(
+            this.logger.debug(
                 `Processing order event from RabbitMQ - Routing Key: ${routingKey}, ` +
                 `Order ID: ${event.orderId}`
             );
@@ -47,7 +46,7 @@ export class RabbitMQConsumerService implements OnModuleInit {
                 this.logger.warn(`Unknown routing key: ${routingKey}`);
             }
 
-            this.logger.log(`Successfully processed order event: ${routingKey}`);
+            this.logger.debug(`Successfully processed order event: ${routingKey}`);
         } catch (error) {
             this.logger.error(`Failed to process order event: ${routingKey}`, error);
             throw error;

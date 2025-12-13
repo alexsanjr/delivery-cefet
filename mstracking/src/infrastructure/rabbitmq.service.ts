@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
 import * as amqp from 'amqplib';
 import * as protobuf from 'protobufjs';
 import { join } from 'path';
@@ -6,6 +6,7 @@ import { MessagingPort } from '../domain/ports/messaging.port';
 
 @Injectable()
 export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDestroy {
+    private readonly logger = new Logger(RabbitMQService.name);
     private connection: amqp.Connection | null = null;
     private channel: amqp.Channel | null = null;
     private root: protobuf.Root;
@@ -31,9 +32,9 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
 
             await this.channel!.assertExchange('delivery.tracking', 'topic', { durable: true });
             
-            console.log('RabbitMQ connected and configured with Protobuf serialization');
+            this.logger.log('RabbitMQ connected and configured with Protobuf serialization');
         } catch (error) {
-            console.error('Failed to connect to RabbitMQ:', error);
+            this.logger.error('Failed to connect to RabbitMQ:', error);
             throw error;
         }
     }
@@ -42,9 +43,9 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
         try {
             if (this.channel) await this.channel.close();
             if (this.connection) await (this.connection as any).close();
-            console.log('RabbitMQ connection closed');
+            this.logger.log('RabbitMQ connection closed');
         } catch (error) {
-            console.error('Error closing RabbitMQ connection:', error);
+            this.logger.error('Error closing RabbitMQ connection:', error);
         }
     }
 
@@ -58,9 +59,9 @@ export class RabbitMQService implements MessagingPort, OnModuleInit, OnModuleDes
             this.DeliveryCompletedType = this.root.lookupType('tracking.DeliveryCompleted');
             this.TrackingNotificationEventType = this.root.lookupType('tracking.TrackingNotificationEvent');
             
-            console.log('Protobuf definitions loaded successfully for high-speed serialization');
+            this.logger.log('Protobuf definitions loaded');
         } catch (error) {
-            console.error('Failed to load Protobuf definitions:', error);
+            this.logger.error('Failed to load Protobuf definitions:', error);
             throw error;
         }
     }

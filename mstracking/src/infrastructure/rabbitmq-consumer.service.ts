@@ -21,7 +21,7 @@ export class RabbitMQConsumerService implements OnApplicationBootstrap {
 
     private async processOrderEvent(message: any): Promise<void> {
         try {
-            this.logger.log(`Processing order event: ${message.order_id} for delivery ${message.delivery_id}`);
+            this.logger.debug(`Processing order event: ${message.order_id} for delivery ${message.delivery_id}`);
 
             await this.startTrackingUseCase.execute({
                 deliveryId: message.delivery_id,
@@ -33,7 +33,7 @@ export class RabbitMQConsumerService implements OnApplicationBootstrap {
                 destinationLng: message.destination_lng,
             });
 
-            this.logger.log(`Successfully started tracking for order: ${message.order_id}`);
+            this.logger.debug(`Successfully started tracking for order: ${message.order_id}`);
         } catch (error) {
             this.logger.error(`Failed to process order event: ${message.order_id}`, error);
             throw error;

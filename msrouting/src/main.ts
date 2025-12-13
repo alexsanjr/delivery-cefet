@@ -7,19 +7,19 @@ import { existsSync } from 'fs';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  logger.log('🚀 Starting MSRouting service...');
+  logger.log('Starting MSRouting service...');
 
-  // Verifique se o proto file existe
+  // Check if proto file exists
   const protoPath = join(process.cwd(), 'src/presentation/grpc/routing.proto');
-  logger.log(`🔍 Checking proto file: ${protoPath}`);
-  logger.log(`📄 Proto exists: ${existsSync(protoPath)}`);
+  logger.log(`Checking proto file: ${protoPath}`);
+  logger.log(`Proto exists: ${existsSync(protoPath)}`);
 
   if (!existsSync(protoPath)) {
-    logger.error('❌ Proto file not found!');
+    logger.error('Proto file not found!');
     process.exit(1);
   }
 
-  logger.log('🌐 Creating HTTP application for GraphQL...');
+  logger.log('Creating HTTP application for GraphQL...');
   const httpPort = process.env.HTTP_PORT || 3000;
   const httpApp = await NestFactory.create(AppModule);
   
@@ -36,7 +36,7 @@ async function bootstrap() {
     credentials: true,
   });
 
-  logger.log('📡 Creating gRPC microservice...');
+  logger.log('Creating gRPC microservice...');
   const grpcPort = process.env.GRPC_PORT || '50054';
   const grpcUrl = `0.0.0.0:${grpcPort}`;
 
