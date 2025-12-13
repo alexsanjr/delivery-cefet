@@ -33,3 +33,11 @@ message OrderCancelledEvent {
   string reason = 3;
   string cancelled_at = 4;
 }
+
+message TrackingNotificationEvent {
+  string order_id = 1;
+  string user_id = 2;
+  string status = 3;
+  string service_origin = 4;
+  string message = 5;
+}
