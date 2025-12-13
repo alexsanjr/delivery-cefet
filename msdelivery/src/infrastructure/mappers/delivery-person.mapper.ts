@@ -14,7 +14,7 @@ export class DeliveryPersonMapper {
       name: prismaDeliveryPerson.name,
       email: Email.create(prismaDeliveryPerson.email),
       phone: Phone.create(prismaDeliveryPerson.phone),
-      cpf: Cpf.create(prismaDeliveryPerson.cpf),
+      cpf: Cpf.createWithoutValidation(prismaDeliveryPerson.cpf),
       vehicleType: prismaDeliveryPerson.vehicleType as VehicleType,
       licensePlate: prismaDeliveryPerson.licensePlate ?? undefined,
       status: prismaDeliveryPerson.status as DeliveryPersonStatus,

@@ -5,11 +5,13 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Populando o banco...');
 
-  const existingCount = await prisma.deliveryPerson.count();
-  if (existingCount > 0) {
-    console.log(`Banco já possui ${existingCount} entregadores. Pulando seed.`);
-    return;
-  }
+  console.log('Limpando entregas e entregadores...');
+  await prisma.delivery.deleteMany({});
+  await prisma.deliveryPerson.deleteMany({});
+  
+  // Reset autoincrement counters
+  await prisma.$executeRawUnsafe('ALTER SEQUENCE "delivery_persons_id_seq" RESTART WITH 1');
+  await prisma.$executeRawUnsafe('ALTER SEQUENCE "deliveries_id_seq" RESTART WITH 1');
 
   const deliveryPersons = await Promise.all([
     prisma.deliveryPerson.upsert({

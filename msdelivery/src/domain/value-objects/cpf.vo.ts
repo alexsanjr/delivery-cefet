@@ -25,6 +25,11 @@ export class Cpf {
     return new Cpf(cleaned);
   }
 
+  static createWithoutValidation(value: string): Cpf {
+    const cleaned = value.replace(/\D/g, '');
+    return new Cpf(cleaned);
+  }
+
   static isValid(cpf: string): boolean {
     // Verificar se todos os dígitos são iguais
     if (/^(\d)\1+$/.test(cpf)) {
