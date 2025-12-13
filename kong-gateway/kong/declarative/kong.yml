@@ -127,7 +127,7 @@ services:
           policy: local
 
   - name: msrouting
-    url: http://msrouting:3004
+    url: http://msrouting:3000
     tags:
       - routing
       - graphql
