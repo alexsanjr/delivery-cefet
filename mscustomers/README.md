@@ -7,8 +7,8 @@ Microserviço responsável pelo gerenciamento completo de clientes e endereços 
 - Cadastro e atualização de dados de clientes (Aggregate Root)
 - Gerenciamento de múltiplos endereços de entrega
 - Controle de clientes premium
-- Validação de dados com Value Objects (Email, Telefone, CPF, CEP)
-- Comunicação via gRPC e RabbitMQ
+- Validação de dados com Value Objects (Email, Phone, CPF, PostalCode)
+- Comunicação via gRPC e RabbitMQ + Protobuf
 - API GraphQL para consultas e mutações
 
 ## Arquitetura: DDD + Hexagonal
@@ -29,9 +29,10 @@ O projeto segue uma estrutura em camadas bem definida:
 #### Domain (Domínio)
 Contém toda a lógica de negócio e regras do sistema. É independente de frameworks e tecnologias.
 
-- **Entities**: Cliente (aggregate root) e Endereço
-- **Value Objects**: Email, Telefone, CPF e CEP com validações integradas
+- **Entities**: Customer (aggregate root) e Address
+- **Value Objects**: Email, Phone, CPF e PostalCode com validações integradas
 - **Repository Interfaces**: Contratos para persistência de dados
+- **Events**: Eventos de domínio para comunicação assíncrona
 
 ### Application (Aplicação)
 Orquestra a lógica de negócio através de casos de uso específicos.
@@ -57,26 +58,31 @@ Adapters que expõem a aplicação para o mundo externo.
 ```
 src/
 ├── domain/
-│   ├── entities/
-│   ├── value-objects/
-│   ├── repositories/
-│   └── services/
+│   ├── entities/           # Customer, Address
+│   ├── value-objects/      # Email, Phone, CPF, PostalCode
+│   ├── repositories/       # Interfaces (IRepositorioCliente)
+│   └── events/             # Eventos de domínio
 ├── application/
-│   ├── use-cases/
-│   ├── dtos/
-│   └── mappers/
+│   ├── use-cases/          # Casos de uso (criar, atualizar, etc)
+│   ├── dtos/               # Data Transfer Objects
+│   └── mappers/            # Conversão entre entidades e DTOs
 ├── infrastructure/
 │   ├── persistence/
-│   │   └── repositories/
-│   └── prisma/
+│   │   ├── repositories/   # Implementações Prisma
+│   │   └── decorators/     # Logger Decorator Pattern
+│   ├── messaging/          # RabbitMQ + Protobuf
+│   │   ├── rabbitmq.service.ts
+│   │   ├── publishers/
+│   │   └── consumers/
+│   └── prisma/             # Schema e migrations
 └── presentation/
     ├── graphql/
-    │   ├── inputs/
-    │   ├── types/
-    │   ├── resolvers/
+    │   ├── inputs/         # Input types GraphQL
+    │   ├── types/          # Object types GraphQL
+    │   ├── resolvers/      # Resolvers GraphQL
     │   └── graphql.module.ts
     └── grpc/
-        ├── proto/
+        ├── proto/          # customers.proto
         ├── customers.grpc-service.ts
         └── grpc.module.ts
 ```
@@ -286,6 +292,12 @@ Para equipes brasileiras, usar a linguagem do negócio em português torna o có
 
 ### Value Objects para validação
 Ao encapsular validações em Value Objects, garantimos que dados inválidos nunca entrem no sistema. Um email só existe se for válido.
+
+**Value Objects implementados**:
+- **Email**: Valida formato de email
+- **Phone**: Valida formato de telefone brasileiro
+- **CPF**: Valida CPF com dígitos verificadores
+- **PostalCode**: Valida CEP brasileiro (formato XXXXX-XXX)
 
 ## Contribuindo
 
@@ -591,7 +603,10 @@ query {
 
 **Solução**: O Decorator Pattern permite anexar responsabilidades adicionais a um objeto dinamicamente. Decorators fornecem uma alternativa flexível ao uso de subclasses para estender funcionalidades.
 
-**Localização**: `src/customers/repositories/`
+**Localização**: 
+- Decorator: [src/infrastructure/persistence/decorators/customer-repository-logger.decorator.ts](../../mscustomers/src/infrastructure/persistence/decorators/customer-repository-logger.decorator.ts)
+- Interface: [src/domain/repositories/customer.repository.interface.ts](../../mscustomers/src/domain/repositories/customer.repository.interface.ts)
+- Configuração: [src/infrastructure/infrastructure.module.ts](../../mscustomers/src/infrastructure/infrastructure.module.ts)
 
 **Estrutura**:
 
@@ -623,61 +638,63 @@ class CustomerRepository implements ICustomerRepository {
 
 // Decorator - adiciona logging SEM modificar CustomerRepository
 @Injectable()
-class CustomerRepositoryLogger implements ICustomerRepository {
+class CustomerRepositoryLoggerDecorator implements IRepositorioCliente {
   private readonly logger = new Logger('CustomerRepository');
 
   constructor(
-    @Inject('CustomerRepository')
-    private readonly repository: ICustomerRepository
+    @Inject('CUSTOMER_REPOSITORY_BASE')
+    private readonly repository: IRepositorioCliente
   ) {}
 
-  async findAll(): Promise<Customer[]> {
-    this.logger.log('Buscando todos os clientes');
+  async buscarPorId(id: number): Promise<Cliente | null> {
+    this.logger.log(`Buscando cliente com ID: ${id}`);
     const startTime = Date.now();
     
-    const result = await this.repository.findAll(); // Delega para original
-    
-    const duration = Date.now() - startTime;
-    this.logger.log(`${result.length} clientes encontrados em ${duration}ms`);
-    
-    return result;
-  }
-
-  async findById(id: number): Promise<Customer | null> {
-    this.logger.log(`Buscando cliente com ID: ${id}`);
-    const result = await this.repository.findById(id);
-    this.logger.log(result ? 'Cliente encontrado' : 'Cliente não encontrado');
-    return result;
+    try {
+      const result = await this.repository.buscarPorId(id); // Delega para original
+      const duration = Date.now() - startTime;
+      
+      if (result) {
+        this.logger.log(`Cliente ID ${id} encontrado em ${duration}ms`);
+      } else {
+        this.logger.warn(`Cliente ID ${id} não encontrado (${duration}ms)`);
+      }
+      
+      return result;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      this.logger.error(`Erro ao buscar cliente ID ${id} após ${duration}ms`);
+      throw error;
+    }
   }
 
   // Delega e adiciona logging para todas as operações
 }
 
-// Similar decorator para Address
-@Injectable()
-class AddressRepositoryLogger implements IAddressRepository {
-  // Mesma estrutura, adiciona logging para operações de endereço
+  // ... outros métodos com mesma estrutura de logging
 }
 ```
 
 **Configuração no módulo**:
 
 ```typescript
+// infrastructure/infrastructure.module.ts
 @Module({
   providers: [
-    CustomerRepository,
-    AddressRepository,
+    // Implementação base do repositório
     {
-      provide: 'ICustomerRepository',
-      useClass: CustomerRepositoryLogger, // Usa o decorator
+      provide: 'CUSTOMER_REPOSITORY_BASE',
+      useClass: CustomerRepository,
     },
+    // Decorator que adiciona logging
     {
-      provide: 'IAddressRepository',
-      useClass: AddressRepositoryLogger,
+      provide: 'IRepositorioCliente',
+      useClass: CustomerRepositoryLoggerDecorator, // Usa o decorator
     },
   ],
+  exports: ['IRepositorioCliente'],
 })
-export class CustomersModule {}
+export class InfrastructureModule {}
 ```
 
 **Benefícios**:

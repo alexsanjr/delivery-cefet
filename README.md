@@ -98,22 +98,35 @@ Veja [ADR #13](docs/architecture/adr.md) para detalhes da implementação.
 
 4. **msnotifications** (Porta 3002)
    - Envio de notificações assíncronas
-   - Observer Pattern para múltiplos canais
-   - Cache com Redis
+   - Value Objects: NotificationId, UserId, OrderId, NotificationStatus, ServiceOrigin
+   - Factory Method Pattern para criação de notificações (Email/SMS)
+   - Observer Pattern para múltiplos canais (TerminalNotifierObserver, NotificationLoggerObserver)
+   - Persistência em Redis (não PostgreSQL)
+   - RabbitMQ + Protobuf para mensageria
    - Expõe GraphQL e gRPC
 
 5. **msrouting** (Porta 3004)
    - Cálculo de rotas otimizadas
    - Aggregate Root: Rota
-   - Value Objects: Coordenada, Distancia, Duracao
-   - Strategy Pattern para algoritmos
-   - Comunicação via gRPC
+   - Value Objects: Distancia, Duracao
+   - Domain Services: CalculadorCustosRota, OtimizadorRotas
+   - Adapter Pattern: GeoapifyAPIAdapter para integração com API externa
+   - Estratégias via enum: MAIS_RAPIDA, MAIS_CURTA, MAIS_ECONOMICA, ECO_FRIENDLY
+   - Nota: Usa enum + Domain Service (não Strategy Pattern com classes) pois lógica é simples
+   - Cache com Redis
+   - RabbitMQ + Protobuf para mensageria
+   - Expõe GraphQL e gRPC
 
 6. **mstracking** (Porta 3005)
    - Rastreamento em tempo real
-   - Factory Method para entidades
-   - WebSocket para atualizações live
-   - Expõe GraphQL
+   - Entities: DeliveryTracking, TrackingPosition
+   - Value Objects: Position (validação de coordenadas), ETA (tempo estimado)
+   - Factory Method Pattern para notificações (Email/SMS)
+   - Observer Pattern para atualizações de posição (PositionSubjectAdapter + PositionLoggerObserver)
+   - GraphQL Subscriptions (PubSub) para real-time (não WebSocket gateway separado)
+   - TypeORM + PostgreSQL
+   - RabbitMQ + Protobuf para mensageria
+   - Expõe GraphQL com Subscriptions
 
 ### Infraestrutura
 
@@ -281,15 +294,18 @@ curl -X POST http://localhost:8000/customers \
 
 ### 1. Strategy Pattern (Comportamental)
 Define família de algoritmos intercambiáveis para cálculos.
-- **Localização**: `msorders/src/orders/strategies/`, `msrouting/src/strategies/`
-- **Uso**: Cálculo de preços (básico, premium, expresso) e algoritmos de roteamento
+- **Localização**: `msorders/src/orders/strategies/`
+- **Uso**: Cálculo de preços de pedidos (BasicPriceCalculator, PremiumPriceCalculator, ExpressPriceCalculator)
 - **Justificativa**: Diferentes tipos de clientes e urgências exigem cálculos distintos; fácil adicionar novas estratégias
+
 
 ### 2. Observer Pattern (Comportamental)
 Notifica múltiplos interessados quando eventos ocorrem.
-- **Localização**: `msnotifications/src/infrastructure/adapters/`, `mstracking/src/tracking/`
-- **Uso**: Sistema de notificações multicanal e rastreamento em tempo real
-- **Justificativa**: Um evento deve notificar vários canais (email, SMS, logs) sem acoplamento
+- **Localização**: `msnotifications/src/infrastructure/adapters/`, `mstracking/src/infrastructure/adapters/`
+- **Uso**: 
+  - msnotifications: NotificationSubjectAdapter + TerminalNotifierObserver + NotificationLoggerObserver
+  - mstracking: PositionSubjectAdapter + PositionLoggerObserver para atualizações de posição
+- **Justificativa**: Um evento deve notificar vários componentes (logs, métricas, canais) sem acoplamento
 
 ### 3. Adapter Pattern (Estrutural)
 Converte interfaces incompatíveis para trabalhar juntas.
@@ -304,10 +320,14 @@ Adiciona responsabilidades a objetos dinamicamente.
 - **Justificativa**: Adicionar logging, métricas e auditoria respeitando Open/Closed Principle
 
 ### 5. Factory Method Pattern (Criacional)
-Encapsula criação de objetos com validação.
-- **Localização**: `mstracking/src/prisma/prisma.service.ts`
-- **Uso**: Criação de entidades de tracking com validação de coordenadas geográficas
-- **Justificativa**: Garantir que objetos complexos sejam criados de forma consistente e válida
+Encapsula criação de objetos com validação e permite subclasses decidirem qual classe instanciar.
+- **Localização**: 
+  - `msnotifications/src/domain/notifications/notification.factory.ts` (Abstract)
+  - `msnotifications/src/infrastructure/notifications/email-notification.factory.ts`, `sms-notification.factory.ts` (Concrete)
+  - `mstracking/src/domain/notifications/notification.factory.ts` (Abstract)
+  - `mstracking/src/infrastructure/notifications/email-notification.factory.ts`, `sms-notification.factory.ts` (Concrete)
+- **Uso**: Criação de diferentes tipos de notificações (Email, SMS) sem acoplar código a implementações específicas
+- **Justificativa**: Fácil adicionar novos tipos de notificação (WhatsApp, Push) sem modificar código existente; respeita Open/Closed Principle
 
 Para detalhes completos, exemplos de código e justificativas, consulte a [documentação de padrões de projeto](docs/architecture/design-patterns.md).
 
@@ -339,11 +359,12 @@ gRPC foi escolhido para comunicação entre microserviços porque:
 
 ### Por que Prisma?
 
-Prisma foi escolhido como ORM porque:
+Prisma foi escolhido como ORM principal porque:
 - Type-safe em TypeScript
 - Migrações automáticas
 - Cliente gerado automaticamente
 - Ótima integração com NestJS
+
 
 Para mais detalhes sobre decisões arquiteturais, consulte [ADRs](docs/architecture/adr.md).
 

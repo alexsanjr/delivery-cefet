@@ -17,9 +17,9 @@ Microserviço responsável pelo envio de notificações aos usuários do sistema
 - **TypeScript**: Linguagem de programação
 - **GraphQL**: API para consulta de notificações
 - **gRPC**: Recebimento de solicitações de outros serviços
-- **Redis**: Cache e fila de mensagens
-- **TypeORM**: ORM para PostgreSQL
+- **Redis**: Persistência de dados e cache
 - **IORedis**: Cliente Redis para NestJS
+- **RabbitMQ + Protobuf**: Mensageria assíncrona
 
 ## Arquitetura: DDD + Hexagonal
 
@@ -37,24 +37,44 @@ Este serviço implementa **Domain-Driven Design (DDD)** com **Arquitetura Hexago
 ```
 msnotifications/
 ├── src/
-│   ├── domain/                    # Núcleo - Lógica de negócio pura
-│   │   ├── notification.entity.ts # Entity com regras de negócio
-│   │   ├── interfaces/            # Contratos de serviços
-│   │   └── ports/                 # Repository Interfaces
+│   ├── domain/                           # Núcleo - Lógica de negócio pura
+│   │   ├── notification.entity.ts        # Entity com regras de negócio
+│   │   ├── notification-data.interface.ts # Interface de dados
+│   │   ├── value-objects/                # NotificationId, UserId, OrderId, etc
+│   │   │   ├── notification-id.vo.ts
+│   │   │   ├── user-id.vo.ts
+│   │   │   ├── order-id.vo.ts
+│   │   │   ├── notification-status.vo.ts
+│   │   │   └── service-origin.vo.ts
+│   │   ├── ports/                        # Repository e Observer Interfaces
+│   │   │   ├── notification-repository.port.ts
+│   │   │   ├── notification-observer.port.ts  # Observer Pattern
+│   │   │   └── client-connection.port.ts
+│   │   └── events/                       # Domain Events
 │   │
-│   ├── application/               # Casos de Uso
-│   │   ├── use-cases/
-│   │   ├── dtos/
-│   │   └── mappers/
+│   ├── application/                      # Casos de Uso
+│   │   ├── application.module.ts         # Módulo principal
+│   │   ├── use-cases/                    # Use Cases
+│   │   ├── commands/                     # Commands (CQRS)
+│   │   ├── queries/                      # Queries (CQRS)
+│   │   └── services/                     # Application Services
 │   │
-│   ├── infrastructure/            # Adapters (Implementações)
-│   │   ├── persistence/           # TypeORM repositories
-│   │   ├── messaging/             # RabbitMQ adapters
-│   │   └── channels/              # Email, SMS, Push adapters
+│   ├── infrastructure/                   # Adapters (Implementações)
+│   │   ├── persistence/                  # Redis Repository
+│   │   │   └── redis-notification.repository.ts
+│   │   ├── messaging/                    # RabbitMQ + Protobuf
+│   │   │   ├── rabbitmq.service.ts
+│   │   │   ├── publishers/
+│   │   │   └── consumers/
+│   │   └── observers/                    # Observer Pattern Implementation
+│   │       ├── notification-subject.adapter.ts  # Subject
+│   │       ├── terminal-notifier.observer.ts    # Observer 1
+│   │       └── notification-logger.observer.ts  # Observer 2
 │   │
-│   ├── presentation/              # Interface Externa
-│   │   ├── graphql/               # GraphQL Resolvers
-│   │   └── grpc/                  # gRPC Controllers
+│   ├── presentation/                     # Interface Externa
+│   │   ├── graphql/                      # GraphQL Resolvers
+│   │   ├── grpc/                         # gRPC Controllers
+│   │   └── messaging/                    # RabbitMQ consumers externos
 │   │
 │   └── main.ts
 └── package.json
@@ -76,9 +96,9 @@ Orquestração da lógica de negócio:
 
 #### 3. Infrastructure (Adapters)
 Implementações concretas:
-- `persistence/`: Repositórios TypeORM
-- `messaging/`: RabbitMQ consumers/publishers
-- `channels/`: Implementação de email, SMS, push
+- `persistence/`: Repositório Redis (RedisNotificationRepository)
+- `messaging/`: RabbitMQ consumers/publishers com Protobuf
+- `observers/`: Implementação do Observer Pattern (Subject e Observers)
 
 #### 4. Presentation (Interface)
 Adaptadores de entrada:
@@ -88,60 +108,89 @@ Adaptadores de entrada:
 
 ## Modelo de Dados
 
-### Notification
+### NotificationEntity (Domain Entity)
 
 ```typescript
-@Entity('notifications')
-export class Notification {
-  @PrimaryGeneratedColumn()
-  id: number;
+export class NotificationEntity {
+  private readonly id: NotificationId;              // Value Object
+  private readonly userId: UserId;                  // Value Object
+  private readonly orderId: OrderId;                // Value Object
+  private readonly status: NotificationStatus;      // Value Object
+  private readonly message: string;
+  private readonly serviceOrigin: ServiceOrigin;    // Value Object
+  private isReadFlag: boolean;
+  private readonly createdAt: Date;
+  private updatedAt: Date;
 
-  @Column()
-  userId: number;
+  // Factory method para criar nova notificação
+  static create(
+    userId: UserId,
+    orderId: OrderId,
+    status: NotificationStatus,
+    message: string,
+    serviceOrigin: ServiceOrigin,
+  ): NotificationEntity {
+    const id = NotificationId.generate();
+    return new NotificationEntity(
+      id,
+      userId,
+      orderId,
+      status,
+      message,
+      serviceOrigin,
+      false,
+      new Date(),
+      new Date(),
+    );
+  }
 
-  @Column()
-  type: NotificationType; // ORDER_CREATED, DELIVERY_ASSIGNED, etc
+  // Factory method para reconstituir do repositório
+  static fromPrimitives(data: any): NotificationEntity {
+    return new NotificationEntity(
+      NotificationId.fromString(data.id),
+      UserId.fromString(data.userId),
+      OrderId.fromString(data.orderId),
+      NotificationStatus.fromString(data.status),
+      data.message,
+      ServiceOrigin.fromString(data.serviceOrigin),
+      data.isRead,
+      new Date(data.createdAt),
+      new Date(data.updatedAt),
+    );
+  }
 
-  @Column()
-  channel: NotificationChannel; // EMAIL, SMS, PUSH
+  // Método para marcar como lida
+  markAsRead(): void {
+    this.isReadFlag = true;
+    this.updatedAt = new Date();
+  }
 
-  @Column({ type: 'json' })
-  payload: any;
-
-  @Column()
-  message: string;
-
-  @Column({ default: false })
-  sent: boolean;
-
-  @Column({ nullable: true })
-  sentAt: Date;
-
-  @Column({ default: 0 })
-  retries: number;
-
-  @Column({ nullable: true })
-  error: string;
-
-  @CreateDateColumn()
-  createdAt: Date;
-}
-
-enum NotificationType {
-  ORDER_CREATED = 'ORDER_CREATED',
-  ORDER_CONFIRMED = 'ORDER_CONFIRMED',
-  DELIVERY_ASSIGNED = 'DELIVERY_ASSIGNED',
-  OUT_FOR_DELIVERY = 'OUT_FOR_DELIVERY',
-  DELIVERED = 'DELIVERED',
-  CANCELLED = 'CANCELLED'
-}
-
-enum NotificationChannel {
-  EMAIL = 'EMAIL',
-  SMS = 'SMS',
-  PUSH = 'PUSH'
+  // Conversão para primitivos (persistência)
+  toPrimitives(): any {
+    return {
+      id: this.id.getValue(),
+      userId: this.userId.getValue(),
+      orderId: this.orderId.getValue(),
+      status: this.status.getValue(),
+      message: this.message,
+      serviceOrigin: this.serviceOrigin.getValue(),
+      isRead: this.isReadFlag,
+      createdAt: this.createdAt.toISOString(),
+      updatedAt: this.updatedAt.toISOString(),
+    };
+  }
 }
 ```
+
+### Value Objects
+
+Todos os identificadores e status são Value Objects para garantir validação e tipo seguro:
+
+- **NotificationId**: UUID da notificação
+- **UserId**: ID do usuário
+- **OrderId**: ID do pedido
+- **NotificationStatus**: Status da notificação (ORDER_CREATED, ORDER_CONFIRMED, DELIVERED, etc)
+- **ServiceOrigin**: Origem da notificação (msorders, msdelivery, etc)
 
 ## API GraphQL
 
@@ -321,9 +370,21 @@ message NotificationResponse {
 }
 ```
 
-## Sistema de Templates
+## Funcionalidades Implementadas
 
-O serviço usa templates para gerar mensagens personalizadas:
+### 1. Observer Pattern para Múltiplos Canais
+Atualmente implementado com Terminal e Logger. Fácil adicionar novos observers.
+
+### 2. Persistência com Redis
+Notificações indexadas por usuário e pedido para consultas rápidas.
+
+### 3. Value Objects para Tipo Seguro
+Todos os identificadores são Value Objects validados.
+
+### 4. Eventos via RabbitMQ + Protobuf
+Consome eventos de outros microserviços para notificações assíncronas.
+
+## Sistema de Templates 
 
 ```typescript
 class NotificationTemplates {
@@ -375,105 +436,82 @@ async sendOrderCreatedNotification(order: Order, customer: Customer) {
 }
 ```
 
-## Cache com Redis
+## Persistência com Redis
 
-Notificações recentes são armazenadas em cache:
+Notificações são armazenadas no Redis como banco de dados principal:
 
 ```typescript
 @Injectable()
-class NotificationsService {
+export class RedisNotificationRepository implements NotificationRepositoryPort {
   constructor(
-    @InjectRedis() private readonly redis: Redis
+    @InjectRedis() private readonly redis: Redis,
   ) {}
 
-  async cacheNotification(notification: Notification) {
-    const key = `notifications:user:${notification.userId}`;
+  async save(notification: NotificationEntity): Promise<void> {
+    const primitives = notification.toPrimitives();
     
-    // Adiciona à lista de notificações do usuário
-    await this.redis.lpush(key, JSON.stringify(notification));
+    // Salva notificação por ID
+    await this.redis.set(`notification:${primitives.id}`, JSON.stringify(primitives));
     
-    // Mantém apenas as 100 mais recentes
-    await this.redis.ltrim(key, 0, 99);
+    // Adiciona ID à lista de notificações do usuário
+    await this.redis.sadd(`user:${primitives.userId}:notifications`, primitives.id);
     
-    // Define expiração de 7 dias
-    await this.redis.expire(key, 7 * 24 * 60 * 60);
+    // Adiciona ID à lista de notificações do pedido
+    await this.redis.sadd(`order:${primitives.orderId}:notifications`, primitives.id);
   }
 
-  async getCachedNotifications(userId: number): Promise<Notification[]> {
-    const key = `notifications:user:${userId}`;
-    const cached = await this.redis.lrange(key, 0, -1);
-    
-    return cached.map(item => JSON.parse(item));
+  async findById(id: NotificationId): Promise<NotificationEntity | null> {
+    const data = await this.redis.get(`notification:${id.getValue()}`);
+    if (!data) {
+      return null;
+    }
+    return this.hydrateNotification(JSON.parse(data));
   }
-}
-```
 
-## Sistema de Retry
-
-Notificações falhadas são reenviadas automaticamente:
-
-```typescript
-async sendWithRetry(notification: Notification) {
-  const MAX_RETRIES = 3;
-  
-  try {
-    await this.sendToChannel(notification);
+  async findByUserId(userId: UserId): Promise<NotificationEntity[]> {
+    const notificationIds = await this.redis.smembers(`user:${userId.getValue()}:notifications`);
+    const notifications: NotificationEntity[] = [];
     
-    notification.sent = true;
-    notification.sentAt = new Date();
-    await this.save(notification);
-    
-  } catch (error) {
-    notification.retries++;
-    notification.error = error.message;
-    
-    if (notification.retries < MAX_RETRIES) {
-      // Retry exponencial: 1min, 5min, 15min
-      const delay = Math.pow(5, notification.retries) * 60 * 1000;
-      
-      await this.scheduleRetry(notification, delay);
+    for (const id of notificationIds) {
+      const data = await this.redis.get(`notification:${id}`);
+      if (data) {
+        const notification = this.hydrateNotification(JSON.parse(data));
+        if (notification) {
+          notifications.push(notification);
+        }
+      }
     }
     
-    await this.save(notification);
+    return notifications;
+  }
+
+  private hydrateNotification(data: any): NotificationEntity {
+    return NotificationEntity.fromPrimitives(data);
   }
 }
-
-async scheduleRetry(notification: Notification, delay: number) {
-  // Adiciona à fila do Redis com delay
-  await this.redis.zadd(
-    'notifications:retry',
-    Date.now() + delay,
-    notification.id
-  );
-}
 ```
+
+
 
 ## Configuração
 
 ### Variáveis de Ambiente
 
 ```env
-# Database
-DATABASE_URL="postgresql://user:password@localhost:5432/db_notifications"
+# Redis (Persistência)
+REDIS_HOST=redis-notifications
+REDIS_PORT=6379
 
-# Redis
-REDIS_URL="redis://localhost:6379"
+# RabbitMQ (Mensageria)
+RABBITMQ_URL=amqp://rabbitmq:5672
 
 # Server
 PORT=3002
 GRAPHQL_PATH=/graphql
 
 # gRPC
-GRPC_PORT=50052
-
-# External Services
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-password
-
-SMS_API_KEY=your-sms-api-key
-SMS_API_URL=https://api.sms-provider.com
+GRPC_PORT=50054
+GRPC_HOST=0.0.0.0
 ```
 
 ### Instalação
@@ -485,20 +523,21 @@ npm run start:dev
 
 ## Exemplos de Uso
 
-### Enviar via gRPC (de outro serviço)
+### Via RabbitMQ (Principal)
+
+O fluxo principal é assíncrono via eventos RabbitMQ:
 
 ```typescript
-// No msorders após criar pedido
-await this.notificationsClient.sendNotification({
-  userId: customer.id,
-  type: 'ORDER_CREATED',
-  channel: 'EMAIL',
-  message: `Pedido #${order.id} criado!`,
-  payload: {
-    orderId: order.id,
-    total: order.total
-  }
+// Em msorders - Publica evento
+await this.eventPublisher.publishOrderCreated({
+  id: order.id,
+  customerId: customer.id,
+  status: 'CONFIRMED',
+  total: order.total
 });
+
+// msnotifications consome automaticamente via RabbitMQ consumer
+// e cria notificação
 ```
 
 ### Consultar via GraphQL
@@ -528,62 +567,7 @@ mutation {
 }
 ```
 
-## Canais Implementados
 
-### Email
-
-```typescript
-async sendEmail(notification: Notification) {
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: process.env.SMTP_PORT,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS
-    }
-  });
-
-  await transporter.sendMail({
-    from: 'noreply@delivery.com',
-    to: notification.payload.email,
-    subject: notification.payload.subject,
-    text: notification.message
-  });
-}
-```
-
-### SMS
-
-```typescript
-async sendSMS(notification: Notification) {
-  const response = await axios.post(process.env.SMS_API_URL, {
-    apiKey: process.env.SMS_API_KEY,
-    to: notification.payload.phone,
-    message: notification.message
-  });
-
-  if (!response.data.success) {
-    throw new Error('Failed to send SMS');
-  }
-}
-```
-
-## Fluxo de Notificação
-
-```
-1. Serviço externo chama gRPC sendNotification
-2. NotificationService valida dados
-3. Cria registro no banco (sent: false)
-4. Adiciona ao cache Redis
-5. Tenta enviar pelo canal especificado
-6. Se sucesso:
-   - Atualiza registro (sent: true, sentAt: now)
-   - Retorna sucesso
-7. Se falha:
-   - Incrementa retries
-   - Agenda retry
-   - Retorna erro
-```
 
 ## Padrões de Projeto Implementados
 
@@ -595,7 +579,11 @@ async sendSMS(notification: Notification) {
 
 **Solução**: O padrão Observer define uma relação um-para-muitos onde o Subject (NotificationSubjectAdapter) notifica automaticamente todos os Observers registrados quando um evento ocorre.
 
-**Localização**: `src/infrastructure/adapters/`
+**Localização**: 
+- Subject: [src/infrastructure/observers/notification-subject.adapter.ts](../../msnotifications/src/infrastructure/observers/notification-subject.adapter.ts)
+- Observer 1: [src/infrastructure/observers/terminal-notifier.observer.ts](../../msnotifications/src/infrastructure/observers/terminal-notifier.observer.ts)
+- Observer 2: [src/infrastructure/observers/notification-logger.observer.ts](../../msnotifications/src/infrastructure/observers/notification-logger.observer.ts)
+- Ports: [src/domain/ports/notification-observer.port.ts](../../msnotifications/src/domain/ports/notification-observer.port.ts)
 
 **Estrutura**:
 
@@ -631,23 +619,49 @@ class NotificationSubjectAdapter implements NotificationSubjectPort {
 
 // Concrete Observers
 @Injectable()
-class TerminalNotifierObserver implements NotificationObserverPort {
+class TerminalNotifierObserver implements NotificationObserverPort, ClientConnectionPort {
+  private connectedClients: Map<string, IConnectedClient> = new Map();
+
   async update(notification: NotificationData): Promise<void> {
-    console.log(`[NOTIFICACAO] ${notification.message}`);
+    const timestamp = new Date().toISOString();
+    console.log('\n' + '='.repeat(80));
+    console.log(`[NOTIFICACAO] ${timestamp}`);
+    console.log('='.repeat(80));
+    console.log(`ID do Pedido: ${notification.orderId}`);
+    console.log(`ID do Usuario: ${notification.userId}`);
+    console.log(`Status: ${notification.status}`);
+    console.log(`Mensagem: ${notification.message}`);
+    console.log(`Origem: ${notification.serviceOrigin}`);
+    console.log('='.repeat(80));
+  }
+
+  connectClient(userId: string): void {
+    this.connectedClients.set(userId, {
+      userId,
+      connectedAt: new Date(),
+    });
+    console.log(`\n[SYSTEM] Cliente ${userId} conectado ao sistema de notificacoes`);
+  }
+
+  disconnectClient(userId: string): void {
+    if (this.connectedClients.has(userId)) {
+      this.connectedClients.delete(userId);
+      console.log(`\n[SYSTEM] Cliente ${userId} desconectado do sistema de notificacoes`);
+    }
   }
 }
 
 @Injectable()
 class NotificationLoggerObserver implements NotificationObserverPort {
+  private readonly logger = new Logger(NotificationLoggerObserver.name);
+  
   async update(notification: NotificationData): Promise<void> {
-    this.logger.log('Notificação enviada', notification);
-  }
-}
-
-@Injectable()
-class EmailObserver implements NotificationObserverPort {
-  async update(notification: NotificationData): Promise<void> {
-    await this.emailService.send(notification);
+    this.logger.log(
+      `Notificação - Pedido: ${notification.orderId}, ` +
+      `Usuário: ${notification.userId}, ` +
+      `Status: ${notification.status}, ` +
+      `Origem: ${notification.serviceOrigin}`
+    );
   }
 }
 ```
@@ -655,18 +669,36 @@ class EmailObserver implements NotificationObserverPort {
 **Uso no sistema**:
 
 ```typescript
-// Na inicialização do módulo
-notificationSubject.subscribe(terminalNotifier);
-notificationSubject.subscribe(loggerObserver);
-notificationSubject.subscribe(emailObserver);
-notificationSubject.subscribe(smsObserver);
+// Subject se auto-registra com observers no OnModuleInit
+@Injectable()
+export class NotificationSubjectAdapter implements NotificationSubjectPort, OnModuleInit {
+  private observers: NotificationObserverPort[] = [];
 
-// Quando evento ocorre
+  constructor(
+    private readonly terminalNotifier: TerminalNotifierObserver,
+    private readonly loggerObserver: NotificationLoggerObserver,
+  ) {}
+
+  onModuleInit() {
+    // Auto-registro dos observers
+    this.subscribe(this.terminalNotifier);
+    this.subscribe(this.loggerObserver);
+  }
+
+  async notify(notification: NotificationData): Promise<void> {
+    // Notifica todos os observers em paralelo
+    const promises = this.observers.map(observer => observer.update(notification));
+    await Promise.all(promises);
+  }
+}
+
+// Quando evento ocorre (em use cases ou consumers)
 await notificationSubject.notify({
   orderId: '123',
   userId: 'user-456',
-  status: 'CONFIRMED',
-  message: 'Seu pedido foi confirmado!'
+  status: 'ORDER_CONFIRMED',
+  message: 'Seu pedido foi confirmado!',
+  serviceOrigin: 'msorders'
 });
 // Todos os observers são notificados automaticamente
 ```
@@ -678,16 +710,25 @@ await notificationSubject.notify({
 - **Flexibilidade**: Observers podem ser adicionados/removidos em runtime
 
 **Justificativa de uso**:
-O sistema precisa enviar notificações através de diferentes canais quando eventos importantes ocorrem. Futuramente, podemos adicionar WhatsApp, Push Notifications, Telegram, etc. O Observer Pattern permite adicionar novos canais sem modificar a lógica central de notificação. Cada observer é independente e testável isoladamente.
+O sistema precisa notificar múltiplos destinos quando um evento importante ocorre (pedido criado, entrega a caminho, etc). Atualmente temos:
+1. **TerminalNotifierObserver**: Mostra notificações formatadas no terminal
+2. **NotificationLoggerObserver**: Registra notificações em logs estruturados
+
+Futuramente, podemos adicionar EmailObserver, SmsObserver, WhatsAppObserver, PushNotificationObserver, etc. O Observer Pattern permite adicionar novos canais sem modificar a lógica central de notificação. Cada observer é independente e testável isoladamente.
+
+**Princípios SOLID aplicados**:
+- **S - Single Responsibility**: Cada observer tem uma responsabilidade específica
+- **O - Open/Closed**: Fácil adicionar novos observers sem modificar o subject
+- **L - Liskov Substitution**: Qualquer observer pode substituir outro
+- **D - Dependency Inversion**: Subject depende de abstração (NotificationObserverPort)
 
 ## Regras de Negócio
 
-1. **Retry automático**: Até 3 tentativas com delay exponencial
-2. **Cache**: Últimas 100 notificações por usuário
-3. **Expiração**: Notificações em cache expiram em 7 dias
-4. **Validação**: Email e telefone devem ser válidos
-5. **Rate limiting**: Máximo 10 notificações por minuto por usuário
-6. **Prioridade**: Notificações críticas são enviadas primeiro
+1. **Value Objects**: Todos os identificadores são Value Objects validados
+2. **Imutabilidade**: Notificações criadas não podem ser alteradas (exceto markAsRead)
+3. **Observer Pattern**: Novos canais podem ser adicionados sem modificar código existente
+4. **Indexação**: Notificações indexadas por usuário e pedido no Redis
+5. **Factory Methods**: Entidades criadas via métodos estáticos (create, fromPrimitives)
 
 ## Testes
 
@@ -710,33 +751,39 @@ this.logger.log('Notification sent', {
 
 ## Troubleshooting
 
-### Email não enviado
-
-```bash
-# Verificar configurações SMTP
-echo $SMTP_HOST
-echo $SMTP_USER
-
-# Testar conexão
-telnet smtp.gmail.com 587
-```
-
 ### Redis não conecta
 
 ```bash
 # Verificar se Redis está rodando
-docker ps | grep redis
+docker ps | grep redis-notifications
 
 # Testar conexão
-redis-cli ping
+docker exec -it redis-notifications redis-cli ping
+# Deve retornar: PONG
+
+# Ver notificações armazenadas
+docker exec -it redis-notifications redis-cli keys "notification:*"
 ```
 
-### Notificações ficam pendentes
+### RabbitMQ não consome eventos
 
 ```bash
-# Verificar worker de retry
-npm run start:worker
+# Verificar logs do container
+docker logs msnotifications
 
-# Limpar fila
-redis-cli del notifications:retry
+# Verificar filas no RabbitMQ Management
+# http://localhost:15672 (guest/guest)
+
+# Verificar se consumer está registrado
+docker logs msnotifications | grep "Consumer registrado"
+```
+
+### Notificações não aparecem no terminal
+
+```bash
+# Verificar se TerminalNotifierObserver está registrado
+docker logs msnotifications | grep "Observer registrado"
+
+# Verificar logs do NotificationLogger
+docker logs msnotifications | grep "Notificação -"
 ```

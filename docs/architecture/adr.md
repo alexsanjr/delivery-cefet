@@ -95,7 +95,7 @@ Precisávamos de alguma forma de acessar o banco PostgreSQL. Pesquisamos algumas
 
 ---
 
-## 7. Um Banco para Cada Serviço
+## 7. Um Banco para Cada Serviço (Obrigatório)
 
 Essa foi uma decisão importante: ao invés de ter um banco compartilhado, cada microserviço tem seu próprio banco PostgreSQL.
 
@@ -143,7 +143,7 @@ Precisávamos escolher um framework Node.js. Poderíamos usar Express puro, mas 
 
 ---
 
-## 10. Domain-Driven Design (DDD) e Arquitetura Hexagonal
+## 10. Domain-Driven Design (DDD) e Arquitetura Hexagonal (Obrigatório)
 
 **Contexto do problema:**
 
@@ -252,7 +252,7 @@ export class CreateOrderUseCase {
 
 ---
 
-## 11. Coreografia de Microsserviços com RabbitMQ
+## 11. Coreografia de Microsserviços com RabbitMQ (Obrigatório)
 
 **Contexto do problema:**
 
@@ -420,7 +420,7 @@ export class AppModule {}
 - Alertas: filas crescendo indefinidamente, consumidores inativos
 
 
-## 12. Testes de Performance e Escalabilidade
+## 12. Testes de Performance e Escalabilidade (Obrigatório)
 
 **Contexto do problema:**
 
@@ -448,6 +448,75 @@ Escolhemos **Apache JMeter** como ferramenta de teste de carga e performance.
 Os testes de performance e escalabilidade estão documentados em:
 
 **[docs/Performace/](../Performace/)**
+
+---
+
+## 13. Resiliência com Retry e Reconnect
+
+**Contexto do problema:**
+
+Em sistemas distribuídos, falhas de rede e instabilidades temporárias são inevitáveis. Conexões com RabbitMQ, bancos de dados e outros serviços podem cair temporariamente, especialmente durante deploys ou reinicializações.
+
+**Estratégias implementadas:**
+
+### 13.1 Reconnect Automático (RabbitMQ)
+
+Todos os serviços que usam RabbitMQ implementam reconexão automática:
+
+```typescript
+// msdelivery, bff-delivery, e outros
+this.connection.on('close', () => {
+  this.logger.warn('RabbitMQ connection closed. Attempting to reconnect...');
+  setTimeout(() => this.connect(), 5000);
+});
+
+this.connection.on('error', (err) => {
+  this.logger.error('RabbitMQ connection error:', err);
+});
+```
+
+### 13.2 Retry com Exponential Backoff (Notificações)
+
+O msnotifications implementa retry exponencial para envio de notificações falhadas:
+
+```typescript
+// Retry exponencial: 1min, 5min, 15min
+const delay = Math.pow(5, notification.retries) * 60 * 1000;
+```
+
+**Estratégia:**
+1. Primeira falha: retry em 1 minuto
+2. Segunda falha: retry em 5 minutos  
+3. Terceira falha: retry em 15 minutos
+4. Após 3 tentativas: marcado como falha permanente
+
+### 13.3 amqp-connection-manager (msorders)
+
+O msorders usa a biblioteca `amqp-connection-manager` que fornece:
+- Reconexão automática com backoff
+- Heartbeat para detectar conexões mortas
+- Reestabelecimento de exchanges, queues e consumers após reconexão
+
+```typescript
+this.connection = amqp.connect([this.config.url], {
+  heartbeatIntervalInSeconds: 30,
+  reconnectTimeInSeconds: 2,
+});
+```
+
+**Benefícios:**
+- **Alta disponibilidade**: Sistema continua funcionando após falhas temporárias
+- **Recuperação automática**: Não requer intervenção manual
+- **Graceful degradation**: Operações são enfileiradas durante reconexão
+- **Observabilidade**: Logs detalhados de tentativas e falhas
+
+**Onde foi implementado:**
+- Todos os serviços com RabbitMQ (msorders, msdelivery, msnotifications, mstracking, msrouting, bff-delivery)
+- Conexões de banco de dados (Prisma com retry nativo)
+- Sistema de notificações (retry específico de negócio)
+
+---
+
 
 
 

@@ -41,51 +41,50 @@ Este serviço implementa **Domain-Driven Design (DDD)** com **Arquitetura Hexago
 ```
 msdelivery/
 ├── src/
-│   ├── domain/                    # Núcleo - Lógica de negócio pura
-│   │   ├── entities/
+│   ├── domain/                           # Núcleo - Lógica de negócio pura
+│   │   ├── entities/                     # Delivery, DeliveryPerson
 │   │   │   ├── delivery.entity.ts
 │   │   │   └── delivery-person.entity.ts
-│   │   ├── value-objects/
+│   │   ├── value-objects/                # Location, Email, Phone, CPF
 │   │   │   ├── location.vo.ts
 │   │   │   ├── email.vo.ts
 │   │   │   ├── phone.vo.ts
 │   │   │   └── cpf.vo.ts
-│   │   └── repositories/          # Interfaces (Ports)
-│   │       ├── delivery.repository.interface.ts
-│   │       └── delivery-person.repository.interface.ts
+│   │   ├── repositories/                 # Interfaces (Ports)
+│   │   ├── enums/                        # DeliveryStatus, DeliveryPersonStatus, VehicleType
+│   │   └── exceptions/                   # DomainException
 │   │
-│   ├── application/               # Casos de Uso
+│   ├── application/                      # Casos de Uso
 │   │   ├── use-cases/
-│   │   │   ├── assign-delivery.use-case.ts
-│   │   │   ├── update-delivery-status.use-case.ts
-│   │   │   └── update-location.use-case.ts
-│   │   ├── dtos/
-│   │   │   ├── create-delivery.dto.ts
-│   │   │   └── update-delivery-status.dto.ts
-│   │   └── mappers/
-│   │       ├── delivery.mapper.ts
-│   │       └── delivery-person.mapper.ts
+│   │   │   ├── delivery/                 # Create, Assign, UpdateStatus
+│   │   │   └── delivery-person/          # Create, UpdateLocation, UpdateStatus
+│   │   ├── services/                     # Application Services
+│   │   │   ├── delivery-application.service.ts
+│   │   │   └── delivery-person-application.service.ts
+│   │   ├── dtos/                         # Data Transfer Objects
+│   │   └── ports/                        # Interfaces de portas secundárias
+│   │       ├── in/                       # Portas de entrada (use cases)
+│   │       └── out/                      # Portas de saída (repositories, clients)
 │   │
-│   ├── infrastructure/            # Adapters (Implementações)
-│   │   ├── persistence/
-│   │   │   ├── delivery.repository.ts
-│   │   │   └── delivery-person.repository.ts
+│   ├── infrastructure/                   # Adapters (Implementações)
 │   │   ├── adapters/
-│   │   │   └── routing-grpc.adapter.ts
-│   │   └── mappers/
-│   │       └── prisma.mapper.ts
+│   │   │   ├── in/                       # Adapters de entrada
+│   │   │   │   └── grpc/                 # Controllers gRPC
+│   │   │   └── out/                      # Adapters de saída
+│   │   │       ├── persistence/          # Repositórios Prisma
+│   │   │       ├── grpc-clients/         # Clientes gRPC (Orders)
+│   │   │       └── geocoding/            # Geocoding (Nominatim)
+│   │   ├── messaging/                    # RabbitMQ + Protobuf
+│   │   │   ├── publishers/
+│   │   │   └── consumers/
+│   │   ├── modules/                      # Módulos NestJS
+│   │   ├── mappers/                      # Entity <-> Prisma
+│   │   └── config/                       # Configurações
 │   │
-│   ├── presentation/              # Interface Externa
-│   │   ├── graphql/
-│   │   │   ├── delivery.resolver.ts
-│   │   │   └── delivery-person.resolver.ts
-│   │   └── grpc/
-│   │       └── delivery-grpc.controller.ts
-│   │
-│   ├── delivery-persons/          # Módulos NestJS
-│   ├── deliveries/
-│   ├── grpc/
-│   ├── prisma/
+│   ├── deliveries/                       # Recursos específicos
+│   ├── delivery-persons/
+│   ├── prisma/                           # Prisma Service
+│   ├── shared/                           # Utilitários compartilhados
 │   └── main.ts
 │
 ├── prisma/
@@ -94,16 +93,29 @@ msdelivery/
 │   └── migrations/
 ├── proto/
 │   ├── delivery.proto
-│   └── delivery-person.proto
+│   ├── delivery-person.proto
+│   ├── events.proto
+│   └── orders.proto
 └── package.json
 ```
 
 ### Camadas da Arquitetura Hexagonal
 
 1. **Domain (Núcleo)**: Lógica de negócio pura, sem dependências externas
+   - Entities, Value Objects, Enums, Exceptions
+   - Interfaces de repositórios (Ports)
+
 2. **Application**: Orquestra o domínio através de Use Cases
+   - Use Cases específicos por funcionalidade
+   - Application Services (orquestram use cases + eventos)
+   - Ports (interfaces de entrada e saída)
+   - DTOs para comunicação entre camadas
+
 3. **Infrastructure**: Implementa as interfaces (Ports) do domínio
-4. **Presentation**: Expõe funcionalidades via GraphQL e gRPC
+   - **Adapters In**: Controllers gRPC (entrada)
+   - **Adapters Out**: Repositórios Prisma, Clientes gRPC, Geocoding (saída)
+   - **Messaging**: RabbitMQ com publishers e consumers
+   - **Modules**: Organização em módulos NestJS
 
 ## Modelo de Dados
 
@@ -188,10 +200,7 @@ enum DeliveryStatus {
 
 ## Comunicação
 
-### GraphQL
-Porta: `3003/graphql`
-
-Queries e mutations para gerenciamento de entregas e entregadores.
+**Nota**: Este microserviço é um serviço interno puro. Ele **não expõe API GraphQL** - toda comunicação externa é feita via gRPC. O acesso externo é feito através do BFF (bff-delivery) que traduz GraphQL para gRPC.
 
 ### gRPC
 Porta: `50053`
@@ -350,118 +359,6 @@ export class AssignDeliveryUseCase {
 - Com JSON: Tempo total (order → delivery → tracking → notification) ~400ms
 - Com Protobuf: Tempo total ~130ms (melhor experiência ao criar pedido)
 
-## API GraphQL
-
-### Queries
-
-```graphql
-type Query {
-  # Entregadores
-  deliveryPersons: [DeliveryPerson!]!
-  deliveryPerson(id: Int!): DeliveryPerson
-  availableDeliveryPersons: [DeliveryPerson!]!
-  
-  # Entregas
-  deliveries: [Delivery!]!
-  delivery(id: Int!): Delivery
-  deliveryByOrder(orderId: Int!): Delivery
-  deliveriesByPerson(deliveryPersonId: Int!): [Delivery!]!
-  deliveriesByStatus(status: DeliveryStatus!): [Delivery!]!
-}
-```
-
-### Mutations
-
-```graphql
-type Mutation {
-  # Entregadores
-  createDeliveryPerson(input: CreateDeliveryPersonInput!): DeliveryPerson!
-  updateDeliveryPerson(id: Int!, input: UpdateDeliveryPersonInput!): DeliveryPerson!
-  updateDeliveryPersonStatus(id: Int!, status: DeliveryPersonStatus!): DeliveryPerson!
-  updateDeliveryPersonLocation(id: Int!, latitude: Float!, longitude: Float!): DeliveryPerson!
-  
-  # Entregas
-  createDelivery(input: CreateDeliveryInput!): Delivery!
-  assignDelivery(deliveryId: Int!, deliveryPersonId: Int!): Delivery!
-  updateDeliveryStatus(id: Int!, status: DeliveryStatus!): Delivery!
-  cancelDelivery(id: Int!, reason: String): Delivery!
-}
-```
-
-### Tipos
-
-```graphql
-type DeliveryPerson {
-  id: Int!
-  name: String!
-  email: String!
-  phone: String!
-  cpf: String!
-  vehicleType: VehicleType!
-  licensePlate: String
-  status: DeliveryPersonStatus!
-  rating: Float!
-  totalDeliveries: Int!
-  
-  currentLatitude: Float
-  currentLongitude: Float
-  lastLocationUpdate: DateTime
-  
-  isActive: Boolean!
-  joinedAt: DateTime!
-  deliveries: [Delivery!]!
-}
-
-type Delivery {
-  id: Int!
-  orderId: Int!
-  deliveryPersonId: Int
-  deliveryPerson: DeliveryPerson
-  
-  status: DeliveryStatus!
-  
-  customerLatitude: Float!
-  customerLongitude: Float!
-  customerAddress: String!
-  
-  assignedAt: DateTime
-  pickedUpAt: DateTime
-  deliveredAt: DateTime
-  cancelledAt: DateTime
-  
-  estimatedDeliveryTime: Int
-  actualDeliveryTime: Int
-  
-  createdAt: DateTime!
-  updatedAt: DateTime!
-}
-
-enum DeliveryPersonStatus {
-  AVAILABLE
-  BUSY
-  OFFLINE
-  ON_BREAK
-}
-
-enum VehicleType {
-  BIKE
-  MOTORCYCLE
-  CAR
-  SCOOTER
-  WALKING
-}
-
-enum DeliveryStatus {
-  PENDING
-  ASSIGNED
-  PICKED_UP
-  IN_TRANSIT
-  DELIVERED
-  CANCELLED
-  FAILED
-}
-```
-
 ## API gRPC
 
 ### Serviços Expostos
@@ -552,6 +449,114 @@ private calculateScore(person: DeliveryPerson, delivery: Delivery): number {
 }
 ```
 
+## Padrões de Projeto Implementados
+
+### Adapter Pattern 
+
+**Problema resolvido**: O microserviço precisa se comunicar com sistemas externos (msorders via gRPC, Nominatim para geocoding) que têm interfaces diferentes. Acoplar o domínio diretamente a essas APIs externas tornaria o código difícil de testar e manter.
+
+**Solução**: O Adapter Pattern permite que interfaces incompatíveis trabalhem juntas. Adapters convertem a interface de uma classe em outra interface esperada pelos clientes.
+
+**Localização**: 
+- Adapter gRPC Orders: [src/infrastructure/adapters/out/grpc-clients/grpc-orders-client.adapter.ts](../../msdelivery/src/infrastructure/adapters/out/grpc-clients/grpc-orders-client.adapter.ts)
+- Adapter Geocoding: [src/infrastructure/adapters/out/geocoding/nominatim-geocoding.adapter.ts](../../msdelivery/src/infrastructure/adapters/out/geocoding/nominatim-geocoding.adapter.ts)
+- Port Interface: [src/application/ports/out/orders-client.port.ts](../../msdelivery/src/application/ports/out/orders-client.port.ts)
+
+**Estrutura**:
+
+```typescript
+// Port (Interface esperada pela aplicação)
+export interface IOrdersClient {
+  getOrder(orderId: number): Promise<OrderData | null>;
+  updateOrderStatus(orderId: number, status: string): Promise<void>;
+}
+
+// Adapter - adapta gRPC do msorders para interface esperada
+@Injectable()
+export class GrpcOrdersClientAdapter implements IOrdersClient {
+  @Client({
+    transport: Transport.GRPC,
+    options: {
+      package: 'orders',
+      protoPath: '/app/proto/orders.proto',
+      url: process.env.ORDERS_GRPC_URL || 'msorders:50052',
+    },
+  })
+  private client: ClientGrpc;
+  private ordersService: OrdersGrpcService;
+
+  async getOrder(orderId: number): Promise<OrderData | null> {
+    // Adapta chamada gRPC para interface da aplicação
+    const response = await firstValueFrom(
+      this.ordersService.getOrder({ id: orderId })
+    );
+    
+    // Converte resposta gRPC para modelo da aplicação
+    return {
+      id: response.id,
+      customerId: response.customerId,
+      status: response.status,
+      deliveryAddress: response.deliveryAddress,
+      // ... conversão de campos
+    };
+  }
+}
+
+// Adapter - adapta API Nominatim para interface esperada
+@Injectable()
+export class NominatimGeocodingAdapter implements IGeocodingService {
+  async geocodeAddress(address: string): Promise<Location | null> {
+    // Chama API externa Nominatim
+    const response = await axios.get('https://nominatim.openstreetmap.org/search', {
+      params: { q: address, format: 'json' }
+    });
+    
+    // Adapta resposta para Value Object Location do domínio
+    return Location.create(
+      parseFloat(response.data[0].lat),
+      parseFloat(response.data[0].lon)
+    );
+  }
+}
+```
+
+**Configuração no módulo**:
+
+```typescript
+@Module({
+  providers: [
+    {
+      provide: 'IOrdersClient',
+      useClass: GrpcOrdersClientAdapter, // Adapter injeta implementação
+    },
+    {
+      provide: 'IGeocodingService',
+      useClass: NominatimGeocodingAdapter,
+    },
+  ],
+})
+export class DeliveryModule {}
+```
+
+**Benefícios**:
+- **Isolamento**: Domínio não conhece detalhes de gRPC ou APIs externas
+- **Testabilidade**: Fácil criar mocks dos adapters para testes
+- **Flexibilidade**: Trocar Nominatim por Google Maps sem afetar domínio
+- **Single Responsibility**: Cada adapter tem uma responsabilidade
+- **Dependency Inversion**: Aplicação depende de abstrações (ports), não de implementações
+
+**Justificativa de uso**:
+Em arquitetura hexagonal, adapters são essenciais para conectar o núcleo da aplicação (domínio + use cases) com o mundo externo (APIs, bancos de dados, mensageria). O Adapter Pattern permite que o domínio permaneça puro e testável, enquanto os adapters lidam com detalhes de infraestrutura.
+
+**Princípios SOLID aplicados**:
+- **S - Single Responsibility**: Cada adapter tem uma responsabilidade específica
+- **O - Open/Closed**: Fácil adicionar novos adapters sem modificar existentes
+- **L - Liskov Substitution**: Qualquer implementação do port pode substituir outra
+- **I - Interface Segregation**: Ports bem definidos e específicos
+- **D - Dependency Inversion**: Use cases dependem de abstrações (ports), não de implementações
+
+---
+
 ## Domain-Driven Design (DDD) Implementado
 
 ### Value Objects
@@ -561,27 +566,44 @@ Value Objects garantem validação e imutabilidade dos dados de domínio:
 #### Location (Localização)
 ```typescript
 export class Location {
-  private constructor(
-    private readonly latitude: number,
-    private readonly longitude: number,
-  ) {}
+  private readonly _latitude: number;
+  private readonly _longitude: number;
+
+  private constructor(latitude: number, longitude: number) {
+    this._latitude = latitude;
+    this._longitude = longitude;
+  }
 
   static create(latitude: number, longitude: number): Location {
-    if (latitude < -90 || latitude > 90) {
-      throw new Error('Latitude inválida');
+    if (!Location.isValidLatitude(latitude)) {
+      throw new DomainException(
+        `Latitude inválida: ${latitude}. Deve estar entre -90 e 90`
+      );
     }
-    if (longitude < -180 || longitude > 180) {
-      throw new Error('Longitude inválida');
+
+    if (!Location.isValidLongitude(longitude)) {
+      throw new DomainException(
+        `Longitude inválida: ${longitude}. Deve estar entre -180 e 180`
+      );
     }
+
     return new Location(latitude, longitude);
   }
 
-  getLatitude(): number {
-    return this.latitude;
+  static isValidLatitude(latitude: number): boolean {
+    return latitude >= -90 && latitude <= 90;
   }
 
-  getLongitude(): number {
-    return this.longitude;
+  static isValidLongitude(longitude: number): boolean {
+    return longitude >= -180 && longitude <= 180;
+  }
+
+  get latitude(): number {
+    return this._latitude;
+  }
+
+  get longitude(): number {
+    return this._longitude;
   }
 }
 ```
@@ -593,7 +615,7 @@ export class Email {
 
   static create(email: string): Email {
     if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
-      throw new Error('Email inválido');
+      throw new DomainException('Email inválido');
     }
     return new Email(email);
   }
@@ -609,7 +631,7 @@ export class Phone {
   static create(phone: string): Phone {
     const cleaned = phone.replace(/\D/g, '');
     if (cleaned.length < 10 || cleaned.length > 11) {
-      throw new Error('Telefone inválido');
+      throw new DomainException('Telefone inválido');
     }
     return new Phone(cleaned);
   }
@@ -625,7 +647,7 @@ export class CPF {
   static create(cpf: string): CPF {
     const cleaned = cpf.replace(/\D/g, '');
     if (cleaned.length !== 11) {
-      throw new Error('CPF deve ter 11 dígitos');
+      throw new DomainException('CPF deve ter 11 dígitos');
     }
     // Validação adicional do CPF aqui...
     return new CPF(cleaned);
@@ -648,24 +670,42 @@ export class CPF {
 #### DeliveryEntity
 ```typescript
 export class DeliveryEntity {
-  constructor(
-    public readonly id: number,
-    public readonly orderId: number,
-    public readonly customerLocation: Location,
-    public readonly customerAddress: string,
-    private status: DeliveryStatus,
-    private deliveryPersonId?: number,
-    private assignedAt?: Date,
-  ) {}
+  private readonly props: DeliveryProps;
+
+  private constructor(props: DeliveryProps) {
+    this.props = props;
+  }
+
+  // Factory method para criar nova entrega
+  static create(props: Omit<DeliveryProps, 'status'>): DeliveryEntity {
+    return new DeliveryEntity({
+      ...props,
+      status: DeliveryStatus.PENDING,
+      createdAt: props.createdAt ?? new Date(),
+      updatedAt: props.updatedAt ?? new Date(),
+    });
+  }
+
+  // Factory method para reconstituir do banco
+  static reconstitute(props: DeliveryProps): DeliveryEntity {
+    return new DeliveryEntity(props);
+  }
+
+  // Getters
+  get id(): number | undefined { return this.props.id; }
+  get orderId(): number { return this.props.orderId; }
+  get status(): DeliveryStatus { return this.props.status; }
+  get customerLocation(): Location { return this.props.customerLocation; }
+  get customerAddress(): string { return this.props.customerAddress; }
 
   // Regra de negócio: só pode atribuir se estiver PENDING
   assign(deliveryPersonId: number): void {
-    if (this.status !== DeliveryStatus.PENDING) {
-      throw new Error('Entrega só pode ser atribuída se estiver PENDING');
+    if (this.props.status !== DeliveryStatus.PENDING) {
+      throw new DomainException('Entrega só pode ser atribuída se estiver PENDING');
     }
-    this.deliveryPersonId = deliveryPersonId;
-    this.status = DeliveryStatus.ASSIGNED;
-    this.assignedAt = new Date();
+    this.props.deliveryPersonId = deliveryPersonId;
+    this.props.status = DeliveryStatus.ASSIGNED;
+    this.props.assignedAt = new Date();
   }
 
   // Regra de negócio: progressão de status
@@ -673,16 +713,18 @@ export class DeliveryEntity {
     const validTransitions = {
       [DeliveryStatus.PENDING]: [DeliveryStatus.ASSIGNED, DeliveryStatus.CANCELLED],
       [DeliveryStatus.ASSIGNED]: [DeliveryStatus.PICKED_UP, DeliveryStatus.CANCELLED],
-      [DeliveryStatus.PICKED_UP]: [DeliveryStatus.DELIVERED, DeliveryStatus.CANCELLED],
+      [DeliveryStatus.PICKED_UP]: [DeliveryStatus.IN_TRANSIT, DeliveryStatus.CANCELLED],
+      [DeliveryStatus.IN_TRANSIT]: [DeliveryStatus.DELIVERED, DeliveryStatus.CANCELLED],
       [DeliveryStatus.DELIVERED]: [],
       [DeliveryStatus.CANCELLED]: [],
     };
 
-    if (!validTransitions[this.status].includes(newStatus)) {
-      throw new Error(`Transição inválida: ${this.status} -> ${newStatus}`);
+    if (!validTransitions[this.props.status]?.includes(newStatus)) {
+      throw new DomainException(`Transição inválida: ${this.props.status} -> ${newStatus}`);
     }
     
-    this.status = newStatus;
+    this.props.status = newStatus;
+    this.props.updatedAt = new Date();
   }
 }
 ```
@@ -722,37 +764,61 @@ export class DeliveryPersonEntity {
 
 Use Cases implementam a lógica de aplicação orquestrando entidades e serviços:
 
-#### AssignDeliveryUseCase
+#### AssignDeliveryUseCase + Application Service
 ```typescript
+// Use Case - Lógica de negócio pura
 @Injectable()
 export class AssignDeliveryUseCase {
   constructor(
-    @Inject(DELIVERY_REPOSITORY)
+    @Inject('IDeliveryRepository')
     private readonly deliveryRepo: IDeliveryRepository,
-    @Inject(DELIVERY_PERSON_REPOSITORY)
+    @Inject('IDeliveryPersonRepository')
     private readonly personRepo: IDeliveryPersonRepository,
   ) {}
 
-  async execute(deliveryId: number, deliveryPersonId: number): Promise<DeliveryDto> {
+  async execute(dto: AssignDeliveryDto): Promise<DeliveryEntity> {
     // 1. Buscar entidades
-    const delivery = await this.deliveryRepo.findById(deliveryId);
-    const person = await this.personRepo.findById(deliveryPersonId);
+    const delivery = await this.deliveryRepo.findById(dto.deliveryId);
+    const person = await this.personRepo.findById(dto.deliveryPersonId);
 
     // 2. Validar regras de negócio
     if (!person.isAvailable()) {
-      throw new Error('Entregador não está disponível');
+      throw new DomainException('Entregador não está disponível');
     }
 
     // 3. Executar ação de domínio
-    delivery.assign(deliveryPersonId);
+    delivery.assign(dto.deliveryPersonId);
     person.changeStatus(DeliveryPersonStatus.BUSY);
 
     // 4. Persistir
     await this.deliveryRepo.save(delivery);
     await this.personRepo.save(person);
 
-    // 5. Retornar DTO
-    return DeliveryMapper.toDto(delivery);
+    return delivery;
+  }
+}
+
+// Application Service - Orquestra use case + eventos
+@Injectable()
+export class DeliveryApplicationService {
+  constructor(
+    private readonly assignDeliveryUseCase: AssignDeliveryUseCase,
+    private readonly eventPublisher: DeliveryEventPublisher,
+  ) {}
+
+  async assign(dto: AssignDeliveryDto): Promise<DeliveryEntity> {
+    // Executa use case
+    const delivery = await this.assignDeliveryUseCase.execute(dto);
+
+    // Publica evento para outros microserviços
+    await this.eventPublisher.publishDeliveryAssigned({
+      deliveryId: delivery.id!,
+      orderId: delivery.orderId,
+      deliveryPersonId: dto.deliveryPersonId,
+      // ... outros campos
+    });
+
+    return delivery;
   }
 }
 ```
@@ -889,19 +955,20 @@ async calculateRoute(delivery: Delivery): Promise<Route> {
 
 ```env
 # Database
-DATABASE_URL="postgresql://user:password@localhost:5432/db_delivery"
+DATABASE_URL="postgresql://user:password@postgres-delivery:5432/db_delivery"
 
-# Server
-PORT=3003
-GRAPHQL_PATH=/graphql
-
-# gRPC
+# gRPC Server
 GRPC_PORT=50053
+GRPC_HOST=0.0.0.0
 
-# Microservices
-GRPC_ROUTING_URL=localhost:50054
-GRPC_TRACKING_URL=localhost:50055
-GRPC_NOTIFICATIONS_URL=localhost:50052
+# gRPC Clients (outros microserviços)
+ORDERS_GRPC_URL=msorders:50052
+
+# RabbitMQ
+RABBITMQ_URL=amqp://rabbitmq:5672
+
+# Nominatim (Geocoding)
+NOMINATIM_URL=https://nominatim.openstreetmap.org
 ```
 
 ### Instalação
@@ -925,14 +992,21 @@ npm run start:prod
 ```
 
 Acesso:
-- GraphQL: http://localhost:3003/graphql
-- gRPC: localhost:50053
+- gRPC Server: localhost:50053
+- Acesso externo via BFF: http://localhost:3006/graphql
 
 ## Exemplos de Uso
 
-### Cadastrar Entregador
+**Nota**: Este microserviço não expõe GraphQL diretamente. Para acessar suas funcionalidades, use:
+1. **BFF (bff-delivery)**: Para acesso externo via GraphQL em `http://localhost:3006/graphql`
+2. **gRPC direto**: Para comunicação entre microserviços
+
+### Via BFF (GraphQL)
+
+O BFF traduz as seguintes operações GraphQL para chamadas gRPC:
 
 ```graphql
+# Cadastrar Entregador (via BFF)
 mutation {
   createDeliveryPerson(input: {
     name: "Carlos Silva"
@@ -948,28 +1022,8 @@ mutation {
     rating
   }
 }
-```
 
-### Atualizar Localização
-
-```graphql
-mutation {
-  updateDeliveryPersonLocation(
-    id: 1
-    latitude: -23.5505
-    longitude: -46.6333
-  ) {
-    id
-    currentLatitude
-    currentLongitude
-    lastLocationUpdate
-  }
-}
-```
-
-### Atribuir Entrega
-
-```graphql
+# Atribuir Entrega (via BFF)
 mutation {
   assignDelivery(
     deliveryId: 1
@@ -981,24 +1035,22 @@ mutation {
       name
       vehicleType
     }
-    estimatedDeliveryTime
   }
 }
 ```
 
-### Atualizar Status da Entrega
+### Via gRPC (Comunicação entre Microserviços)
 
-```graphql
-mutation {
-  updateDeliveryStatus(
-    id: 1
-    status: IN_TRANSIT
-  ) {
-    id
-    status
-    pickedUpAt
-  }
-}
+Outros microserviços chamam diretamente via gRPC:
+
+```typescript
+// Em msorders, ao confirmar pedido
+const delivery = await deliveryClient.createDelivery({
+  orderId: order.id,
+  customerLatitude: -23.5505,
+  customerLongitude: -46.6333,
+  customerAddress: "Rua das Flores, 123"
+});
 ```
 
 ## Fluxo de Uma Entrega
@@ -1075,16 +1127,26 @@ grpcurl -plaintext localhost:50054 list
 
 ### Localização não atualiza
 
-Verificar se campos latitude/longitude estão sendo enviados:
+Verificar se campos latitude/longitude estão sendo enviados via gRPC:
 
-```graphql
-mutation {
-  updateDeliveryPersonLocation(
-    id: 1
-    latitude: -23.5505  # Verificar se valores são válidos
-    longitude: -46.6333
-  ) {
-    lastLocationUpdate  # Deve ser atualizado
-  }
-}
+```bash
+# Verificar logs do container
+docker logs msdelivery
+
+# Testar via BFF
+curl -X POST http://localhost:3006/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query": "mutation { updateDeliveryPersonLocation(id: 1, latitude: -23.5505, longitude: -46.6333) { lastLocationUpdate } }"}'  
+```
+
+### Erro ao conectar com msorders via gRPC
+
+Verificar se ORDERS_GRPC_URL está correto:
+
+```bash
+# Verificar containers
+docker ps | grep msorders
+
+# Testar conexão
+grpcurl -plaintext msorders:50052 list
 ```
