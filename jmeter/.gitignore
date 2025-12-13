@@ -1,0 +1,4 @@
+*.jtl
+*.log
+report-*/
+results-*.jtl
