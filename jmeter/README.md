@@ -57,6 +57,15 @@ Para rodar o teste de carga do microsserviço de entregas (`msdelivery`), execut
 jmeter -n -f -t msdelivery-load-test.jmx -l results-delivery.jtl -e -o report-delivery
 ```
 
+### Teste de Integração (RabbitMQ)
+
+Este teste verifica o fluxo assíncrono entre `msorders` e `msnotifications` via RabbitMQ.
+Ele cria um pedido, atualiza o status e verifica se a notificação foi criada.
+
+```bash
+jmeter -n -f -t rabbitmq-integration-test.jmx -l results-rabbitmq.jtl
+```
+
 ### Parâmetros:
 - `-n`: Modo não-GUI (CLI mode).
 - `-f`: Força a exclusão de arquivos de resultado existentes.
