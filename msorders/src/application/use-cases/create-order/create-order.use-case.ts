@@ -95,7 +95,9 @@ export class CreateOrderUseCase {
 
     // 7. Processar eventos de domínio
     const events = savedOrder.getUncommittedEvents();
+    console.log('DEBUG: Number of uncommitted events:', events.length);
     for (const event of events) {
+      console.log('DEBUG: Processing event:', event.eventName);
       if (event.eventName === 'OrderCreated') {
         // Publicar evento no RabbitMQ com Protobuf (assíncrono)
         await this.orderEventsPublisher.publishOrderCreated({
