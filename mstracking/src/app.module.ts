@@ -11,7 +11,7 @@ import { GraphQLPresentationModule } from './presentation/graphql/graphql.module
         TypeOrmModule.forRoot({
             type: 'postgres',
             url: process.env.DATABASE_URL,
-            entities: [__dirname + '/infrastructure/persistence/*.orm{.ts,.js}'],
+            entities: [__dirname + '/infrastructure/persistence/**/*.orm.js'],
             synchronize: true,
         }),
         GraphQLModule.forRoot<ApolloDriverConfig>({
