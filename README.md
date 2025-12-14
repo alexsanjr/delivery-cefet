@@ -167,8 +167,8 @@ delivery-cefet/
 ├── docs/                       # Documentação completa
 │   ├── architecture/           # Decisões arquiteturais (ADRs, DDD, Padrões)
 │   ├── c4-diagrams/           # Diagramas C4 em PlantUML
-│   ├── microservices/         # Documentação detalhada de cada serviço
-│   └── Performace/            # Relatórios JMeter e análises de performance
+│   └── microservices/         # Documentação detalhada de cada serviço
+├── jmeter/                    # Relatórios JMeter e análises de performance
 ├── kong-gateway/              # Configuração do Kong Gateway
 │   ├── kong/declarative/      # Configurações declarativas
 │   ├── auth-service.js        # Serviço de autenticação JWT
@@ -390,7 +390,7 @@ npm run test:cov
 O sistema foi testado com **Apache JMeter** para validar escalabilidade horizontal e performance sob carga.
 
 **Documentação completa:**
-**[docs/Performace/](docs/Performace/)** 
+**[jmeter/](jmeter/)** 
 
 
 ## Documentação Adicional
