@@ -447,7 +447,7 @@ Escolhemos **Apache JMeter** como ferramenta de teste de carga e performance.
 
 Os testes de performance e escalabilidade estão documentados em:
 
-**[docs/Performace/](../Performace/)**
+**[jmeter/](../../jmeter/)**
 
 ---
 
