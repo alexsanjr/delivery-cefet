@@ -15,23 +15,24 @@ Microserviço responsável pelo rastreamento em tempo real das entregas.
 
 - **NestJS**: Framework principal
 - **TypeScript**: Linguagem
-- **GraphQL**: API com subscriptions
+- **GraphQL**: API com subscriptions (PubSub para real-time)
 - **gRPC**: Comunicação entre serviços
-- **Prisma**: ORM
+- **TypeORM**: ORM
 - **PostgreSQL**: Banco de dados
-- **WebSocket**: Atualizações em tempo real
+- **RabbitMQ**: Mensageria assíncrona com Protobuf
+- **Apollo Server**: GraphQL server com subscriptions
 
 ## Arquitetura: DDD + Hexagonal
 
 Este serviço implementa **Domain-Driven Design (DDD)** com **Arquitetura Hexagonal (Ports & Adapters)**.
 
 **Destaques arquiteturais:**
-- **Entities**: DeliveryTracking, TrackingPosition com histórico
-- **Value Objects**: Coordinates, Speed, Distance com validações
-- **Factory Method Pattern**: Criação de tracking points
-- **Observer Pattern**: Notificações de atualização de posição via WebSocket
-- **Repository Pattern**: Interfaces no domínio, implementação com Prisma
-- **Real-time**: WebSocket + RabbitMQ para rastreamento contínuo
+- **Entities**: DeliveryTracking, TrackingPosition com lógica de domínio
+- **Value Objects**: Position (validação de coordenadas), ETA (tempo estimado)
+- **Factory Method Pattern**: NotificationFactory para criação de notificações (Email/SMS)
+- **Observer Pattern**: PositionSubjectAdapter + PositionLoggerObserver para notificações de posição
+- **Repository Pattern**: Interfaces no domínio, implementação com TypeORM
+- **Real-time**: GraphQL Subscriptions (PubSub) + RabbitMQ para rastreamento contínuo
 
 ## Estrutura do Projeto
 
@@ -41,26 +42,48 @@ mstracking/
 │   ├── domain/                         # Núcleo - Lógica de negócio pura
 │   │   ├── delivery-tracking.entity.ts # Entity principal
 │   │   ├── tracking-position.entity.ts # Entity de posição
-│   │   ├── value-objects/              # Coordinates, Speed, Distance
-│   │   └── ports/                      # Repository Interfaces
+│   │   ├── value-objects/              # Position, ETA
+│   │   │   ├── position.vo.ts          # Validação de coordenadas
+│   │   │   └── eta.vo.ts               # Tempo estimado
+│   │   ├── notifications/              # Factory Method Pattern
+│   │   │   └── notification.factory.ts # Abstract Factory
+│   │   └── ports/                      # Repository & Observer Interfaces
+│   │       └── position-observer.port.ts
 │   │
 │   ├── application/                    # Casos de Uso
-│   │   ├── use-cases/
-│   │   │   ├── update-position.use-case.ts
-│   │   │   ├── get-tracking-history.use-case.ts
-│   │   │   └── calculate-eta.use-case.ts
-│   │   ├── dtos/
-│   │   └── mappers/
+│   │   ├── application.module.ts
+│   │   ├── services/                   # Application Services
+│   │   │   └── tracking-application.service.ts
+│   │   └── use-cases/
+│   │       ├── update-position.use-case.ts
+│   │       ├── get-tracking-data.use-case.ts
+│   │       ├── start-tracking.use-case.ts
+│   │       ├── mark-as-delivered.use-case.ts
+│   │       └── get-active-deliveries.use-case.ts
 │   │
 │   ├── infrastructure/                 # Adapters (Implementações)
-│   │   ├── persistence/                # Prisma repositories
-│   │   ├── messaging/                  # RabbitMQ adapters
-│   │   └── websocket/                  # Real-time adapters
+│   │   ├── persistence/                # TypeORM repositories
+│   │   │   ├── delivery-tracking.orm.ts
+│   │   │   ├── tracking-position.orm.ts
+│   │   │   ├── typeorm-delivery-tracking.repository.ts
+│   │   │   └── typeorm-tracking.repository.ts
+│   │   ├── adapters/                   # Observer Pattern
+│   │   │   ├── position-subject.adapter.ts # Subject
+│   │   │   └── position-logger.observer.ts # Observer
+│   │   ├── notifications/              # Factory Method concrete
+│   │   │   ├── email-notification.factory.ts
+│   │   │   └── sms-notification.factory.ts
+│   │   ├── messaging/                  # RabbitMQ
+│   │   │   ├── rabbitmq.service.ts
+│   │   │   └── rabbitmq-consumer.service.ts
+│   │   └── rabbitmq-consumer.service.ts
 │   │
 │   ├── presentation/                   # Interface Externa
-│   │   ├── graphql/                    # GraphQL Resolvers
-│   │   ├── grpc/                       # gRPC Controllers
-│   │   └── websocket/                  # WebSocket Gateway
+│   │   ├── graphql/                    # GraphQL Resolvers + Subscriptions
+│   │   │   ├── graphql.module.ts
+│   │   │   ├── tracking.resolver.ts    # Queries, Mutations, Subscriptions
+│   │   │   └── tracking.types.ts
+│   │   └── grpc/                       # gRPC Controllers
 │   │
 │   └── main.ts
 └── package.json
@@ -70,52 +93,92 @@ mstracking/
 
 #### 1. Domain (Núcleo) 
 Lógica de negócio pura, independente de frameworks:
-- `delivery-tracking.entity.ts`: Entity com histórico de posições
-- `tracking-position.entity.ts`: Entity de ponto de rastreamento
-- `value-objects/`: Coordinates, Speed, Distance com validações
-- `ports/`: Interfaces de repositórios
+- `delivery-tracking.entity.ts`: Entity com lógica de status (isInTransit, markAsDelivered)
+- `tracking-position.entity.ts`: Entity de posição com cálculo de distância Haversine
+- `value-objects/position.vo.ts`: Validação de coordenadas (-90 a 90, -180 a 180)
+- `value-objects/eta.vo.ts`: Tempo estimado com validações e formatação
+- `notifications/notification.factory.ts`: Abstract Factory (Factory Method Pattern)
+- `ports/position-observer.port.ts`: Interfaces para Observer Pattern
 
 #### 2. Application (Casos de Uso) 
 Orquestração da lógica de negócio:
-- `use-cases/`: UpdatePositionUseCase, CalculateETAUseCase
-- `dtos/`: Objetos de transferência de dados
-- `mappers/`: Conversão entre camadas
+- `use-cases/`: UpdatePositionUseCase, GetTrackingDataUseCase, StartTrackingUseCase
+- `services/tracking-application.service.ts`: Orquestração de múltiplos use cases
 
 #### 3. Infrastructure (Adapters) 
 Implementações concretas:
-- `persistence/`: Repositórios Prisma
-- `messaging/`: RabbitMQ consumers/publishers
-- `websocket/`: Implementação de WebSocket para real-time
+- `persistence/`: Repositórios TypeORM (delivery-tracking.orm.ts, tracking-position.orm.ts)
+- `adapters/`: Observer Pattern (PositionSubjectAdapter, PositionLoggerObserver)
+- `notifications/`: Factory Method concretas (EmailNotificationFactory, SmsNotificationFactory)
+- `messaging/`: RabbitMQ consumers/publishers com Protobuf
 
 #### 4. Presentation (Interface) 
 Adaptadores de entrada:
-- `graphql/`: Resolvers para consultas e subscriptions
+- `graphql/`: Resolvers para queries, mutations e subscriptions (PubSub)
 - `grpc/`: Controllers para comunicação entre microserviços
-- `websocket/`: Gateway para atualizações em tempo real
 ```
 
 ## Modelo de Dados
 
-### TrackingPoint
+### DeliveryTrackingORM (TypeORM)
 
-```prisma
-model TrackingPoint {
-  id               Int      @id @default(autoincrement())
-  deliveryId       Int
-  deliveryPersonId Int
-  
-  latitude  Float
-  longitude Float
-  accuracy  Float?  // Precisão em metros
-  altitude  Float?
-  speed     Float?  // km/h
-  heading   Float?  // Direção (0-360)
-  
-  timestamp DateTime @default(now())
-  
-  @@index([deliveryId])
-  @@index([deliveryPersonId])
-  @@index([timestamp])
+```typescript
+@Entity('delivery_tracking')
+export class DeliveryTrackingORM {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column({ unique: true })
+  delivery_id: string;
+
+  @Column()
+  order_id: string;
+
+  @CreateDateColumn()
+  started_at: Date;
+
+  @Column({ nullable: true })
+  completed_at: Date;
+
+  @Column({ default: 'pending' })
+  status: string; // pending, in_transit, delivered, cancelled
+
+  @Column('decimal', { precision: 10, scale: 6 })
+  destination_lat: number;
+
+  @Column('decimal', { precision: 10, scale: 6 })
+  destination_lng: number;
+}
+```
+
+### TrackingPositionORM (TypeORM)
+
+```typescript
+@Entity('tracking_positions')
+export class TrackingPositionORM {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column()
+  delivery_id: string;
+
+  @Column()
+  order_id: string;
+
+  @Column('decimal', { precision: 10, scale: 6 })
+  latitude: number;
+
+  @Column('decimal', { precision: 10, scale: 6 })
+  longitude: number;
+
+  @Column()
+  delivery_person_id: string;
+
+  @CreateDateColumn()
+  timestamp: Date;
+
+  @Column({ default: 'active' })
+  status: string;
 }
 ```
 
@@ -157,35 +220,47 @@ type Mutation {
 }
 ```
 
-## WebSocket Gateway
+## GraphQL Subscriptions (Real-time)
 
 ```typescript
-@WebSocketGateway({
-  cors: { origin: '*' }
-})
-export class TrackingGateway {
-  @WebSocketServer()
-  server: Server;
+// presentation/graphql/tracking.resolver.ts
+@Resolver(() => TrackingObject)
+export class TrackingResolver {
+  private pubSub: PubSub;
 
-  @SubscribeMessage('trackDelivery')
-  handleTrackDelivery(@MessageBody() deliveryId: number) {
-    return this.trackingService.getCurrentLocation(deliveryId);
+  constructor(private readonly trackingService: TrackingApplicationService) {
+    this.pubSub = new PubSub();
   }
 
-  // Emitir atualização para todos os clientes
-  emitLocationUpdate(deliveryId: number, location: TrackingPoint) {
-    this.server
-      .to(`delivery-${deliveryId}`)
-      .emit('locationUpdate', location);
+  @Mutation(() => Boolean)
+  async updatePosition(@Args('input') input: UpdatePositionInput): Promise<boolean> {
+    const position = await this.trackingService.updatePosition({
+      deliveryId: input.deliveryId,
+      latitude: input.latitude,
+      longitude: input.longitude,
+      deliveryPersonId: input.deliveryPersonId,
+    });
+
+    // Publica evento para subscriptions
+    await this.pubSub.publish('positionUpdated', {
+      positionUpdated: {
+        deliveryId: position.deliveryId,
+        latitude: position.latitude,
+        longitude: position.longitude,
+        timestamp: position.timestamp.toISOString(),
+      },
+    });
+
+    return true;
   }
 
-  // Cliente entra na sala da entrega
-  @SubscribeMessage('joinDelivery')
-  handleJoinRoom(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() deliveryId: number
-  ) {
-    client.join(`delivery-${deliveryId}`);
+  @Subscription(() => PositionObject, {
+    filter: (payload, variables) => {
+      return payload.positionUpdated.deliveryId === variables.deliveryId;
+    },
+  })
+  positionUpdated(@Args('deliveryId') deliveryId: string) {
+    return this.pubSub.asyncIterator('positionUpdated');
   }
 }
 ```
@@ -225,16 +300,11 @@ export class TrackingService {
     };
   }
 
-  private async calculateAverageSpeed(deliveryId: number): Promise<number> {
-    const recentPoints = await this.prisma.trackingPoint.findMany({
-      where: {
-        deliveryId,
-        timestamp: {
-          gte: new Date(Date.now() - 10 * 60 * 1000) // Últimos 10min
-        }
-      },
-      orderBy: { timestamp: 'asc' }
-    });
+  private async calculateAverageSpeed(deliveryId: string): Promise<number> {
+    const recentPoints = await this.trackingRepository.findRecentPositions(
+      deliveryId,
+      10 // Últimos 10 minutos
+    );
 
     if (recentPoints.length < 2) {
       return 30; // Velocidade padrão 30 km/h
@@ -308,7 +378,10 @@ export class GeofencingService {
 ### GraphQL
 Porta: `3005/graphql`
 
-Queries, mutations e subscriptions para rastreamento em tempo real.
+Queries, mutations e **subscriptions** para rastreamento em tempo real.
+- Queries: `getTracking`, `getActiveTrackings`
+- Mutations: `startTracking`, `updatePosition`, `markAsDelivered`
+- Subscriptions: `positionUpdated` (real-time via PubSub)
 
 ### gRPC
 Porta: `50055`
@@ -318,14 +391,6 @@ Serviços disponíveis:
 - `GetCurrentLocation`: Obter localização atual
 - `GetTrackingHistory`: Obter histórico de posições
 - `CalculateETA`: Calcular tempo estimado de chegada
-
-### WebSocket
-Porta: `3006`
-
-Eventos em tempo real:
-- `locationUpdate`: Atualização de posição
-- `proximityAlert`: Alerta de proximidade
-- `deliveryCompleted`: Entrega concluída
 
 ### RabbitMQ (Mensageria)
 Porta: `5672` (AMQP) | `15672` (Management UI)
@@ -483,33 +548,78 @@ export class CheckProximityUseCase {
 DATABASE_URL="postgresql://user:password@localhost:5432/db_tracking"
 PORT=3005
 GRPC_PORT=50055
-WEBSOCKET_PORT=3006
 RABBITMQ_URL="amqp://localhost:5672"
 ```
 
 ## Exemplos de Uso
 
-### Cliente WebSocket (Frontend)
+### Cliente GraphQL Subscriptions (Frontend)
 
 ```javascript
-import io from 'socket.io-client';
+import { ApolloClient, InMemoryCache, HttpLink, split } from '@apollo/client';
+import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
+import { getMainDefinition } from '@apollo/client/utilities';
+import { createClient } from 'graphql-ws';
+import { gql } from '@apollo/client';
 
-const socket = io('http://localhost:3006');
-
-// Entrar na sala da entrega
-socket.emit('joinDelivery', deliveryId);
-
-// Escutar atualizações
-socket.on('locationUpdate', (location) => {
-  console.log('Nova localização:', location);
-  updateMapMarker(location.latitude, location.longitude);
+// Configuração do cliente Apollo com subscriptions
+const httpLink = new HttpLink({
+  uri: 'http://localhost:3005/graphql',
 });
 
-// Escutar proximidade
-socket.on('proximityAlert', (alert) => {
-  console.log('Entregador próximo!');
-  showNotification('Seu pedido está chegando!');
+const wsLink = new GraphQLWsLink(
+  createClient({
+    url: 'ws://localhost:3005/graphql',
+  })
+);
+
+const splitLink = split(
+  ({ query }) => {
+    const definition = getMainDefinition(query);
+    return (
+      definition.kind === 'OperationDefinition' &&
+      definition.operation === 'subscription'
+    );
+  },
+  wsLink,
+  httpLink
+);
+
+const client = new ApolloClient({
+  link: splitLink,
+  cache: new InMemoryCache(),
 });
+
+// Subscription para atualizações de posição
+const POSITION_UPDATED = gql`
+  subscription OnPositionUpdated($deliveryId: String!) {
+    positionUpdated(deliveryId: $deliveryId) {
+      deliveryId
+      latitude
+      longitude
+      timestamp
+    }
+  }
+`;
+
+// Usar no componente React
+function TrackingMap({ deliveryId }) {
+  const { data, loading } = useSubscription(POSITION_UPDATED, {
+    variables: { deliveryId },
+  });
+
+  useEffect(() => {
+    if (data?.positionUpdated) {
+      console.log('Nova posição:', data.positionUpdated);
+      updateMapMarker(
+        data.positionUpdated.latitude,
+        data.positionUpdated.longitude
+      );
+    }
+  }, [data]);
+
+  return <Map />;
+}
 ```
 
 ### Atualizar Localização via gRPC
@@ -541,88 +651,107 @@ query {
 
 ## Padrões de Projeto Implementados
 
-### 1. Factory Method Pattern (Criacional - GoF)
+### 1. Factory Method Pattern 
 
-**Categoria**: Padrão Criacional do Gang of Four
+**Problema resolvido**: O sistema precisa enviar notificações por diferentes canais (Email, SMS) quando eventos de rastreamento ocorrem. Criar notificações diretamente acoplaria o código a implementações específicas.
 
-**Problema resolvido**: Criar entidades de tracking (TrackingPosition, DeliveryTracking) requer validações complexas (coordenadas geográficas válidas, IDs obrigatórios) e inicialização com valores padrão. Criar esses objetos diretamente em vários lugares do código causaria duplicação de lógica de validação e inconsistências.
+**Solução**: O Factory Method encapsula a criação de diferentes tipos de notificações, permitindo que subclasses decidam qual classe concreta instanciar.
 
-**Solução**: O Factory Method encapsula a lógica de criação de objetos complexos, garantindo que sejam criados de forma consistente e válida.
-
-**Localização**: `src/prisma/prisma.service.ts`
+**Localização**: 
+- Abstract: `src/domain/notifications/notification.factory.ts`
+- Concrete: `src/infrastructure/notifications/email-notification.factory.ts`
+- Concrete: `src/infrastructure/notifications/sms-notification.factory.ts`
 
 **Estrutura**:
 
 ```typescript
-@Injectable()
-export class PrismaService extends PrismaClient {
-  
-  // Factory Method - Cria TrackingPosition com validação
-  createTrackingPosition(data: {
-    delivery_id: string;
-    order_id: string;
-    latitude: number;
-    longitude: number;
-    delivery_person_id: string;
-  }): TrackingPosition {
-    // Validações de negócio
-    if (!data.delivery_id || !data.order_id) {
-      throw new Error('delivery_id e order_id são obrigatórios');
-    }
-
-    if (data.latitude < -90 || data.latitude > 90) {
-      throw new Error('Latitude inválida (deve estar entre -90 e 90)');
-    }
-
-    if (data.longitude < -180 || data.longitude > 180) {
-      throw new Error('Longitude inválida (deve estar entre -180 e 180)');
-    }
-
-    // Criação com valores padrão e inicialização
-    return {
-      id: crypto.randomUUID(),
-      ...data,
-      timestamp: new Date(),
-      accuracy: 10, // metros de precisão padrão
-      speed: 0,
-      heading: null,
-      altitude: null,
-      createdAt: new Date(),
-    };
-  }
-
-  // Factory Method - Cria DeliveryTracking
-  createDeliveryTracking(
-    deliveryId: string, 
-    orderId: string
-  ): DeliveryTracking {
-    return {
-      id: crypto.randomUUID(),
-      delivery_id: deliveryId,
-      order_id: orderId,
-      status: 'ACTIVE',
-      startedAt: new Date(),
-      estimatedArrival: null,
-      completedAt: null,
-    };
-  }
-
-  // Factory Method - Cria ProximityAlert
-  createProximityAlert(
+// domain/notifications/notification.factory.ts
+export abstract class NotificationFactory {
+  /**
+   * Factory Method - Método abstrato que subclasses devem implementar
+   */
+  protected abstract createNotification(
+    recipient: string,
+    message: string,
     deliveryId: string,
-    distanceMeters: number
-  ): ProximityAlert {
-    if (distanceMeters < 0) {
-      throw new Error('Distância não pode ser negativa');
-    }
+    orderId: string
+  ): INotification;
 
-    return {
-      id: crypto.randomUUID(),
-      delivery_id: deliveryId,
-      distance_meters: distanceMeters,
-      alert_type: distanceMeters <= 500 ? 'NEARBY' : 'APPROACHING',
-      createdAt: new Date(),
-    };
+  /**
+   * Template Method - Define o fluxo geral de envio
+   */
+  async sendNotification(
+    recipient: string,
+    message: string,
+    deliveryId: string,
+    orderId: string
+  ): Promise<void> {
+    // Usa o factory method para criar a notificação apropriada
+    const notification = this.createNotification(
+      recipient,
+      message,
+      deliveryId,
+      orderId
+    );
+
+    // Envia a notificação
+    await notification.send();
+
+    // Log
+    const info = notification.getInfo();
+    console.log(
+      `[${info.type.toUpperCase()}] Notificação enviada para ${info.recipient}`
+    );
+  }
+}
+
+// infrastructure/notifications/email-notification.factory.ts
+export class EmailNotificationFactory extends NotificationFactory {
+  constructor(
+    private readonly emailProvider: EmailProvider,
+    private readonly from: string = 'no-reply@delivery.com'
+  ) {
+    super();
+  }
+
+  // Factory Method: cria e retorna EmailNotification
+  protected createNotification(
+    recipient: string,
+    message: string,
+    deliveryId: string,
+    orderId: string
+  ): INotification {
+    return new EmailNotification(
+      recipient,
+      message,
+      deliveryId,
+      orderId,
+      this.emailProvider,
+      this.from
+    );
+  }
+}
+
+// infrastructure/notifications/sms-notification.factory.ts
+export class SmsNotificationFactory extends NotificationFactory {
+  constructor(private readonly smsProvider: SmsProvider) {
+    super();
+  }
+
+  // Factory Method: cria e retorna SmsNotification
+  protected createNotification(
+    recipient: string,
+    message: string,
+    deliveryId: string,
+    orderId: string
+  ): INotification {
+    return new SmsNotification(
+      recipient,
+      message,
+      deliveryId,
+      orderId,
+      this.smsProvider
+    );
   }
 }
 ```
@@ -631,114 +760,264 @@ export class PrismaService extends PrismaClient {
 
 ```typescript
 @Injectable()
-class TrackingService {
-  constructor(private readonly prisma: PrismaService) {}
+class TrackingNotificationService {
+  constructor(
+    private readonly emailFactory: EmailNotificationFactory,
+    private readonly smsFactory: SmsNotificationFactory
+  ) {}
 
-  async updatePosition(data: UpdatePositionInput) {
-    // Usa factory ao invés de construir manualmente
-    const position = this.prisma.createTrackingPosition({
-      delivery_id: data.deliveryId,
-      order_id: data.orderId,
-      latitude: data.latitude,
-      longitude: data.longitude,
-      delivery_person_id: data.deliveryPersonId,
-    });
+  async notifyDeliveryStarted(deliveryId: string, customerEmail: string, customerPhone: string) {
+    // Factory method escolhe a implementação apropriada
+    await this.emailFactory.sendNotification(
+      customerEmail,
+      'Sua entrega saiu para entrega!',
+      deliveryId,
+      orderId
+    );
 
-    // Salva no banco
-    const saved = await this.prisma.trackingPosition.create({ 
-      data: position 
-    });
-
-    // Emite via WebSocket
-    this.gateway.emitLocationUpdate(data.deliveryId, saved);
-
-    return saved;
+    await this.smsFactory.sendNotification(
+      customerPhone,
+      'Sua entrega está a caminho!',
+      deliveryId,
+      orderId
+    );
   }
 }
 ```
 
 **Benefícios**:
-- **Encapsulamento**: Lógica de criação centralizada em um único lugar
-- **Consistência**: Todas as entidades criadas da mesma forma com mesmas validações
-- **Validação**: Garante que objetos sejam válidos antes da criação
-- **Manutenibilidade**: Mudanças na criação ficam em um único lugar
-- **Reutilização**: Factory methods podem ser usados por múltiplos serviços
+- **Open/Closed Principle**: Fácil adicionar novos canais (WhatsApp, Push) sem modificar código existente
+- **Single Responsibility**: Cada factory cria apenas um tipo de notificação
+- **Encapsulamento**: Lógica de criação isolada das implementações concretas
+- **Testabilidade**: Factories podem ser mockadas facilmente
 
 **Justificativa de uso**:
-Coordenadas geográficas têm validações específicas (latitude entre -90 e 90, longitude entre -180 e 180). Criar entidades de tracking manualmente em vários lugares causaria duplicação de código e risco de inconsistências. O Factory Method garante que todas as entidades sejam criadas de forma válida e consistente, com valores padrão apropriados.
+Notificações podem ser enviadas por múltiplos canais (email, SMS, push). O Factory Method permite adicionar novos canais sem modificar o código existente, respeitando o princípio Open/Closed.
 
 ### 2. Observer Pattern (Comportamental - GoF)
 
 **Categoria**: Padrão Comportamental do Gang of Four
 
-**Problema resolvido**: Quando a posição do entregador é atualizada, múltiplos componentes precisam ser notificados: WebSocket para clientes em tempo real, sistema de notificações, cálculo de ETA, histórico de rastreamento. Acoplar o TrackingService diretamente a todos esses componentes violaria o princípio de baixo acoplamento.
+**Problema resolvido**: Quando a posição do entregador é atualizada, múltiplos componentes precisam ser notificados: logs, métricas, alertas. Acoplar o serviço de rastreamento diretamente a todos esses componentes violaria o princípio de baixo acoplamento.
+
+**Solução**: Observer Pattern permite que múltiplos observadores sejam notificados automaticamente quando o estado muda.
+
+**Localização**:
+- Port: `src/domain/ports/position-observer.port.ts`
+- Subject: `src/infrastructure/adapters/position-subject.adapter.ts`
+- Observer: `src/infrastructure/adapters/position-logger.observer.ts`
 
 **Estrutura**:
 
 ```typescript
-interface PositionObserver {
+// domain/ports/position-observer.port.ts
+export interface PositionObserverPort {
   update(position: TrackingPosition): void;
 }
 
-@Injectable()
-class TrackingService {
-  private observers: PositionObserver[] = [];
+export interface PositionSubjectPort {
+  attach(observer: PositionObserverPort): void;
+  detach(observer: PositionObserverPort): void;
+  notify(position: TrackingPosition): void;
+}
 
-  attach(observer: PositionObserver): void {
-    this.observers.push(observer);
+// infrastructure/adapters/position-subject.adapter.ts
+@Injectable()
+export class PositionSubjectAdapter implements PositionSubjectPort, OnModuleInit {
+  private observers: PositionObserverPort[] = [];
+
+  constructor(private readonly positionLoggerObserver: PositionLoggerObserver) {}
+
+  onModuleInit() {
+    this.attach(this.positionLoggerObserver);
   }
 
-  detach(observer: PositionObserver): void {
+  attach(observer: PositionObserverPort): void {
+    if (!this.observers.includes(observer)) {
+      this.observers.push(observer);
+    }
+  }
+
+  detach(observer: PositionObserverPort): void {
     const index = this.observers.indexOf(observer);
     if (index > -1) {
       this.observers.splice(index, 1);
     }
   }
 
-  private notifyObservers(position: TrackingPosition): void {
+  notify(position: TrackingPosition): void {
     this.observers.forEach(observer => observer.update(position));
   }
+}
 
-  async updatePosition(data: UpdatePositionInput): Promise<void> {
-    const position = await this.savePosition(data);
+// infrastructure/adapters/position-logger.observer.ts
+@Injectable()
+export class PositionLoggerObserver implements PositionObserverPort {
+  update(position: TrackingPosition): void {
+    console.log(`[TRACKING] Posição atualizada - Delivery: ${position.deliveryId}, Lat: ${position.latitude}, Lng: ${position.longitude}`);
+  }
+}
+```
+
+**Uso no Use Case**:
+
+```typescript
+@Injectable()
+export class UpdatePositionUseCase {
+  constructor(
+    private readonly repository: TrackingRepository,
+    private readonly positionSubject: PositionSubjectAdapter
+  ) {}
+
+  async execute(input: UpdatePositionInput): Promise<TrackingPosition> {
+    const position = await this.repository.savePosition(input);
     
-    // Notifica todos os observers
-    this.notifyObservers(position);
+    // Notifica todos os observers registrados
+    this.positionSubject.notify(position);
     
-    // WebSocket, notificações, etc. são notificados automaticamente
+    return position;
   }
 }
 ```
 
 **Benefícios**:
-- Baixo acoplamento entre TrackingService e componentes interessados
-- Fácil adicionar novos observers (analytics, logs, métricas)
-- Broadcast automático de atualizações
+- **Baixo acoplamento**: Use Case não conhece observadores concretos
+- **Open/Closed**: Novos observers adicionados sem modificar código existente
+- **Broadcast**: Atualização automática para todos interessados
+- **Flexibilidade**: Observers podem ser adicionados/removidos em runtime
 
 **Justificativa de uso**:
-Múltiplos componentes precisam reagir a atualizações de posição. O Observer permite que todos sejam notificados sem criar dependências diretas.
+Atualizações de posição interessam a múltiplos componentes (logs, métricas, analytics). O Observer Pattern permite adicionar novos interessados sem modificar a lógica de rastreamento.
+
+## Value Objects Implementados
+
+### Position
+
+```typescript
+// domain/value-objects/position.vo.ts
+export class Position {
+  constructor(
+    public readonly latitude: number,
+    public readonly longitude: number,
+  ) {
+    this.validate();
+  }
+
+  private validate(): void {
+    if (this.latitude < -90 || this.latitude > 90) {
+      throw new Error('Invalid latitude: must be between -90 and 90');
+    }
+    if (this.longitude < -180 || this.longitude > 180) {
+      throw new Error('Invalid longitude: must be between -180 and 180');
+    }
+  }
+
+  distanceTo(other: Position): number {
+    // Fórmula de Haversine
+    const R = 6371; // Raio da Terra em km
+    const dLat = this.toRad(other.latitude - this.latitude);
+    const dLon = this.toRad(other.longitude - this.longitude);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(this.toRad(this.latitude)) * Math.cos(this.toRad(other.latitude)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  private toRad(degrees: number): number {
+    return degrees * (Math.PI / 180);
+  }
+
+  equals(other: Position): boolean {
+    return this.latitude === other.latitude && this.longitude === other.longitude;
+  }
+}
+```
+
+### ETA (Estimated Time of Arrival)
+
+```typescript
+// domain/value-objects/eta.vo.ts
+export class ETA {
+  constructor(
+    public readonly estimatedArrival: Date,
+    public readonly distanceRemaining: number, // em km
+    public readonly timeRemaining: number, // em segundos
+  ) {
+    this.validate();
+  }
+
+  private validate(): void {
+    if (this.distanceRemaining < 0) {
+      throw new Error('Distance remaining cannot be negative');
+    }
+    if (this.timeRemaining < 0) {
+      throw new Error('Time remaining cannot be negative');
+    }
+  }
+
+  isArriving(): boolean {
+    return this.distanceRemaining < 0.5; // Menos de 500m
+  }
+
+  getMinutesRemaining(): number {
+    return Math.ceil(this.timeRemaining / 60);
+  }
+
+  getFormattedTime(): string {
+    const minutes = this.getMinutesRemaining();
+    if (minutes < 60) {
+      return `${minutes} min`;
+    }
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return `${hours}h ${remainingMinutes}min`;
+  }
+}
+```
+
+**Benefícios dos Value Objects**:
+- **Validação centralizada**: Coordenadas sempre válidas
+- **Imutabilidade**: Valores não podem ser alterados após criação
+- **Encapsulamento**: Lógica de cálculo (distância, formatação) dentro do Value Object
+- **Expressão do domínio**: Código mais legível e próximo da linguagem de negócio
 
 ## Regras de Negócio
 
 1. **Frequência**: Localização atualizada a cada 10-30 segundos
 2. **Histórico**: Mantido por 30 dias
-3. **Precisão**: Mínimo 50m de precisão
-4. **Geofencing**: Alerta aos 500m do destino
+3. **Validação**: Coordenadas devem estar entre -90/90 (latitude) e -180/180 (longitude)
+4. **Geofencing**: Alerta aos 500m do destino (usando Position.distanceTo)
 5. **Privacy**: Histórico só visível durante entrega ativa
+6. **Status**: pending → in_transit → delivered/cancelled
 
 
 ## Troubleshooting
 
-### WebSocket não conecta
+### GraphQL Subscriptions não conectam
 
 ```bash
-# Verificar porta
-netstat -ano | findstr :3006
+# Verificar se o servidor está rodando
+curl http://localhost:3005/graphql
 
-# Testar conexão
-wscat -c ws://localhost:3006
+# Verificar logs do servidor
+docker logs mstracking
+
+# Testar subscription via GraphQL Playground
+# Acesse: http://localhost:3005/graphql
 ```
 
 ### ETA impreciso
 
-Verificar se há pontos de tracking suficientes no histórico recente.
+Verificar se há pontos de tracking suficientes no histórico recente (mínimo 2 pontos nos últimos 10 minutos).
+
+### Banco de dados não conecta
+
+```bash
+# Verificar PostgreSQL
+docker ps | grep postgres
+
+# Testar conexão
+psql $DATABASE_URL
+```

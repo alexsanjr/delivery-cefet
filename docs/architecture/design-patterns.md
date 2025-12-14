@@ -52,40 +52,6 @@ class PriceCalculatorContext {
 **Justificativa de uso:**
 O sistema possui diferentes tipos de clientes (básico, premium) e diferentes urgências de entrega (normal, expressa). Cada combinação requer cálculos distintos de preço, taxa de entrega e tempo estimado. O Strategy Pattern permite adicionar novos tipos de cálculo sem impactar o código existente, respeitando o princípio Open/Closed.
 
-#### 1.2 Algoritmos de Roteamento (msrouting)
-
-**Localização:** `msrouting/src/routing/strategies/`
-
-**Problema resolvido:** Diferentes situações exigem diferentes algoritmos para calcular a melhor rota de entrega.
-
-**Estrutura:**
-
-```typescript
-interface IRouteStrategy {
-  calculateRoute(origin: Location, destination: Location): Route;
-  getName(): string;
-}
-
-class FastestRouteStrategy implements IRouteStrategy { }
-class ShortestRouteStrategy implements IRouteStrategy { }
-class EconomicalRouteStrategy implements IRouteStrategy { }
-class EcoFriendlyRouteStrategy implements IRouteStrategy { }
-```
-
-**Estratégias disponíveis:**
-- **Fastest**: Prioriza tempo, pode usar vias expressas
-- **Shortest**: Menor distância, independente do tempo
-- **Economical**: Otimiza custo de combustível
-- **Eco-Friendly**: Minimiza emissões de carbono
-
-**Benefícios:**
-- Cada algoritmo encapsulado e independente
-- Fácil adicionar novos algoritmos de roteamento
-- Cliente escolhe estratégia conforme necessidade em runtime
-- Evita código condicional complexo
-
-**Justificativa de uso:**
-O cálculo de rotas pode priorizar diferentes critérios: velocidade, distância, economia de combustível ou sustentabilidade. O Strategy Pattern permite que o sistema escolha dinamicamente o algoritmo mais adequado baseado no contexto da entrega, tipo de veículo do entregador ou preferências do cliente.
 
 ---
 
@@ -384,19 +350,19 @@ class CustomerRepository implements ICustomerRepository {
 
 // Decorator - adiciona logging SEM modificar CustomerRepository
 @Injectable()
-class CustomerRepositoryLogger implements ICustomerRepository {
+export class CustomerRepositoryLoggerDecorator implements IRepositorioCliente {
   private readonly logger = new Logger('CustomerRepository');
 
   constructor(
-    @Inject('CustomerRepository')
-    private readonly repository: ICustomerRepository
+    @Inject('CUSTOMER_REPOSITORY_BASE')
+    private readonly repository: IRepositorioCliente
   ) {}
 
-  async findAll(): Promise<Customer[]> {
+  async buscarTodos(): Promise<Cliente[]> {
     this.logger.log('Buscando todos os clientes');
     const startTime = Date.now();
     
-    const result = await this.repository.findAll();
+    const result = await this.repository.buscarTodos();
     
     const duration = Date.now() - startTime;
     this.logger.log(`${result.length} clientes encontrados em ${duration}ms`);
@@ -404,10 +370,17 @@ class CustomerRepositoryLogger implements ICustomerRepository {
     return result;
   }
 
-  async findById(id: number): Promise<Customer | null> {
+  async buscarPorId(id: number): Promise<Cliente | null> {
     this.logger.log(`Buscando cliente com ID: ${id}`);
-    const result = await this.repository.findById(id);
-    this.logger.log(result ? 'Cliente encontrado' : 'Cliente não encontrado');
+    const startTime = Date.now();
+    
+    const result = await this.repository.buscarPorId(id);
+    
+    const duration = Date.now() - startTime;
+    this.logger.log(result 
+      ? `Cliente encontrado em ${duration}ms` 
+      : `Cliente não encontrado em ${duration}ms`
+    );
     return result;
   }
 
@@ -420,14 +393,18 @@ class CustomerRepositoryLogger implements ICustomerRepository {
 ```typescript
 @Module({
   providers: [
-    CustomerRepository,
+    PrismaCustomerRepository,
     {
-      provide: 'ICustomerRepository',
-      useClass: CustomerRepositoryLogger, // Usa o decorator
+      provide: 'CUSTOMER_REPOSITORY_BASE',
+      useExisting: PrismaCustomerRepository,
+    },
+    {
+      provide: 'CUSTOMER_REPOSITORY',
+      useClass: CustomerRepositoryLoggerDecorator, // Usa o decorator
     },
   ],
 })
-export class CustomersModule {}
+export class InfrastructureModule {}
 ```
 
 **Benefícios:**
@@ -448,62 +425,74 @@ O Factory Method define uma interface para criar objetos, mas permite que subcla
 
 ### Implementações no Projeto
 
-#### 5.1 Factory de Entities (mstracking)
+#### 5.1 Factory de Notificações (mstracking)
 
-**Localização:** `mstracking/src/prisma/prisma.service.ts`
+**Localização:** `mstracking/src/domain/notifications/notification.factory.ts`
 
-**Problema resolvido:** Criar entidades de tracking com validação e inicialização consistentes, encapsulando a lógica de criação.
+**Problema resolvido:** Criar diferentes tipos de notificações (Email, SMS) de forma consistente, encapsulando a lógica de criação e permitindo extensibilidade.
 
 **Estrutura:**
 
 ```typescript
-@Injectable()
-export class PrismaService extends PrismaClient {
-  
-  // Factory Method - Cria TrackingPosition com validação
-  createTrackingPosition(data: {
-    delivery_id: string;
-    order_id: string;
-    latitude: number;
-    longitude: number;
-    delivery_person_id: string;
-  }): TrackingPosition {
-    // Validações
-    if (!data.delivery_id || !data.order_id) {
-      throw new Error('delivery_id e order_id são obrigatórios');
-    }
+// Classe abstrata - Creator
+export abstract class NotificationFactory {
+  /**
+   * Factory Method - Método abstrato que subclasses devem implementar
+   */
+  protected abstract createNotification(
+    recipient: string,
+    message: string,
+    deliveryId: string,
+    orderId: string
+  ): INotification;
 
-    if (data.latitude < -90 || data.latitude > 90) {
-      throw new Error('Latitude inválida');
-    }
+  /**
+   * Template Method - Define o fluxo geral de envio
+   */
+  async sendNotification(
+    recipient: string,
+    message: string,
+    deliveryId: string,
+    orderId: string
+  ): Promise<void> {
+    // Usa o factory method para criar a notificação apropriada
+    const notification = this.createNotification(
+      recipient,
+      message,
+      deliveryId,
+      orderId
+    );
 
-    if (data.longitude < -180 || data.longitude > 180) {
-      throw new Error('Longitude inválida');
-    }
-
-    // Criação com valores padrão e inicialização
-    return {
-      id: crypto.randomUUID(),
-      ...data,
-      timestamp: new Date(),
-      accuracy: 10, // metros de precisão
-      speed: 0,
-      heading: null,
-      createdAt: new Date(),
-    };
+    // Envia a notificação
+    await notification.send();
+    
+    // Log
+    const info = notification.getInfo();
+    console.log(`[${info.type}] Notificação enviada para ${info.recipient}`);
   }
+}
 
-  // Factory Method - Cria DeliveryTracking
-  createDeliveryTracking(deliveryId: string, orderId: string): DeliveryTracking {
-    return {
-      id: crypto.randomUUID(),
-      delivery_id: deliveryId,
-      order_id: orderId,
-      status: 'ACTIVE',
-      startedAt: new Date(),
-      estimatedArrival: null,
-      completedAt: null,
-    };
+// Concrete Creator - Email
+export class EmailNotificationFactory extends NotificationFactory {
+  protected createNotification(
+    recipient: string,
+    message: string,
+    deliveryId: string,
+    orderId: string
+  ): INotification {
+    return new EmailNotification(recipient, message, deliveryId, orderId);
+  }
+}
+
+// Concrete Creator - SMS
+export class SmsNotificationFactory extends NotificationFactory {
+  protected createNotification(
+    recipient: string,
+    message: string,
+    deliveryId: string,
+    orderId: string
+  ): INotification {
+    return new SmsNotification(recipient, message, deliveryId, orderId);
   }
 }
 ```
@@ -512,21 +501,35 @@ export class PrismaService extends PrismaClient {
 
 ```typescript
 @Injectable()
-class TrackingService {
-  constructor(private readonly prisma: PrismaService) {}
+export class NotificationService {
+  private factories: Map<NotificationType, NotificationFactory>;
 
-  async updatePosition(data: UpdatePositionInput) {
-    // Usa factory ao invés de construir manualmente
-    const position = this.prisma.createTrackingPosition({
-      delivery_id: data.deliveryId,
-      order_id: data.orderId,
-      latitude: data.latitude,
-      longitude: data.longitude,
-      delivery_person_id: data.deliveryPersonId,
-    });
+  constructor(
+    private readonly emailFactory: EmailNotificationFactory,
+    private readonly smsFactory: SmsNotificationFactory,
+  ) {
+    this.factories = new Map([
+      [NotificationType.EMAIL, emailFactory],
+      [NotificationType.SMS, smsFactory],
+    ]);
+  }
 
-    // Salva no banco
-    return this.prisma.trackingPosition.create({ data: position });
+  async notify(
+    type: NotificationType,
+    recipient: string,
+    message: string,
+    deliveryId: string,
+    orderId: string
+  ): Promise<void> {
+    // Seleciona a factory apropriada
+    const factory = this.factories.get(type);
+    
+    if (!factory) {
+      throw new Error(`Factory não encontrada para tipo: ${type}`);
+    }
+
+    // Factory cria e envia a notificação
+    await factory.sendNotification(recipient, message, deliveryId, orderId);
   }
 }
 ```
@@ -538,7 +541,7 @@ class TrackingService {
 - **Manutenibilidade**: Mudanças na criação ficam em um único lugar
 
 **Justificativa de uso:**
-Criar entidades de tracking requer validações complexas (coordenadas geográficas válidas, IDs obrigatórios) e inicialização com valores padrão. O Factory Method encapsula essa complexidade, garantindo que todas as entidades sejam criadas de forma consistente e válida.
+O sistema precisa enviar notificações através de diferentes canais (Email, SMS, Push). Cada canal tem sua própria lógica de criação e configuração. O Factory Method permite adicionar novos tipos de notificação sem modificar o código cliente, encapsulando a lógica de criação em factories específicas. Além disso, combina o padrão com Template Method para definir um fluxo comum de envio.
 
 ---
 
@@ -550,7 +553,7 @@ Criar entidades de tracking requer validações complexas (coordenadas geográfi
 | **Observer** | notifications, tracking | Notificação de múltiplos interessados | Baixo acoplamento, broadcast |
 | **Adapter** | orders, delivery | Integração com serviços externos | Isolamento de tecnologias |
 | **Decorator** | customers | Adicionar funcionalidades dinamicamente | Open/Closed, composição |
-| **Factory Method** | tracking | Criação consistente de objetos | Encapsulamento, validação |
+| **Factory Method** | tracking | Criação de diferentes tipos de notificação | Encapsulamento, extensibilidade |
 
 ---
 
@@ -564,5 +567,37 @@ Criar entidades de tracking requer validações complexas (coordenadas geográfi
 
 **Decorator Pattern**: Permite adicionar concerns transversais (logging, métricas, auditoria) aos repositories sem poluir a lógica de negócio e respeitando Open/Closed Principle.
 
-**Factory Method**: Garante criação consistente e válida de entidades complexas (coordenadas geográficas, tracking positions) com regras de negócio e validações encapsuladas.
+**Factory Method**: Encapsula a criação de diferentes tipos de notificações (Email, SMS), permitindo adicionar novos canais sem modificar o código existente. Combina com Template Method para definir fluxo comum de envio.
+
+---
+
+## Localização das Implementações
+
+### Strategy Pattern
+- **msorders**: `src/orders/strategies/` (BasicPriceCalculator, PremiumPriceCalculator, ExpressPriceCalculator, PriceCalculatorContext)
+- **msrouting**: `src/presentation/graphql/types/route.type.ts` (RouteStrategy enum), `src/application/use-cases/` (implementação de estratégias)
+
+### Observer Pattern
+- **msnotifications**: `src/infrastructure/adapters/` (NotificationSubjectAdapter, Observers para diferentes canais)
+- **mstracking**: `src/application/use-cases/` (TrackingService com observers)
+
+### Adapter Pattern
+- **msorders**: `src/infrastructure/adapters/` (RoutingGrpcAdapter, CustomersGrpcAdapter, NotificationAdapter)
+- **msdelivery**: `src/infrastructure/adapters/` (Adapters para serviços externos)
+
+### Decorator Pattern
+- **mscustomers**: `src/infrastructure/persistence/decorators/customer-repository-logger.decorator.ts` (CustomerRepositoryLoggerDecorator)
+- Configuração em: `src/infrastructure/infrastructure.module.ts`
+
+### Factory Method Pattern
+- **mstracking**: `src/domain/notifications/notification.factory.ts` (NotificationFactory abstrata)
+- **mstracking**: `src/infrastructure/notifications/` (EmailNotificationFactory, SmsNotificationFactory)
+
+---
+
+## Recursos Adicionais
+
+Para entender melhor a arquitetura que suporta estes padrões:
+- [DDD e Arquitetura Hexagonal](ddd-hexagonal.md)
+- [Decisões Arquiteturais (ADR)](adr.md)
 

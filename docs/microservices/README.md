@@ -11,8 +11,8 @@ O projeto utiliza duas abordagens arquiteturais dependendo da complexidade do do
 | **mscustomers** |  DDD + Hexagonal | Decorator | Gerenciamento de clientes e endereços |
 | **msorders** |  DDD + Hexagonal | Strategy, Adapter | Pedidos e cálculo de preços |
 | **msdelivery** |  DDD + Hexagonal | - | Entregas e entregadores |
-| **msrouting** |  DDD + Hexagonal | Strategy | Cálculo de rotas otimizadas |
-| **msnotifications** | DDD + Hexagonal | Observer | Notificações multi-canal |
+| **msrouting** |  DDD + Hexagonal | Adapter | Cálculo de rotas otimizadas |
+| **msnotifications** | DDD + Hexagonal | Factory Method, Observer | Notificações multi-canal |
 | **mstracking** | DDD + Hexagonal | Factory Method, Observer | Rastreamento em tempo real |
 
 > **DDD + Hexagonal**: Aggregate Roots, Value Objects, Use Cases, Repository Interfaces, Domain Events  
@@ -93,23 +93,25 @@ Coordenação de entregas e gerenciamento de entregadores.
 
 Cálculo de rotas otimizadas para entregas.
 
-**Arquitetura DDD** (Exemplo mais completo):
+**Arquitetura DDD** (Exemplo completo):
 - **Aggregate Root**: Rota
-- **Value Objects**: Coordenada, Distancia, Duracao
-- **Domain Services**: CalculadorCustos
-- **Use Cases**: CalcularRotaCasoDeUso, CalcularETACasoDeUso
-- **Padrão GoF**: Strategy (algoritmos de roteamento)
+- **Value Objects**: Distancia, Duracao
+- **Domain Services**: CalculadorCustosRota, OtimizadorRotas
+- **Use Cases**: CalcularRotaUseCase, CalcularETAUseCase
+- **Padrão GoF**: Adapter (GeoapifyAPIAdapter para integração externa)
 
 **Principais funcionalidades**:
-- Múltiplos algoritmos de roteamento com Strategy Pattern
+- Múltiplas estratégias de roteamento via enum (MAIS_RAPIDA, MAIS_CURTA, MAIS_ECONOMICA, ECO_FRIENDLY)
 - Cache inteligente de rotas calculadas (Redis)
-- Estimativa de tempo, distância e custo
-- Integração com APIs externas de mapas (Geoapify)
-- Consideração de tipo de veículo
+- Estimativa de tempo, distância e custo com Domain Services
+- Integração com API externa Geoapify via Adapter Pattern
+- Fallback para cálculo mock (Haversine) em caso de erro
+- Consideração de tipo de veículo (BICICLETA, MOTO, CARRO, PATINETE, A_PE)
+- RabbitMQ + Protobuf para mensageria
 
-**Estratégias disponíveis**: Fastest, Shortest, Economical, Eco-Friendly
+**Nota**: Usa enum + Domain Service (não Strategy Pattern com classes) pois a lógica é simples (multiplicadores de custo).
 
-**Tecnologias**: NestJS, gRPC, Redis, Axios
+**Tecnologias**: NestJS, gRPC, GraphQL, Redis, RabbitMQ, Axios
 
 ---
 
@@ -120,39 +122,49 @@ Envio de notificações multi-canal.
 
 **Arquitetura DDD**:
 - **Entities**: NotificationEntity
+- **Value Objects**: NotificationId, UserId, OrderId, NotificationStatus, ServiceOrigin
 - **Use Cases**: SendNotification, GetNotificationHistory
-- **Padrão GoF**: Observer (notificação de múltiplos canais)
+- **Padrões GoF**: 
+  - Factory Method (NotificationFactory para criar Email/SMS)
+  - Observer (NotificationSubjectAdapter + Observers para múltiplos canais)
 - **Repository Interfaces**: INotificationRepository
 
 **Principais funcionalidades**:
-- Notificações por email, SMS, push, terminal
-- Cache de notificações enviadas (Redis)
-- Observer Pattern para desacoplar canais
-- Comunicação assíncrona
+- Notificações por terminal e logs (email/SMS via Factory Method)
+- Persistência em Redis (não TypeORM/PostgreSQL)
+- Observer Pattern para desacoplar canais de notificação
+- Factory Method para criação de diferentes tipos de notificação
+- RabbitMQ + Protobuf para mensageria assíncrona
 
-**Tecnologias**: NestJS, GraphQL, gRPC, Redis
+**Tecnologias**: NestJS, GraphQL, gRPC, Redis, RabbitMQ
 
 ---
 
 ### [MS Tracking](mstracking.md)
-**Porta**: 3005 | **Banco**: db_tracking | **APIs**: GraphQL + WebSocket
+**Porta**: 3005 | **Banco**: db_tracking | **APIs**: GraphQL + Subscriptions
 
 Rastreamento em tempo real de entregas.
 
 **Arquitetura DDD**:
-- **Entities**: TrackingPointEntity, DeliveryTrackingEntity
-- **Use Cases**: CreateTrackingPoint, GetTrackingHistory
-- **Padrões GoF**: Factory Method (criação de entidades), Observer (atualizações em tempo real)
-- **Repository Interfaces**: ITrackingRepository
+- **Entities**: DeliveryTracking, TrackingPosition
+- **Value Objects**: Position (validação de coordenadas), ETA (tempo estimado)
+- **Use Cases**: UpdatePositionUseCase, GetTrackingDataUseCase, StartTrackingUseCase
+- **Padrões GoF**: 
+  - Factory Method (NotificationFactory para Email/SMS)
+  - Observer (PositionSubjectAdapter + PositionLoggerObserver)
+- **Repository Interfaces**: TypeORM repositories
 
 **Principais funcionalidades**:
 - Rastreamento de posição em tempo real
 - Histórico de localizações
-- Cálculo de ETA (tempo estimado de chegada)
-- WebSocket para atualizações live
+- Cálculo de ETA com Value Objects
+- GraphQL Subscriptions (PubSub) para atualizações real-time
+- Observer Pattern para notificações de posição
+- Factory Method para diferentes tipos de notificação
 - Geofencing para alertas de proximidade
+- RabbitMQ + Protobuf para mensageria
 
-**Tecnologias**: NestJS, Prisma, GraphQL, WebSocket
+**Tecnologias**: NestJS, TypeORM, PostgreSQL, GraphQL (Apollo Server com Subscriptions), gRPC, RabbitMQ
 
 ---
 
@@ -225,7 +237,7 @@ Veja [ADR #13](../architecture/adr.md) para implementação completa.
 | Pedido criado → criar entrega | RabbitMQ | Desacoplamento, garantia de entrega |
 | Delivery calcular rota | gRPC | Comunicação servidor-servidor |
 | Status mudou → notificar | RabbitMQ | Assíncrono, múltiplos consumidores |
-| Cliente acompanhando entrega | WebSocket | Tempo real, push de atualizações |
+| Cliente acompanhando entrega | GraphQL Subscriptions | Tempo real, push de atualizações via PubSub |
 
 ## Portas e Endpoints
 
@@ -259,8 +271,8 @@ Cada microserviço possui banco PostgreSQL isolado:
 | Customers | db_customers | customers, addresses |
 | Orders | db_orders | orders, order_items, products |
 | Delivery | db_delivery | delivery_persons, deliveries |
-| Notifications | db_notifications | notifications |
-| Tracking | db_tracking | tracking_points |
+| Notifications | Redis (não PostgreSQL) | - |
+| Tracking | db_tracking | delivery_tracking, tracking_positions |
 
 ### Acessando os Bancos
 
@@ -279,9 +291,10 @@ Todos os microserviços compartilham:
 
 - **Framework**: NestJS
 - **Linguagem**: TypeScript
-- **ORM**: Prisma (exceto msnotifications que usa TypeORM)
-- **Banco**: PostgreSQL
+- **ORM**: Prisma (exceto mstracking que usa TypeORM)
+- **Banco**: PostgreSQL (exceto msnotifications que usa Redis)
 - **APIs**: GraphQL (Apollo Server) e/ou gRPC
+- **Mensageria**: RabbitMQ + Protobuf
 - **Validação**: class-validator + class-transformer
 - **Testes**: Jest
 

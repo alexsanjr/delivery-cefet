@@ -14,17 +14,17 @@ Os microserviços foram refatorados para seguir DDD com Arquitetura Hexagonal, g
 
 ## Arquitetura em Camadas
 
-### Estrutura Padrão
+### Estrutura Padrão (Microserviços DDD)
 
 ```
 src/
 ├── domain/                    # NÚCLEO - Lógica de negócio pura
 │   ├── entities/             # Objetos com identidade
 │   ├── value-objects/        # Objetos imutáveis com validação
-│   ├── aggregates/           # Clusters de entidades (Order, Rota)
+│   ├── aggregates/           # Clusters de entidades 
 │   ├── repositories/         # Interfaces (Ports)
-│   ├── services/             # Serviços de domínio
-│   └── events/               # Domain Events
+│   ├── services/             # Serviços de domínio 
+│   └── events/               # Domain Events 
 │
 ├── application/              # CASOS DE USO
 │   ├── use-cases/           # Orquestração da lógica
@@ -34,11 +34,14 @@ src/
 ├── infrastructure/           # IMPLEMENTAÇÕES (Adapters)
 │   ├── persistence/         # Repositórios (Prisma, TypeORM)
 │   ├── adapters/            # Clientes externos (gRPC, REST)
+│   ├── messaging/           # RabbitMQ 
 │   └── mappers/             # Prisma ↔ Domain
 │
-└── presentation/             # INTERFACE EXTERNA
-    ├── graphql/             # Resolvers GraphQL
-    └── grpc/                # Controllers gRPC
+├── presentation/             # INTERFACE EXTERNA
+│   ├── graphql/             # Resolvers GraphQL (mscustomers)
+│   └── grpc/                # Controllers gRPC (todos)
+│
+└── grpc/                     # Protobuf definitions (alguns serviços)
 ```
 
 ### Fluxo de Dados
@@ -160,12 +163,26 @@ export class Coordenada {
 }
 ```
 
-**Outros Value Objects:**
-- `Phone` (msdelivery, mscustomers): Validação de telefone brasileiro
-- `CPF` (msdelivery, mscustomers): Validação de CPF
-- `CEP` (mscustomers): Validação de CEP
-- `Distancia` (msrouting): Distância em metros com validação
-- `Duracao` (msrouting): Duração em segundos
+**Outros Value Objects Implementados:**
+
+**msdelivery:**
+- `Email`: Validação de email
+- `Phone`: Validação de telefone brasileiro
+- `Cpf`: Validação de CPF com dígitos verificadores
+- `Location`: Coordenadas geográficas (latitude/longitude)
+
+**mscustomers:**
+- `Email`: Validação de email
+- `Telefone`: Validação de telefone
+- `Cep`: Validação de CEP brasileiro
+
+**msrouting:**
+- `Coordenada`: Coordenadas geográficas com validação de limites
+- `Distancia`: Distância em metros com validação
+- `Duracao`: Duração em segundos
+
+**msorders:**
+- Value Objects para cálculos de preço e validações
 
 **Benefícios:**
 - **Imutabilidade**: Não pode ser alterado após criação
@@ -600,5 +617,19 @@ export class RoutingGrpcAdapter implements IRoutingService {
     return RouteMapper.fromGrpc(response);
   }
 }
+```
+
+---
+
+
+## Conclusão
+
+A implementação de DDD com Arquitetura Hexagonal nos microserviços principais do sistema de delivery trouxe **clareza arquitetural**, **testabilidade** e **manutenibilidade** ao projeto. 
+
+Cada microserviço possui um domínio rico com regras de negócio encapsuladas em Entities e Value Objects, Use Cases que orquestram a lógica, e Adapters que isolam dependências externas.
+
+**Documentação relacionada:**
+- [ADR - Decisões Arquiteturais](adr.md)
+- [Design Patterns Implementados](design-patterns.md)
 ```
 

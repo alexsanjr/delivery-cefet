@@ -33,10 +33,13 @@ Cliente (Browser/App)
          │
          ▼
    Kong Gateway (porta 8000)
-    │    │    │    │    │
-    ▼    ▼    ▼    ▼    ▼
-   MS1  MS2  MS3  MS4  MS5
+    │         │         │         │         │         │         │
+    │         │         │         │         │         │         │
+  BFF     msorders  mscustomers  msrouting  msnotifications  mstracking  (msdelivery via BFF)
+ (3006)    (3000)     (3000)      (3004)       (3000)        (3005)
 ```
+
+**Nota importante:** O msdelivery não é exposto diretamente pelo Kong. Ele é acessado apenas via **bff-delivery**, que traduz requisições GraphQL em chamadas gRPC internas.
 
 ## Estrutura do Projeto
 
@@ -74,7 +77,42 @@ services:
 
 ### Serviços Configurados
 
-#### 1. Auth Service (Autenticação)
+#### 1. BFF Delivery (Backend For Frontend)
+
+```yaml
+services:
+  - name: bff-delivery
+    url: http://bff-delivery:3006
+    tags: [delivery, graphql, bff]
+    routes:
+      - name: bff-delivery-graphql
+        paths: [/delivery]
+        methods: [GET, POST, OPTIONS]
+    plugins:
+      - name: jwt
+        config:
+          header_names: [Authorization]
+          claims_to_verify: [exp]
+      - name: rate-limiting
+        config:
+          minute: 100
+          hour: 1000
+      - name: cors
+        config:
+          origins: ["*"]
+          credentials: true
+```
+
+**Funcionalidades:**
+- Camada de tradução GraphQL → gRPC
+- Acessa msdelivery internamente via gRPC
+- Requer autenticação JWT
+- Rate limit: 100 req/min, 1000 req/hora
+
+**Endpoints:**
+- `POST /delivery` - GraphQL endpoint para operações de entrega
+
+#### 2. Auth Service (Autenticação)
 
 ```yaml
 services:
@@ -95,7 +133,7 @@ services:
 **Endpoints:**
 - `POST /auth` - Login e geração de token JWT
 
-#### 2. MS Orders
+#### 3. MS Orders
 
 ```yaml
 services:
@@ -137,26 +175,34 @@ services:
 
 Similar ao msorders com mesmas proteções.
 
-#### 4. MS Delivery
+#### 5. MS Routing
 
 ```yaml
 services:
-  - name: msdelivery
-    url: http://msdelivery:3000
+  - name: msrouting
+    url: http://msrouting:3004
+    tags: [routing, graphql]
     routes:
-      - paths: [/delivery]
-        methods: [GET, POST, PUT, DELETE, PATCH, OPTIONS]
+      - name: msrouting-graphql
+        paths: [/routing]
     plugins:
       - name: jwt
       - name: rate-limiting
         config:
-          minute: 150
-          hour: 1500
+          minute: 200
+          hour: 2000
 ```
 
-Rate limit mais alto por ser serviço crítico de entregas.
+**Funcionalidades:**
+- Cálculo de rotas e ETAs
+- Diferentes estratégias de roteamento
+- Cache com Redis
+- Rate limit mais alto: 200 req/min (rotas são consultadas frequentemente)
 
-#### 5. MS Notifications
+**Endpoints:**
+- `POST /routing` - GraphQL endpoint para cálculo de rotas
+
+#### 6. MS Notifications
 
 ```yaml
 services:
@@ -174,7 +220,7 @@ services:
 
 Rate limit mais alto para suportar volume de notificações.
 
-#### 6. MS Tracking
+#### 7. MS Tracking
 
 ```yaml
 services:
@@ -189,6 +235,7 @@ services:
           minute: 150
           hour: 1500
 ```
+
 
 ## Plugins Utilizados
 
@@ -317,20 +364,71 @@ consumers:
         secret: __KONG_JWT_SECRET_ADMIN_PANEL__
 ```
 
+## Resumo dos Serviços Expostos
+
+| Serviço | URL Kong | URL Interna | Porta | Rate Limit (min/hora) | GraphQL |
+|---------|----------|-------------|-------|----------------------|----------|
+| **auth-service** | /auth | http://auth-service:3100 | 3100 | Sem limite | Não |
+| **bff-delivery** | /delivery | http://bff-delivery:3006 | 3006 | 100/1000 | Sim |
+| **msorders** | /orders | http://msorders:3000 | 3000 | 100/1000 | Sim |
+| **mscustomers** | /customers | http://mscustomers:3000 | 3000 | 100/1000 | Sim |
+| **msrouting** | /routing | http://msrouting:3004 | 3004 | 200/2000 | Sim |
+| **msnotifications** | /notifications | http://msnotifications:3000 | 3000 | 200/2000 | Sim |
+| **mstracking** | /tracking | http://mstracking:3005 | 3005 | 150/1500 | Sim |
+| **msdelivery** | (não exposto) | Via bff-delivery:3006 | - | Via BFF | gRPC |
+
+**Observações:**
+- Todos os serviços (exceto auth) requerem JWT
+- Todos têm CORS habilitado
+
 ## Como Usar
+
+### 0. Configuração Inicial
+
+**Arquivo .env requerido:**
+
+O Kong usa variáveis de ambiente para JWT secrets. Copie `.env.example` para `.env`:
+
+```bash
+cd kong-gateway
+cp .env.example .env
+```
+
+**Conteúdo do .env:**
+```env
+# JWT Secrets (usar valores seguros em produção)
+KONG_JWT_SECRET_WEB_APP=your-web-app-secret-key-here
+KONG_JWT_SECRET_ADMIN_PANEL=your-admin-panel-secret-key-here
+
+# Database configs para cada microserviço
+POSTGRES_CUSTOMERS_USER=postgres
+POSTGRES_CUSTOMERS_PASSWORD=postgres
+POSTGRES_CUSTOMERS_DB=customers
+# ... (outros bancos)
+```
+
+**Importante:** O arquivo `.env` é usado pelo `kong-config-generator` para injetar os secrets no `kong.yml`.
 
 ### 1. Instalação
 
 ```bash
 cd kong-gateway
 
-# Com Docker
+# Iniciar todos os serviços com Docker Compose
 docker-compose up -d
 
-# Ou localmente
-npm install
-node auth-service.js
+# Ou usar o script PowerShell (Windows)
+.\start-services.ps1
 ```
+
+**O que será iniciado:**
+- Kong Gateway (porta 8000)
+- Kong Admin API (porta 8001)
+- Auth Service (porta 3100)
+- PostgreSQL (5 instâncias - customers, orders, delivery, routing, tracking)
+- RabbitMQ (porta 5672, management 15672)
+- Redis (2 instâncias - notifications, routing)
+- 6 microserviços 
 
 ### 2. Login
 
@@ -358,8 +456,9 @@ curl -X POST http://localhost:8000/orders \
   -d '{"query": "{ orders { id status } }"}'
 ```
 
-### 4. Requisição GraphQL
+### 4. Requisições GraphQL
 
+**Clientes:**
 ```bash
 curl -X POST http://localhost:8000/customers \
   -H "Authorization: Bearer TOKEN" \
@@ -368,6 +467,65 @@ curl -X POST http://localhost:8000/customers \
     "query": "mutation { createCustomer(input: { name: \"João\" email: \"joao@example.com\" phone: \"11999999999\" }) { id name } }"
   }'
 ```
+
+**Entregas (via BFF):**
+```bash
+curl -X POST http://localhost:8000/delivery \
+  -H "Authorization: Bearer TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "query { deliveries { id status customerAddress } }"
+  }'
+```
+
+**Rotas:**
+```bash
+curl -X POST http://localhost:8000/routing \
+  -H "Authorization: Bearer TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "query { calculateRoute(origin: { latitude: -23.5505, longitude: -46.6333 } destination: { latitude: -23.5629, longitude: -46.6544 } strategy: FASTEST) { distance duration } }"
+  }'
+```
+
+## Portas Expostas
+
+### Portas Principais
+
+| Serviço | Porta | Descrição |
+|---------|-------|-----------|
+| **Kong Gateway** | 8000 | Ponto de entrada principal para clientes |
+| **Kong Admin API** | 8001 | API administrativa do Kong |
+| **Kong Admin API (SSL)** | 8444 | Admin API HTTPS |
+| **Auth Service** | 3100 | Serviço de autenticação JWT |
+
+### Portas dos Microserviços (Expostas para Debug)
+
+| Microserviço | Porta HTTP | Porta gRPC | Uso |
+|--------------|------------|------------|-----|
+| mscustomers | 3002 | 50051 | Debug/testes |
+| msorders | 3001 | 50052 | Debug/testes |
+| msnotifications | 3003 | 50053 | Debug/testes |
+| msrouting | - | 50054 | Debug/testes |
+| mstracking | 3005 | 50055 | Debug/testes |
+| msdelivery | - | 50056 | Apenas gRPC via BFF |
+| bff-delivery | 3006 | - | GraphQL endpoint |
+
+### Portas de Infraestrutura
+
+| Serviço | Porta | Uso |
+|---------|-------|-----|
+| postgres-customers | 5435 | Banco clientes |
+| postgres-orders | 5434 | Banco pedidos |
+| postgres-delivery | 5438 | Banco entregas |
+| postgres-routing | 5436 | Banco rotas |
+| postgres-tracking | 5437 | Banco tracking |
+| rabbitmq | 5672 | AMQP |
+| rabbitmq-management | 15672 | UI de gerenciamento |
+| redis-notifications | 6379 | Cache notificações |
+| redis-routing | 6380 | Cache rotas |
+
+**Nota:** Em produção, apenas as portas 8000 (Kong) e 8001 (Admin) devem estar expostas. As outras são úteis para desenvolvimento e debug.
 
 ## Administração
 
@@ -468,33 +626,137 @@ plugins:
       deny: [bot, crawler]
 ```
 
+## Fluxo de Autenticação Completo
+
+### 1. Login
+
+```
+Cliente → Kong (/auth) → Auth Service
+         ← Token JWT ←
+```
+
+### 2. Requisição Autenticada
+
+```
+Cliente → Kong (/customers) 
+           ↓ (valida JWT)
+           ✓ Token válido
+           ↓
+       mscustomers → PostgreSQL
+           ↓
+       ← Dados ←
+Cliente ← Kong ←
+```
+
+
 ## Troubleshooting
 
 ### Kong não inicia
 
 ```bash
 # Verificar logs
-docker logs kong-gateway
+docker logs kong-gateway-kong-1
 
 # Validar configuração
-docker exec kong-gateway kong config parse /etc/kong/kong.yml
+docker exec kong-gateway-kong-1 kong config parse /etc/kong/kong.yml
+
+# Verificar se .env existe
+ls kong-gateway/.env
 ```
 
 ### 401 Unauthorized
 
-- Verificar se token está no header correto
-- Verificar se token não expirou
-- Verificar secret do JWT
+**Possíveis causas:**
+- Token não está no header `Authorization: Bearer <token>`
+- Token expirou (validade: 24h)
+- Secret JWT diferente entre auth-service e Kong
+- Consumer não configurado no Kong
+
+**Como debugar:**
+```bash
+# Ver configuração de consumers
+curl http://localhost:8001/consumers
+
+# Ver JWT secrets
+curl http://localhost:8001/consumers/web-app/jwt
+
+# Testar token manualmente
+curl http://localhost:8000/customers \
+  -H "Authorization: Bearer <SEU_TOKEN>"
+```
 
 ### 429 Too Many Requests
 
-- Verificar rate limits configurados
-- Aguardar reset do período
-- Aumentar limites se necessário
+**Causa:** Rate limit excedido
+
+**Headers de resposta:**
+```
+X-RateLimit-Limit-Minute: 100
+X-RateLimit-Remaining-Minute: 0
+```
+
+**Soluções:**
+- Aguardar reset (1 minuto/1 hora)
+- Reduzir frequência de requisições
+- Aumentar limites se justificado
 
 ### CORS Error
 
-- Verificar origens permitidas
-- Verificar headers permitidos
-- Verificar métodos HTTP
+**Sintoma:** Erro no browser console
+
+```
+Access to fetch at 'http://localhost:8000/customers' from origin 'http://localhost:3000' 
+has been blocked by CORS policy
+```
+
+**Verificação:**
+```bash
+# Testar preflight OPTIONS
+curl -X OPTIONS http://localhost:8000/customers \
+  -H "Origin: http://localhost:3000" \
+  -H "Access-Control-Request-Method: POST" \
+  -v
+```
+
+**Solução:** Verificar configuração CORS no `kong.yml`
+
+### BFF não consegue acessar msdelivery
+
+**Sintoma:** Erro "Failed to connect to msdelivery:50056"
+
+**Causas:**
+- msdelivery não está rodando
+- Porta gRPC incorreta
+- Rede Docker não conectada
+
+**Verificação:**
+```bash
+# Verificar se msdelivery está rodando
+docker ps | grep msdelivery
+
+# Testar conectividade da rede
+docker exec bff-delivery ping msdelivery
+
+# Ver logs do BFF
+docker logs kong-gateway-bff-delivery-1
+```
+
+### Container de migrations falhou
+
+**Sintoma:** Serviços não iniciam porque migrations falharam
+
+**Solução:**
+```bash
+# Ver logs de migrations
+docker logs kong-gateway-customers-migrations-1
+docker logs kong-gateway-orders-migrations-1
+docker logs kong-gateway-delivery-migrations-1
+
+# Remover volumes e recriar
+docker-compose down -v
+docker-compose up -d
+```
+
+---
+
 

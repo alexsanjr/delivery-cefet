@@ -25,53 +25,79 @@ Este serviço é o coração do sistema de delivery, gerenciando:
 - **DataLoader**: Otimização de queries N+1
 - **Class Validator**: Validação de dados
 
-## Arquitetura: DDD + Hexagonal
-
-Este serviço implementa **Domain-Driven Design (DDD)** com **Arquitetura Hexagonal (Ports & Adapters)**.
-
-**Destaques arquiteturais:**
-- **Aggregates**: Order (raiz) com regras de negócio e Domain Events
-- **Entities**: OrderItem
-- **Domain Events**: OrderCreated, OrderStatusChanged
-- **Strategy Pattern**: Cálculo de preços (basic, premium, express)
-- **Adapter Pattern**: Integração com mscustomers e msrouting via gRPC
-- **Repository Pattern**: Interfaces no domínio, implementação com Prisma
 
 ## Estrutura do Projeto
 
 ```
 msorders/
 ├── src/
-│   ├── orders/                    # Módulo de pedidos
-│   │   ├── dto/                  # Data Transfer Objects
-│   │   │   ├── create-order.input.ts
-│   │   │   ├── update-order.input.ts
-│   │   │   └── order-item.input.ts
-│   │   ├── interfaces/           # Contratos TypeScript
-│   │   │   ├── price-calculator.interface.ts
-│   │   │   └── order-datasource.interface.ts
-│   │   ├── strategies/           # Strategy Pattern
+│   ├── domain/                           # Núcleo - Lógica de negócio pura
+│   │   ├── aggregates/                   # Aggregate Roots
+│   │   │   └── order/
+│   │   │       ├── order.aggregate.ts    # Order Aggregate Root
+│   │   │       └── events/               # Domain Events
+│   │   │           ├── order-created.event.ts
+│   │   │           ├── order-status-changed.event.ts
+│   │   │           └── order-cancelled.event.ts
+│   │   ├── entities/                     # Domain Entities
+│   │   │   └── order-item.entity.ts
+│   │   ├── value-objects/                # Value Objects
+│   │   │   ├── money.vo.ts
+│   │   │   ├── address.vo.ts
+│   │   │   ├── order-status.vo.ts
+│   │   │   └── payment-method.vo.ts
+│   │   ├── repositories/                 # Repository Interfaces (Ports)
+│   │   │   └── order.repository.interface.ts
+│   │   └── services/                     # Domain Services
+│   │
+│   ├── application/                      # Casos de Uso
+│   │   ├── application.module.ts
+│   │   ├── use-cases/                    # Use Cases
+│   │   │   ├── create-order/
+│   │   │   │   └── create-order.use-case.ts
+│   │   │   ├── update-order-status/
+│   │   │   └── get-order/
+│   │   ├── dto/                          # Data Transfer Objects
+│   │   └── ports/                        # Application Ports
+│   │       ├── customer-validator.port.ts
+│   │       ├── routing-calculator.port.ts
+│   │       └── notification-sender.port.ts
+│   │
+│   ├── infrastructure/                   # Adapters (Implementações)
+│   │   ├── adapters/                     # Adapter Pattern
+│   │   │   ├── customers-grpc.adapter.ts # gRPC para mscustomers
+│   │   │   ├── routing.adapter.ts        # Integração com msrouting
+│   │   │   └── notification.adapter.ts   # Notificações
+│   │   ├── persistence/                  # Repositórios Prisma
+│   │   │   ├── repositories/
+│   │   │   │   └── prisma-order.repository.ts
+│   │   │   └── mappers/
+│   │   │       └── order.mapper.ts
+│   │   └── graphql/                      # GraphQL Resolvers
+│   │
+│   ├── orders/                           # Módulo Orders (legado)
+│   │   ├── strategies/                   # Strategy Pattern
 │   │   │   ├── basic-price-calculator.strategy.ts
 │   │   │   ├── premium-price-calculator.strategy.ts
 │   │   │   ├── express-price-calculator.strategy.ts
 │   │   │   └── price-calculator.context.ts
 │   │   ├── customers-dataloader.service.ts
-│   │   ├── orders.datasource.ts
 │   │   ├── orders.service.ts
 │   │   ├── orders.resolver.ts
-│   │   ├── orders.module.ts
-│   │   └── orders.graphql
-│   ├── product/                  # Módulo de produtos
-│   │   ├── dto/
-│   │   ├── product.service.ts
-│   │   ├── product.resolver.ts
-│   │   └── product.module.ts
-│   ├── grpc/                     # Configuração gRPC
-│   │   ├── grpc-orders.module.ts
-│   │   └── grpc-orders.service.ts
-│   ├── prisma/
-│   │   └── prisma.service.ts
+│   │   └── orders.module.ts
+│   │
+│   ├── product/                          # Módulo de Produtos
+│   ├── grpc/                             # gRPC Server
+│   ├── rabbitmq/                         # RabbitMQ + Protobuf
+│   ├── messaging/                        # Event Publishers
+│   ├── prisma/                           # Prisma Service
+│   ├── shared/                           # Utilitários compartilhados
+│   │   ├── interfaces/
+│   │   │   └── aggregate-root.interface.ts
+│   │   └── exceptions/
+│   │       └── domain.exception.ts
 │   └── main.ts
+│
 ├── prisma/
 │   ├── schema.prisma
 │   ├── seed.ts
@@ -649,6 +675,11 @@ Este microserviço implementa 2 padrões GoF de forma consistente:
 
 **Solução**: Definir uma família de algoritmos de cálculo, encapsular cada um e torná-los intercambiáveis. O algoritmo é selecionado em tempo de execução baseado no contexto.
 
+**Localização**: 
+- Estrategias: [src/orders/strategies/](../../msorders/src/orders/strategies/)
+- Context: [src/orders/strategies/price-calculator.context.ts](../../msorders/src/orders/strategies/price-calculator.context.ts)
+- Interface: [src/orders/interfaces/order.interfaces.ts](../../msorders/src/orders/interfaces/order.interfaces.ts)
+
 #### Interface
 
 ```typescript
@@ -659,41 +690,94 @@ interface IPriceCalculator {
 }
 ```
 
-#### Estratégias
+#### Estratégias Implementadas
 
 **BasicPriceCalculator** (Padrão)
 ```typescript
-// Taxa fixa de entrega
-deliveryFee = 5.00
+@Injectable()
+export class BasicPriceCalculator implements IPriceCalculator {
+  calculateSubtotal(items?: OrderItem[]): number {
+    return items.reduce((total, item) => 
+      total + (item.price || 0) * (item.quantity || 1), 0
+    );
+  }
 
-// Tempo padrão
-deliveryTime = 45 minutos
+  calculateDeliveryFee(address?: OrderAddress): number {
+    const baseFee = 5.0;
+    const distance = address?.distance || 0;
+    const extraFee = distance > 10 ? 3.0 : 0;
+    return baseFee + extraFee;
+  }
+
+  calculateDeliveryTime(address?: OrderAddress): number {
+    const baseTime = 30; // minutos
+    const distance = address?.distance || 0;
+    return baseTime + Math.floor(distance / 2);
+  }
+}
 ```
 
 **PremiumPriceCalculator** (Clientes Premium)
 ```typescript
-// Desconto de 50% na entrega
-deliveryFee = subtotal * 0.5
+@Injectable()
+export class PremiumPriceCalculator implements IPriceCalculator {
+  calculateDeliveryFee(address?: OrderAddress): number {
+    const baseFee = 5.0;
+    const distance = address?.distance || 0;
+    const extraFee = distance > 10 ? 3.0 : 0;
+    // Desconto de 50% para clientes premium
+    return (baseFee + extraFee) * 0.5;
+  }
 
-// Prioridade na entrega
-deliveryTime = 30 minutos
+  calculateDeliveryTime(address?: OrderAddress): number {
+    // Prioridade: 25% mais rápido
+    const baseTime = 30;
+    const distance = address?.distance || 0;
+    return Math.floor((baseTime + Math.floor(distance / 2)) * 0.75);
+  }
+}
 ```
 
 **ExpressPriceCalculator** (Entrega Expressa)
 ```typescript
-// Taxa adicional pela velocidade
-deliveryFee = subtotal * 1.5
+@Injectable()
+export class ExpressPriceCalculator implements IPriceCalculator {
+  calculateDeliveryFee(address?: OrderAddress): number {
+    const baseFee = 5.0;
+    const distance = address?.distance || 0;
+    const extraFee = distance > 10 ? 3.0 : 0;
+    // Taxa adicional de 100% pela velocidade
+    return (baseFee + extraFee) * 2.0;
+  }
 
-// Entrega mais rápida
-deliveryTime = 20 minutos
+  calculateDeliveryTime(address?: OrderAddress): number {
+    // Express: 50% mais rápido
+    const baseTime = 30;
+    const distance = address?.distance || 0;
+    return Math.floor((baseTime + Math.floor(distance / 2)) * 0.5);
+  }
+}
 ```
 
 #### Contexto
 
 ```typescript
 @Injectable()
-class PriceCalculatorContext {
+export class PriceCalculatorContext {
   private strategies: Map<PriceStrategy, IPriceCalculator>;
+
+  constructor(
+    private readonly basicCalculator: BasicPriceCalculator,
+    private readonly premiumCalculator: PremiumPriceCalculator,
+    private readonly expressCalculator: ExpressPriceCalculator,
+  ) {
+    // Registra todas as estratégias
+    this.strategies = new Map([
+      [PriceStrategy.BASIC, this.basicCalculator],
+      [PriceStrategy.PREMIUM, this.premiumCalculator],
+      [PriceStrategy.EXPRESS, this.expressCalculator],
+    ]);
+  }
 
   calculateSubtotal(strategy: PriceStrategy, items?: OrderItem[]): number {
     const calculator = this.getCalculator(strategy);
@@ -704,18 +788,72 @@ class PriceCalculatorContext {
     const calculator = this.getCalculator(strategy);
     return calculator.calculateDeliveryFee(address);
   }
+
+  calculateDeliveryTime(strategy: PriceStrategy, address?: OrderAddress): number {
+    const calculator = this.getCalculator(strategy);
+    return calculator.calculateDeliveryTime(address);
+  }
+
+  private getCalculator(strategy: PriceStrategy): IPriceCalculator {
+    const calculator = this.strategies.get(strategy);
+    if (!calculator) {
+      throw new Error(`Strategy ${strategy} not found`);
+    }
+    return calculator;
+  }
 }
 ```
 
-#### Uso
+#### Uso no OrdersService
 
 ```typescript
-// No OrdersService
-const strategy = customer.isPremium ? PriceStrategy.PREMIUM : PriceStrategy.BASIC;
+// orders.service.ts
+private determineStrategy(
+  input: CreateOrderInput,
+  customer: any,
+): PriceStrategy {
+  // Lógica de seleção de estratégia
+  if (customer.isPremium) {
+    return PriceStrategy.PREMIUM;
+  }
+  
+  if (input.paymentMethod === 'EXPRESS') {
+    return PriceStrategy.EXPRESS;
+  }
+  
+  return PriceStrategy.BASIC;
+}
 
-const subtotal = this.priceContext.calculateSubtotal(strategy, items);
-const deliveryFee = this.priceContext.calculateDeliveryFee(strategy, address);
-const total = subtotal + deliveryFee;
+async create(createOrderInput: CreateOrderInput): Promise<Order> {
+  // Buscar dados do cliente
+  const customerData = await this.customersClient.getCustomer(
+    createOrderInput.customerId
+  );
+
+  // Determinar estratégia baseado no cliente e input
+  const strategy = this.determineStrategy(createOrderInput, customerData);
+
+  // Calcular valores usando Strategy Pattern
+  const subtotal = this.priceCalculatorContext.calculateSubtotal(
+    strategy,
+    createOrderInput.items,
+  );
+
+  const deliveryFee = this.priceCalculatorContext.calculateDeliveryFee(
+    strategy,
+    address,
+  );
+
+  const estimatedTime = this.priceCalculatorContext.calculateDeliveryTime(
+    strategy,
+    address,
+  );
+
+  const total = subtotal + deliveryFee;
+
+  // Criar pedido com valores calculados
+  // ...
+}
 ```
 
 ### 2. Datasource Pattern
@@ -797,48 +935,118 @@ class CustomersDataloaderService {
 
 **Solução**: Criar adaptadores que convertem interfaces externas (gRPC clients) para interfaces (ports) esperadas pela aplicação.
 
-**Localização**: `src/infrastructure/adapters/`
+**Localização**: 
+- Adapters: [src/infrastructure/adapters/](../../msorders/src/infrastructure/adapters/)
+- Ports: [src/application/ports/](../../msorders/src/application/ports/)
+
+#### CustomersGrpcAdapter
 
 ```typescript
-// Port (interface da aplicação)
-interface IRoutingCalculator {
-  calculateRoute(origin, destination): Promise<RouteData>;
+// Port (interface esperada pela aplicação)
+export interface ICustomerValidator {
+  exists(customerId: number): Promise<boolean>;
+  getCustomerData(customerId: number): Promise<CustomerData>;
 }
 
-// Adapter (converte gRPC para port)
+// Adapter (implementação com gRPC)
 @Injectable()
-class RoutingAdapter implements IRoutingCalculator {
-  constructor(private grpcClient: RoutingGrpcClient) {}
+export class CustomersGrpcAdapter implements ICustomerValidator {
+  constructor(private readonly customersClient: CustomersClient) {}
 
-  async calculateRoute(origin, destination): Promise<RouteData> {
-    // Converte formato da aplicação para gRPC
-    const grpcRequest = {
-      origin: { lat: origin.latitude, lng: origin.longitude },
-      destination: { lat: destination.latitude, lng: destination.longitude }
-    };
+  async exists(customerId: number): Promise<boolean> {
+    try {
+      const result = await this.customersClient.validateCustomer(customerId);
+      return result.isValid === true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  async getCustomerData(customerId: number): Promise<CustomerData> {
+    const customer = await this.customersClient.getCustomer(customerId);
     
-    // Chama serviço externo
-    const grpcResponse = await this.grpcClient.calculateRoute(grpcRequest);
-    
-    // Converte resposta gRPC para formato da aplicação
+    // Adapta resposta gRPC para formato da aplicação
     return {
-      distance: grpcResponse.distanceMeters / 1000,
-      duration: grpcResponse.durationSeconds / 60,
-      estimatedFee: grpcResponse.fee
+      id: customer.id,
+      name: customer.name,
+      email: customer.email,
+      phone: customer.phone,
     };
   }
 }
 ```
 
-**Outros adapters**:
-- `CustomersGrpcAdapter`: Adapta validação de clientes via gRPC
-- `NotificationAdapter`: Adapta envio de notificações via gRPC
+#### RoutingAdapter
+
+```typescript
+// Port
+export interface IRoutingCalculator {
+  calculateRoute(
+    origin: { latitude: number; longitude: number },
+    destination: { latitude: number; longitude: number },
+  ): Promise<RouteData>;
+}
+
+// Adapter
+@Injectable()
+export class RoutingAdapter implements IRoutingCalculator {
+  async calculateRoute(
+    origin: { latitude: number; longitude: number },
+    destination: { latitude: number; longitude: number },
+  ): Promise<RouteData> {
+    // Cálculo simplificado de distância euclidiana
+    const distance = Math.sqrt(
+      Math.pow(destination.latitude - origin.latitude, 2) +
+      Math.pow(destination.longitude - origin.longitude, 2),
+    ) * 111; // 1 grau ≈ 111 km
+
+    return {
+      distance: Math.round(distance * 100) / 100,
+      duration: Math.round(distance * 5), // 5 min/km
+      estimatedFee: Math.max(5, Math.round(distance * 2 * 100) / 100),
+    };
+  }
+}
+```
+
+#### NotificationAdapter
+
+```typescript
+// Port
+export interface INotificationSender {
+  sendOrderCreated(orderId: number, customerId: number): Promise<void>;
+  sendOrderStatusChanged(orderId: number, status: string): Promise<void>;
+}
+
+// Adapter
+@Injectable()
+export class NotificationAdapter implements INotificationSender {
+  async sendOrderCreated(orderId: number, customerId: number): Promise<void> {
+    // TODO: Implementar com gRPC para msnotifications
+    console.log(`[Notification] Order ${orderId} created for customer ${customerId}`);
+  }
+
+  async sendOrderStatusChanged(orderId: number, status: string): Promise<void> {
+    console.log(`[Notification] Order ${orderId} status changed to ${status}`);
+  }
+}
+```
+
+**Benefícios**:
+- **Isolamento**: Use cases não conhecem detalhes de gRPC
+- **Testabilidade**: Fácil criar mocks dos adapters para testes
+- **Flexibilidade**: Trocar gRPC por REST não impacta domínio
+- **Arquitetura Hexagonal**: Seguir princípios de Ports & Adapters
 
 **Justificativa de uso**:
-- Use cases não conhecem gRPC, podem ser testados com mocks
-- Trocar gRPC por REST não impacta lógica de negócio
-- Seguir princípios de Arquitetura Hexagonal (Ports & Adapters)
-- Dependency Inversion: depender de abstrações, não de implementações
+Em arquitetura hexagonal, adapters são essenciais para conectar o núcleo da aplicação (domínio + use cases) com sistemas externos (mscustomers, msrouting, msnotifications). O Adapter Pattern permite que o domínio permaneça puro e testável, enquanto os adapters lidam com detalhes de comunicação.
+
+**Princípios SOLID aplicados**:
+- **S - Single Responsibility**: Cada adapter tem uma responsabilidade específica
+- **O - Open/Closed**: Fácil adicionar novos adapters sem modificar existentes
+- **L - Liskov Substitution**: Qualquer implementação do port pode substituir outra
+- **I - Interface Segregation**: Ports bem definidos e específicos
+- **D - Dependency Inversion**: Use cases dependem de abstrações (ports), não de implementações
 
 ## Padrões Arquiteturais (Não-GoF)
 
@@ -888,19 +1096,21 @@ service OrdersService {
 
 ```env
 # Database
-DATABASE_URL="postgresql://user:password@localhost:5432/db_orders"
+DATABASE_URL="postgresql://user:password@postgres-orders:5432/db_orders"
 
 # Server
 PORT=3000
 GRAPHQL_PATH=/graphql
 
-# gRPC
-GRPC_PORT=50050
+# gRPC Server
+GRPC_PORT=50052
+GRPC_HOST=0.0.0.0
 
-# Microservices
-GRPC_CUSTOMERS_URL=localhost:50051
-GRPC_DELIVERY_URL=localhost:50053
-GRPC_NOTIFICATIONS_URL=localhost:50052
+# gRPC Clients (outros microserviços)
+CUSTOMERS_GRPC_URL=mscustomers:50051
+
+# RabbitMQ
+RABBITMQ_URL=amqp://rabbitmq:5672
 ```
 
 ### Instalação
