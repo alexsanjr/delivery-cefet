@@ -29,7 +29,7 @@ export class OrdersResolver {
     private readonly notificationsClient: NotificationsClient,
   ) {}
 
-/*
+  /*
   @Query('orders')
   async getOrders() {
     try {
@@ -107,7 +107,7 @@ export class OrdersResolver {
     }
   }
 
-/*
+  /*
   @Mutation('updateOrder')
   async updateOrder(
     @Args('updateOrderInput') updateOrderInput: UpdateOrderInput,
